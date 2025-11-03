@@ -7,21 +7,31 @@
 
 > Любой пользователь Telegram может начать взаимодействовать с ботом (sosenkibot)
 >
-> - Он может найти его самостоятельно в поиске контактов Телеграм (не требует реализации)
-> - Ему могут переслать сообщение от него друзья в личном сообщении (не требует реализации)
-> - Он может начать взаимодействовать с sosenkibot, находясь в одной группе, куда бот был предварительно добавлен
+> - Пользователь может найти sosenkibot самостоятельно в поиске контактов Телеграм (не требует реализации)
+> - Пользователь может переслать сообщение от sosenkibot другу в личном сообщении (не требует реализации)
+> - Пользователь может начать взаимодействовать с sosenkibot, находясь в одной группе, куда бот был предварительно добавлен
 >
 > Для начала нам нужно реализовать самые базовые истории:
 >
 > - Выдача приветственного сообщения от sosenkibot с кнопкой открытия Mini App
-> - При попытке открытия MiniApp происходит Аутентификация пользователя SOSenki - существует ли пользователь с таким Telegram id в нашей системе?
-> - Если Пользователя пока нет, бот предлагает сформулировать Сообщение (например, Интересуюсь покупкой, Хотел бы арендовать, Я хозяин дома 13) для Запроса на подключение к системе
-> - В настройках SOSenki есть Telegram идентификатор чата Администраторской группы (Admin Group Chat), который по умолчанию равен Telegram ID первого Администратора (создателя бота)
+> - При попытке открытия MiniApp происходит Аутентификация пользователя SOSenki - существует ли пользователь с таким Telegram id в SOSenki?
+> - Если Пользователя пока нет, sosenkibot предлагает сформулировать Сообщение - например, Хотел бы арендовать дом (по умолчанию), Я хозяин дома 13 и т.д. для Запроса на подключение к системе;
+> - В настройках SOSenki определён идентификатор Telegram ID первого Администратора (создателя бота);
+> - В настройках SOSenki определён идентификатор чата Telegram Администраторской группы (Admin Group Chat), который по умолчанию равен Telegram ID первого Администратора;
 > - sosenkibot отправляет Запрос от пользователя в Admin Group Chat с текстом Сообщения и кнопками Добавить / Отклонить
 > - Ответом на сообщение боту Администратор может добавить его в систему или отклонить запрос
 > - При добавлении Администратор сразу назначает Пользователю одну из Ролей (Administrator, Tenant, Owner, Investor)
 > - Пользователь получает уведомление от бота об отказе или приветствует пользователя в системе
 > - При открытии первой страницы Mini App Пользователь SOSenki видит Приветственный текст
+
+## Clarifications
+
+### Session 2025-11-03
+
+- Q1: Как создавать пользователя при обработке запроса администратором? → A: Option A — при подтверждении администратором создаётся новый пользователь SOSenki и в поле `telegram_id` записывается Telegram ID из запроса. (MVP: самый простой путь.)
+- Q2: Идентификатор Telegram — это первичный ключ для связи? → A: Да — `telegram_id` считается уникальным идентификатором (PK/unique) для привязки пользователя к Telegram в контексте этого потока.
+- Q3: При конфликте `telegram_id` (уже есть пользователь с таким telegram_id) — как поступать? → A: Выдать ошибку повторного добавления; создание пользователя должно быть отклонено и администратор увидит сообщение об ошибке `user_already_exists`.
+- Q4: Появляется ли форма запроса, если пользователь уже добавлен? → A: Нет — запрос на присоединение к системе появляется ТОЛЬКО если у Telegram-пользователя нет доступа / не связан с записью SOSenki. Если пользователь уже добавлен (есть `telegram_id`), форма запроса не показывается.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -89,12 +99,16 @@ Acceptance Scenarios:
 - **FR-007**: После успешного добавления бот MUST отправить пользователю приветственное сообщение внутри Telegram с краткой информацией о роли и ссылкой/кнопкой для открытия Mini App.
 - **FR-008**: Все сообщения от бота, связанные с созданием/отклонением запросов, MUST содержать уникальный идентификатор запроса для дальнейшего аудита.
 - **FR-009**: Система MUST предотвращать дублирование запросов от одного Telegram ID.
+- **FR-010**: Значение `telegram_id` MUST быть уникальным в модели `SOSenkiUser` и использоваться как первичный способ связи между Telegram-аккаунтом и пользовательской записью (при добавлении пользователя администратором `telegram_id` записывается в поле и помечается как уникальное). При попытке создать пользователя с `telegram_id`, который уже существует в SOSenki для другого пользователя, операция создания MUST быть отклонена с ошибкой `user_already_exists` и записью события в аудите.
+- **FR-011**: Запрос на присоединение (форма) MUST отображаться пользователю ТОЛЬКО если Telegram ID не связан с существующим `SOSenkiUser` (у пользователя нет доступа). Если `telegram_id` уже связан — форма запроса не показывается и пользователь видит сообщение о том, что у него уже есть доступ.
 
 ### Key Entities *(include if feature involves data)*
 
 - **TelegramUserCandidate**: временный объект запроса — содержит Telegram ID, текст запроса, timestamp, статус (pending/accepted/rejected), request_id.
 - **AdminAction**: запись действия администратора — кто обработал запрос, время, выбранная роль или причина отклонения.
 - **SOSenkiUser**: существующий пользователь в системе — имеет связь с Telegram ID после добавления и поле role (Administrator, Tenant, Owner, Investor).
+
+- **Notes on SOSenkiUser telegram_id**: `telegram_id` is a unique identifier for linking Telegram accounts. For the MVP flow, when an admin accepts a request the system will create a new `SOSenkiUser` record and set `telegram_id` to the provided Telegram ID. Implementations MUST enforce uniqueness (unique constraint). If a create is attempted with a `telegram_id` that already exists for a different user, the service MUST reject the operation and return a clear error (`user_already_exists`) to the admin; an `AdminAction` audit entry MUST be created recording the attempted duplicate.
 
 ## Success Criteria *(mandatory)*
 
@@ -117,119 +131,3 @@ Acceptance Scenarios:
 ### Notes
 
 - Спецификация фокусируется на пользовательских сценариях и требованиях; детали реализации (протоколы, API, хранилище) намеренно опущены и будут определены в планировании/техническом задании.
-
-# Feature Specification: [FEATURE NAME]
-
-**Feature Branch**: `[###-feature-name]`  
-**Created**: [DATE]  
-**Status**: Draft  
-**Input**: User description: "$ARGUMENTS"
-
-## User Scenarios & Testing *(mandatory)*
-
-<!--
-  IMPORTANT: User stories should be PRIORITIZED as user journeys ordered by importance.
-  Each user story/journey must be INDEPENDENTLY TESTABLE - meaning if you implement just ONE of them,
-  you should still have a viable MVP (Minimum Viable Product) that delivers value.
-  
-  Assign priorities (P1, P2, P3, etc.) to each story, where P1 is the most critical.
-  Think of each story as a standalone slice of functionality that can be:
-  - Developed independently
-  - Tested independently
-  - Deployed independently
-  - Demonstrated to users independently
--->
-
-### User Story 1 - [Brief Title] (Priority: P1)
-
-[Describe this user journey in plain language]
-
-**Why this priority**: [Explain the value and why it has this priority level]
-
-**Independent Test**: [Describe how this can be tested independently - e.g., "Can be fully tested by [specific action] and delivers [specific value]"]
-
-**Acceptance Scenarios**:
-
-1. **Given** [initial state], **When** [action], **Then** [expected outcome]
-2. **Given** [initial state], **When** [action], **Then** [expected outcome]
-
----
-
-### User Story 2 - [Brief Title] (Priority: P2)
-
-[Describe this user journey in plain language]
-
-**Why this priority**: [Explain the value and why it has this priority level]
-
-**Independent Test**: [Describe how this can be tested independently]
-
-**Acceptance Scenarios**:
-
-1. **Given** [initial state], **When** [action], **Then** [expected outcome]
-
----
-
-### User Story 3 - [Brief Title] (Priority: P3)
-
-[Describe this user journey in plain language]
-
-**Why this priority**: [Explain the value and why it has this priority level]
-
-**Independent Test**: [Describe how this can be tested independently]
-
-**Acceptance Scenarios**:
-
-1. **Given** [initial state], **When** [action], **Then** [expected outcome]
-
----
-
-[Add more user stories as needed, each with an assigned priority]
-
-### Edge Cases
-
-<!--
-  ACTION REQUIRED: The content in this section represents placeholders.
-  Fill them out with the right edge cases.
--->
-
-- What happens when [boundary condition]?
-- How does system handle [error scenario]?
-
-## Requirements *(mandatory)*
-
-<!--
-  ACTION REQUIRED: The content in this section represents placeholders.
-  Fill them out with the right functional requirements.
--->
-
-### Functional Requirements
-
-- **FR-001**: System MUST [specific capability, e.g., "allow users to create accounts"]
-- **FR-002**: System MUST [specific capability, e.g., "validate email addresses"]  
-- **FR-003**: Users MUST be able to [key interaction, e.g., "reset their password"]
-- **FR-004**: System MUST [data requirement, e.g., "persist user preferences"]
-- **FR-005**: System MUST [behavior, e.g., "log all security events"]
-
-*Example of marking unclear requirements:*
-
-- **FR-006**: System MUST authenticate users via [NEEDS CLARIFICATION: auth method not specified - email/password, SSO, OAuth?]
-- **FR-007**: System MUST retain user data for [NEEDS CLARIFICATION: retention period not specified]
-
-### Key Entities *(include if feature involves data)*
-
-- **[Entity 1]**: [What it represents, key attributes without implementation]
-- **[Entity 2]**: [What it represents, relationships to other entities]
-
-## Success Criteria *(mandatory)*
-
-<!--
-  ACTION REQUIRED: Define measurable success criteria.
-  These must be technology-agnostic and measurable.
--->
-
-### Measurable Outcomes
-
-- **SC-001**: [Measurable metric, e.g., "Users can complete account creation in under 2 minutes"]
-- **SC-002**: [Measurable metric, e.g., "System handles 1000 concurrent users without degradation"]
-- **SC-003**: [User satisfaction metric, e.g., "90% of users successfully complete primary task on first attempt"]
-- **SC-004**: [Business metric, e.g., "Reduce support tickets related to [X] by 50%"]
