@@ -11,9 +11,17 @@
         ".specify/scripts/powershell/": true
     },
     "cSpell.words": [
+        "conftest",
         "incentivized",
+        "pyproject",
+        "pytest",
+        "sosenki",
         "sosenkibot",
-        "speckit"
+        "speckit",
+        "глемпинги",
+        "дедуплицировать",
+        "деплоя",
+        "контрибьютор"
     ]
 }
 
