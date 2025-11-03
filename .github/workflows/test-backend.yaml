@@ -61,24 +61,25 @@ jobs:
       - name: Run unit tests
         run: |
           echo "Running unit tests..."
-          uv run --group dev python -m pytest backend/tests/unit/ -v --tb=short --strict-markers -m unit
+          uv run --group dev python -m pytest backend/tests/unit/ -v --tb=short
 
-      - name: Run contract tests
+      - name: Run contract tests (T035)
         run: |
-          echo "Running contract tests..."
-          uv run --group dev python -m pytest backend/tests/contract/ -v --tb=short --strict-markers -m contract
+          echo "Running contract tests (fail on regressions)..."
+          uv run --group dev python -m pytest backend/tests/contract/ -v --tb=short --fail-on-changes
+          echo "✅ Contract tests passed"
 
-      - name: Validate migrations
+      - name: Validate migrations (T036)
         run: |
           echo "Validating migration files..."
-          uv run --group dev alembic history
-          echo "✅ Migration history validated"
+          uv run --group dev alembic upgrade head
+          echo "✅ Migrations validated and applied"
 
-      - name: Run integration tests (if any)
-        continue-on-error: true
+      - name: Run integration tests (T036)
         run: |
           echo "Running integration tests..."
-          uv run --group dev python -m pytest backend/tests/integration/ -v --tb=short --strict-markers -m integration
+          uv run --group dev python -m pytest backend/tests/integration/ -v --tb=short
+          echo "✅ Integration tests passed"
 
       - name: Generate coverage report
         continue-on-error: true

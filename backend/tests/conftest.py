@@ -1,10 +1,12 @@
 """Pytest configuration and shared fixtures for backend tests."""
+
 import pytest
 import sys
 from typing import Generator
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
+from fastapi.testclient import TestClient
 
 # Create test engine BEFORE importing app
 test_engine = create_engine(
@@ -15,6 +17,7 @@ test_engine = create_engine(
 
 # Patch database module before importing app
 import backend.app.database as db_module
+
 original_engine = db_module.engine
 db_module.engine = test_engine
 
@@ -29,13 +32,13 @@ def test_db_session():
     """Provide a test database session with all tables created."""
     # Create all tables before each test
     Base.metadata.create_all(bind=test_engine)
-    
+
     TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
     session = TestingSessionLocal()
-    
+
     # Monkey-patch the get_db dependency
     from backend.app.database import get_db
-    
+
     def override_get_db():
         """Override get_db to use test session."""
         # Ensure tables exist every time (in case first request initializes them)
@@ -44,16 +47,22 @@ def test_db_session():
             yield session
         finally:
             pass  # Don't close, let fixture handle cleanup
-    
+
     app.dependency_overrides[get_db] = override_get_db
-    
+
     yield session
-    
+
     session.close()
     app.dependency_overrides.clear()
-    
+
     # Clean up tables after each test
     Base.metadata.drop_all(bind=test_engine)
+
+
+@pytest.fixture
+def client(test_db_session):
+    """Provide a FastAPI test client with test database."""
+    return TestClient(app)
 
 
 @pytest.fixture

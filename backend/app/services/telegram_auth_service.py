@@ -4,7 +4,6 @@ import hashlib
 import hmac
 import json
 import time
-from typing import Optional
 from urllib.parse import parse_qs, unquote
 
 from backend.app.api.errors import InvalidInitDataError
@@ -32,7 +31,7 @@ def verify_initdata(init_data: str, bot_token: str, max_age_seconds: int = 120) 
     try:
         # Parse query string while preserving percent-encoding for check_string
         parsed = parse_qs(init_data, keep_blank_values=True)
-        
+
         # Extract hash (it's in a list from parse_qs)
         hash_value = parsed.get("hash", [None])[0]
         if not hash_value:
@@ -54,7 +53,9 @@ def verify_initdata(init_data: str, bot_token: str, max_age_seconds: int = 120) 
         # Check timestamp freshness
         current_time = int(time.time())
         if current_time - auth_date > max_age_seconds:
-            logger.warning(f"initData expired: age={current_time - auth_date}s, max={max_age_seconds}s")
+            logger.warning(
+                f"initData expired: age={current_time - auth_date}s, max={max_age_seconds}s"
+            )
             raise InvalidInitDataError("initData expired")
 
         # Build check string from raw query parameters (preserving percent-encoding)
@@ -64,7 +65,7 @@ def verify_initdata(init_data: str, bot_token: str, max_age_seconds: int = 120) 
             key, _, value = pair.partition("=")
             if key != "hash" and key and value:
                 check_string_parts.append(pair)
-        
+
         check_string_parts.sort()
         check_string = "\n".join(check_string_parts)
 
@@ -113,23 +114,23 @@ def verify_initdata(init_data: str, bot_token: str, max_age_seconds: int = 120) 
 def get_or_create_user(telegram_id: int, init_data_dict: dict) -> tuple[bool, dict]:
     """
     Get or create SOSenkiUser by telegram_id.
-    
+
     ## Implementation TODO
     - Query database for SOSenkiUser with matching telegram_id
     - If user exists: return (linked=True, user_object)
     - If not found: create TelegramUserCandidate (pending admin approval)
       - Store telegram_id, user_data from initData
       - Return (linked=False, candidate_request_form)
-    
+
     ## Arguments
     - telegram_id: Verified Telegram user ID from initData
     - init_data_dict: Parsed user data from verify_initdata
-    
+
     ## Returns
     - Tuple: (is_linked: bool, data_dict: dict)
       - If linked: (True, {"user_id": ..., "role": ..., ...})
       - If unlinked: (False, {"form": {...}})
-    
+
     ## Database Models Reference
     specs/001-seamless-telegram-auth/data-model.md
     """

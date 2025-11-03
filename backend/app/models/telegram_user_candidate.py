@@ -10,8 +10,8 @@ class CandidateStatus(str, enum.Enum):
     """Status of a pending request."""
 
     PENDING = "pending"
-    PROCESSED = "processed"
-    CANCELLED = "cancelled"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
 
 
 class TelegramUserCandidate(BaseModel):
@@ -20,14 +20,13 @@ class TelegramUserCandidate(BaseModel):
     __tablename__ = "telegram_user_candidate"
 
     telegram_id = Column(BigInteger, nullable=False, index=True)
-    telegram_username = Column(String(255), nullable=True)
+    username = Column(String(255), nullable=True)
     first_name = Column(String(255), nullable=True)
     last_name = Column(String(255), nullable=True)
-    photo_url = Column(String(512), nullable=True)
-    note = Column(String(280), nullable=True)  # max 280 chars user-provided note
+    phone = Column(String(20), nullable=True)
+    email = Column(String(255), nullable=True)
+    note = Column(String(1024), nullable=True)
 
     status = Column(SQLEnum(CandidateStatus), default=CandidateStatus.PENDING, nullable=False)
 
-    __table_args__ = (
-        UniqueConstraint("telegram_id", name="uq_candidate_telegram_id"),
-    )
+    __table_args__ = (UniqueConstraint("telegram_id", name="uq_candidate_telegram_id"),)

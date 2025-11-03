@@ -1,6 +1,6 @@
 """API error handling and response helpers."""
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from fastapi import HTTPException, status
 

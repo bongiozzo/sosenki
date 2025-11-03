@@ -21,11 +21,15 @@ Fields:
 
 Note: the project already has a user model. For onboarding we require the following fields to be present or added if missing:
 
-- id: UUID (PK)
+- id: INTEGER (PK)
+- username: TEXT (nullable, unique)
 - email: TEXT (nullable)
-- telegram_id: BIGINT (nullable, unique) — when present, used to link to Telegram identity
-- roles: ARRAY or relation (contains "Administrator", "User", etc.)
-- created_at, updated_at
+- telegram_id: BIGINT (NOT NULL, unique, indexed) — Telegram identity, required for all users (create-on-accept flow)
+- first_name: TEXT (nullable)
+- last_name: TEXT (nullable)
+- phone: TEXT (nullable)
+- roles: JSON (default: ["User"]) — contains "Administrator", "User", etc.
+- created_at, updated_at: TIMESTAMP UTC
 
 ## AdminAction (audit log for admin decisions)
 

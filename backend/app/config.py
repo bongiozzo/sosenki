@@ -1,8 +1,5 @@
 """Application configuration from environment variables."""
 
-import os
-from typing import Optional
-
 from pydantic import Field, ConfigDict
 from pydantic_settings import BaseSettings
 

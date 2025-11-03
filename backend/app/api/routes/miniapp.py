@@ -1,6 +1,6 @@
 """MiniApp authentication routes (Telegram Mini App initData verification)."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from backend.app.api.errors import InvalidInitDataError, raise_app_error
@@ -8,7 +8,12 @@ from backend.app.config import settings
 from backend.app.database import get_db
 from backend.app.logging import logger
 from backend.app.models.user import SOSenkiUser
-from backend.app.schemas.miniapp import InitDataRequest, MiniAppAuthResponse, RequestFormResponse, UserResponse
+from backend.app.schemas.miniapp import (
+    InitDataRequest,
+    MiniAppAuthResponse,
+    RequestFormResponse,
+    UserResponse,
+)
 from backend.app.services.telegram_auth_service import verify_initdata
 
 router = APIRouter(prefix="/miniapp", tags=["miniapp"])
@@ -23,7 +28,7 @@ async def miniapp_auth(
     Authenticate a Telegram Mini App user via initData.
 
     Endpoint: POST /miniapp/auth
-    
+
     Flow:
     1. Verify initData signature using bot token
     2. Extract telegram_id from verified user data
