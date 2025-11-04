@@ -14,7 +14,6 @@ import hmac
 import hashlib
 import time
 import urllib.parse
-from typing import Any
 from fastapi.testclient import TestClient
 
 from backend.app.main import app

@@ -1,4 +1,4 @@
-# feat(001): Seamless Telegram Auth — MVP onboarding + admin flow
+# Title: feat(001): Seamless Telegram Auth — MVP onboarding + admin flow
 
 Summary
 

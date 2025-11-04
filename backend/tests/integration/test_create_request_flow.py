@@ -8,7 +8,6 @@ Tests the complete flow:
 4. Response contains request details with 201 status
 """
 
-import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 

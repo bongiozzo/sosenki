@@ -1,8 +1,6 @@
 """Pytest configuration and shared fixtures for backend tests."""
 
 import pytest
-import sys
-from typing import Generator
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -22,8 +20,7 @@ original_engine = db_module.engine
 db_module.engine = test_engine
 
 # Now import the app and models
-from backend.app.database import Base, SessionLocal
-from backend.app.models import user, telegram_user_candidate, admin_action  # Import models
+from backend.app.database import Base
 from backend.app.main import app
 
 

@@ -15,7 +15,6 @@ import hmac
 import hashlib
 import time
 import urllib.parse
-from typing import Dict, Any
 
 from backend.app.services.telegram_auth_service import verify_initdata
 from backend.app.api.errors import InvalidInitDataError

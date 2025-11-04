@@ -10,7 +10,6 @@ from fastapi.testclient import TestClient
 
 from backend.app.main import app
 from backend.app.models.user import SOSenkiUser
-from backend.app.models.telegram_user_candidate import TelegramUserCandidate
 
 
 @pytest.fixture(scope="function")

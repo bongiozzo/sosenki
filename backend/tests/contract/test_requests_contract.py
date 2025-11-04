@@ -1,9 +1,7 @@
 """Contract tests for POST /requests endpoint (US2 — Request submission)."""
 
-import pytest
 from fastapi.testclient import TestClient
 from backend.app.models.telegram_user_candidate import TelegramUserCandidate
-from backend.app.database import SessionLocal
 
 
 class TestRequestsContract:
