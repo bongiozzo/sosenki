@@ -3,36 +3,84 @@
 **Branch**: `001-request-approval` | **Date**: 2025-11-04 | **Spec**: [Feature Specification](spec.md)
 **Input**: Feature specification from `/specs/001-request-approval/spec.md`
 
+**Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/commands/plan.md` for the execution workflow.
+
 ## Summary
 
-The Client Request Approval Workflow enables SOSenki to manage onboarding of new clients via Telegram. Clients submit access requests using `/request` command, the system notifies a predefined administrator, and the administrator approves or rejects with corresponding messages sent back to the client. This MVP focuses on simple text-based Telegram message handling with persistent request storage, enabling basic access control for the platform.
+Implement a Telegram bot workflow enabling new SOSenki clients to request access by sending `/request` command. The bot forwards requests to a predefined administrator, who can approve (triggering welcome message and access grant) or reject (triggering rejection message). The system persists all requests for audit purposes and prevents duplicate pending requests from the same client.
+
+**Core Value**: Enables frictionless client onboarding through Telegram (the platform our users already use), with administrative gatekeeping to control access.
 
 ## Technical Context
 
 **Language/Version**: Python 3.11+  
-**Primary Dependencies**: FastAPI (HTTP service), python-telegram-bot (Telegram bot), SQLAlchemy (ORM), Alembic (migrations)  
-**Storage**: SQLite (development), with migration path for production database  
-**Testing**: pytest (unit and integration tests)  
-**Target Platform**: Backend service running on Linux/cloud infrastructure  
-**Project Type**: Single backend service (Telegram bot + API server)  
-**Performance Goals**: Sub-second message delivery (< 1s), handle 100+ concurrent users  
-**Constraints**: Real-time notification delivery, no more than 2-3 second latency for admin notifications  
-**Scale/Scope**: MVP for single administrator, 10-100 initial users
+**Primary Dependencies**: `python-telegram-bot` library (async webhooks), FastAPI (request handling), SQLAlchemy (ORM), Alembic (migrations)  
+**Storage**: SQLite (development); production database per deployment context  
+**Testing**: pytest (unit + integration), contract tests via curl/requests library  
+**Target Platform**: Linux server (Telegram webhook receiver)  
+**Project Type**: Single backend service with Telegram Bot frontend  
+**Performance Goals**: Sub-second request/approval cycle; handle 100s of concurrent requests  
+**Constraints**: Telegram API rate limits (30 messages/sec per bot); request processing MUST complete within 5 seconds per spec  
+**Scale/Scope**: MVP handles 10-100s of requests/day; future versions may add bulk operations or filtering
 
 ## Constitution Check
 
-✅ **PASSED**: All constitution principles satisfied:
+*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-| Principle | Check |
-|-----------|-------|
-| **YAGNI** | Feature scope tightly bounded: only request submission, approval, rejection. No bulk operations, filtering, or auto-expiration (out of scope). |
-| **KISS** | Simple state machine (pending → approved/rejected). Text-only messages, no complex data structures. Single-table schema for MVP. |
-| **DRY** | Request handling logic centralized in services, reusable across client/admin flows. Message templates defined once. |
-| **Dependency Management** | All dependencies declared in pyproject.toml via uv. MCP Context7 used to validate python-telegram-bot API before implementation. |
-| **Secret Management** | Admin Telegram ID stored in environment variable (ADMIN_TELEGRAM_ID), not hardcoded. |
-| **Test-First** | Specs include contract tests for message workflows, integration tests for end-to-end flows. |
+### Core Principles Alignment
 
-✅ **No violations**: Feature aligns with Python 3.11+, FastAPI stack, SQLite storage, uv package management, and test-first approach from constitution.
+✅ **YAGNI (You Aren't Gonna Need It)**
+
+- Feature strictly implements 3 user stories only (request submission, approval, rejection)
+- No bulk operations, expiration logic, filtering, or appeal workflows (explicitly out of scope)
+- Simple message-based responses (not complex forms or state machines)
+- **Status**: PASS - No speculative features
+
+✅ **KISS (Keep It Simple, Stupid)**
+
+- Telegram API integration (already familiar, well-documented)
+- SQLAlchemy ORM (standard, straightforward for simple tables)
+- FastAPI webhook receiver (minimal, clean routing)
+- Stateless request handlers (no complex state machines)
+- **Status**: PASS - Simplest viable architecture chosen
+
+✅ **DRY (Don't Repeat Yourself)**
+
+- Shared request storage entity (ClientRequest) used by all flows
+- Admin/client message handlers reuse core notification service
+- Database migrations centralized via Alembic
+- **Status**: PASS - No duplication
+
+### Technology Stack Compliance
+
+✅ **Backend Stack**
+
+- Python 3.11+ ✓
+- FastAPI ✓ (webhook endpoint)
+- SQLAlchemy + Alembic ✓ (request persistence)
+- SQLite ✓ (default)
+- `python-telegram-bot` ✓ (Telegram integration)
+
+✅ **Dependency Management**
+
+- pyproject.toml (single source) ✓
+- uv.lock (reproducible) ✓
+- No requirements.txt ✓
+- MCP Context7 will be used for library best practices ✓
+
+✅ **Security Requirements**
+
+- No hard-coded secrets (admin Telegram ID via env var) ✓
+- Environment variables for bot token ✓
+- .env for local dev only ✓
+
+✅ **Development Workflow**
+
+- Test-first approach (contract tests before handlers) ✓
+- TDD red-green-refactor cycle ✓
+- Contract + integration tests required ✓
+
+**GATE RESULT**: ✅ **PASS** - Feature fully compliant with constitution. No complexity exceptions needed.
 
 ## Project Structure
 
@@ -40,15 +88,17 @@ The Client Request Approval Workflow enables SOSenki to manage onboarding of new
 
 ```text
 specs/001-request-approval/
-├── spec.md                    # Feature specification (completed)
-├── plan.md                    # This file
-├── research.md                # Phase 0: Library/API research (to be created)
-├── data-model.md              # Phase 1: Database schema design (to be created)
-├── quickstart.md              # Phase 1: Developer quickstart (to be created)
-├── contracts/                 # Phase 1: API contracts (to be created)
-│   ├── client_request.json
-│   └── admin_response.json
-└── tasks.md                   # Phase 2: Implementation tasks (to be created)
+├── spec.md              # Feature specification (complete)
+├── plan.md              # This file (implementation plan)
+├── research.md          # Phase 0 output (research findings)
+├── data-model.md        # Phase 1 output (entity models)
+├── quickstart.md        # Phase 1 output (dev setup guide)
+├── contracts/           # Phase 1 output (API specs)
+│   ├── request_endpoint.yaml
+│   └── handler_contracts.md
+├── checklists/
+│   └── requirements.md   # Quality checklist
+└── tasks.md             # Phase 2 output (task breakdown)
 ```
 
 ### Source Code (repository root)
@@ -56,131 +106,72 @@ specs/001-request-approval/
 ```text
 src/
 ├── models/
-│   └── request.py             # ClientRequest SQLAlchemy model
+│   ├── __init__.py
+│   ├── client_request.py    # ClientRequest ORM model
+│   ├── admin_config.py      # Administrator configuration
+│   └── client.py            # Client profile (future expansion)
 ├── services/
-│   ├── request_service.py     # Request creation, retrieval, state management
-│   └── notification_service.py # Admin/client message sending
-├── api/
-│   └── telegram_handlers.py   # /request, admin reply handlers
+│   ├── __init__.py
+│   ├── request_service.py   # ClientRequest business logic
+│   ├── notification_service.py  # Telegram message dispatch
+│   └── admin_service.py     # Admin approval/rejection handling
 ├── bot/
-│   └── telegram_bot.py        # Bot initialization, webhook setup
-└── schemas/
-    └── request_schema.py      # Pydantic models for validation
+│   ├── __init__.py
+│   ├── handlers.py          # Telegram command handlers (/request, admin responses)
+│   └── config.py            # Bot token, admin ID from environment
+├── api/
+│   ├── __init__.py
+│   └── webhook.py           # FastAPI webhook endpoint for Telegram
+├── migrations/              # Alembic migrations
+│   └── versions/
+└── main.py                  # Application entry point
 
 tests/
 ├── contract/
-│   ├── test_client_submit_request.py
-│   └── test_admin_approve_reject.py
+│   ├── test_request_endpoint.py      # POST /webhook/telegram contract tests
+│   └── test_admin_handlers.py        # Admin reply handler contract tests
 ├── integration/
-│   ├── test_request_workflow.py
-│   ├── test_approval_flow.py
-│   └── test_rejection_flow.py
-└── unit/
-    ├── test_request_service.py
-    ├── test_notification_service.py
-    └── test_telegram_handlers.py
+│   ├── test_client_request_flow.py   # Full client request → admin notification
+│   ├── test_approval_flow.py         # Admin approve → client welcome
+│   └── test_rejection_flow.py        # Admin reject → client rejection message
+├── unit/
+│   ├── test_request_service.py
+│   ├── test_notification_service.py
+│   └── test_admin_service.py
+└── conftest.py             # Shared fixtures (mock bot, database, etc.)
 
-migrations/
-└── versions/
-    └── 001_create_requests_table.py # Alembic migration for ClientRequest table
+pyproject.toml             # Dependencies (python-telegram-bot, FastAPI, SQLAlchemy, pytest, etc.)
+uv.lock                    # Locked dependencies
+.env.example               # Environment variable template (bot token, admin ID, database URL)
 ```
 
-**Structure Decision**: Single backend service with Telegram bot integrated directly into FastAPI application. The bot uses webhook mode (faster, more scalable than polling) to receive updates. Services layer abstracts business logic (requests, notifications) from Telegram-specific code.
+**Structure Decision**: Single backend service (Option 1 variant). Telegram provides the UI (bot messages); we implement async webhook receiver + service layer. No separate frontend needed per architecture decision.
 
-## Data Model (Initial Design)
+## Complexity Tracking
 
-**ClientRequest** (SQLite table):
+> **Fill ONLY if Constitution Check has violations that must be justified**
 
-- `id` (PK, integer)
-- `client_telegram_id` (integer, indexed)
-- `request_message` (text)
-- `submitted_at` (timestamp)
-- `status` (enum: pending/approved/rejected)
-- `admin_telegram_id` (integer, nullable—populated only if approved/rejected)
-- `response_timestamp` (timestamp, nullable)
-- `created_at`, `updated_at` (audit timestamps)
+| Violation | Why Needed | Simpler Alternative Rejected Because |
+|-----------|------------|-------------------------------------|
+| None | N/A | N/A |
 
-**Unique constraint**: (client_telegram_id, status) where status = 'pending' to prevent duplicate pending requests.
+**Status**: ✅ No complexity exceptions needed. Feature fully aligns with constitution and uses simplest viable architecture.
 
-## Phases
+## Next Steps (Phase 0 - Research)
 
-### Phase 0: Research (This Plan)
+1. Research best practices for `python-telegram-bot` async webhooks (via MCP Context7)
+2. Research FastAPI webhook integration patterns
+3. Research SQLAlchemy + Alembic for simple request tracking
+4. Research pytest fixtures for Telegram bot testing
+5. Document findings in `research.md`
 
-✅ Completed: Feature specification and architecture review
+## Next Steps (Phase 1 - Design)
 
-**Remaining Phase 0 tasks**:
+1. Generate `data-model.md` with ClientRequest, Administrator, Client entities and relationships
+2. Generate API contracts in `contracts/` (webhook endpoint schema, message handlers)
+3. Generate `quickstart.md` with local development setup (env vars, uv sync, running bot)
+4. Run `update-agent-context.sh` to register new technologies with AI agent
 
-- [ ] Review python-telegram-bot documentation via MCP Context7 for webhook + message handling patterns
-- [ ] Research FastAPI integration with Telegram bots (middleware, error handling)
-- [ ] Document recommended message templates for welcome/rejection/confirmation
+---
 
-### Phase 1: Design & Setup
-
-**Deliverables**:
-
-- [ ] Database schema (data-model.md) with Alembic migration
-- [ ] API contracts (requests/responses for client and admin flows)
-- [ ] Quickstart guide for local development
-- [ ] Project directory structure initialized
-
-**Key design decisions**:
-
-1. **Webhook vs polling**: Webhook mode for lower latency and scalability
-2. **State machine**: Simple 3-state model (pending → approved OR rejected)
-3. **Atomicity**: Use database transactions to ensure consistent state transitions
-4. **Error handling**: Graceful degradation; if admin reply fails, request remains pending and can be retried
-
-### Phase 2: Implementation
-
-**Breakdown by user story** (to enable independent testing):
-
-- **US1 (Client Request Submission)**: Request model, service, Telegram handler, tests
-- **US2 (Admin Approval)**: Approval handler, welcome message, access grant, tests
-- **US3 (Admin Rejection)**: Rejection handler, rejection message, tests
-
-### Phase 3: Testing & Validation
-
-- [ ] Contract tests validate message format/content
-- [ ] Integration tests verify end-to-end workflows
-- [ ] Manual testing with actual Telegram bot
-
-## Complexity Justification
-
-| Aspect | Justification |
-|--------|--------------|
-| **Async/await (FastAPI)** | Telegram API calls and database queries are I/O-bound; async enables handling multiple concurrent requests without thread overhead. |
-| **SQLAlchemy ORM** | Ensures type safety, migration management, and auditing. Simpler than raw SQL queries for this schema size. |
-| **Service layer abstraction** | Separates business logic (requests, notifications) from Telegram specifics; enables testability and future multi-channel support. |
-
-## Dependencies & Assumptions
-
-**Assumed to exist**:
-
-- FastAPI application already initialized
-- Telegram bot already created (BotFather token obtained)
-- SQLite database configured
-- Alembic migrations framework set up
-- pytest configured for testing
-
-**External integrations**:
-
-- Telegram Bot API (python-telegram-bot library)
-- Admin Telegram ID provided in environment (ADMIN_TELEGRAM_ID)
-
-## Success Criteria (Revisited from Spec)
-
-✅ Achievable with proposed architecture:
-
-- SC-001: Sub-2-second request submission (FastAPI + SQLite performance)
-- SC-002: Admin notification within 3 seconds (Telegram API + FastAPI performance)
-- SC-003/004: Approval/rejection response within 5 seconds (database state transition + message send)
-- SC-005: 100% request persistence (SQLite + transaction guarantees)
-- SC-006: Atomic state transitions (database constraints + transaction handling)
-- SC-007: Error-free operation (proper Telegram API error handling + logging)
-
-## Next Steps
-
-1. Execute Phase 0 research (library documentation review)
-2. Create research.md documenting findings and decisions
-3. Proceed to Phase 1 design (data-model.md, contracts, quickstart)
-4. Generate tasks.md for implementation phase
+**Ready for Phase 0 Research**: Yes

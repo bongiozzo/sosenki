@@ -9,6 +9,31 @@
     "chat.tools.terminal.autoApprove": {
         ".specify/scripts/bash/": true,
         ".specify/scripts/powershell/": true
-    }
+    },
+    "cSpell.words": [
+        "aiogram",
+        "aiohttp",
+        "aiosqlite",
+        "ASGI",
+        "asyncio",
+        "botfather",
+        "conftest",
+        "fastapi",
+        "gatekeeping",
+        "getenv",
+        "psycopg",
+        "Pydantic",
+        "pyproject",
+        "pytest",
+        "sosenkibot",
+        "speckit",
+        "sqlalchemy",
+        "stdlib",
+        "timedelta",
+        "userinfobot",
+        "utcnow",
+        "uvicorn",
+        "yourbotname"
+    ]
 }
 
