@@ -1,0 +1,219 @@
+/* SOSenki Mini App Styles - Nature-inspired minimalistic design */
+
+:root {
+    /* Nature-inspired color palette */
+    --color-pine: #2D5016;      /* Forest green */
+    --color-water: #0099CC;     /* Aqua/teal */
+    --color-sand: #D4A574;      /* Beige */
+    --color-white: #FFFFFF;
+    --color-light-gray: #F5F5F7;
+    --color-text: #1D1D1F;
+    --color-text-secondary: #6E6E73;
+    
+    /* Spacing */
+    --spacing-xs: 8px;
+    --spacing-sm: 16px;
+    --spacing-md: 24px;
+    --spacing-lg: 32px;
+    --spacing-xl: 48px;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+    color: var(--color-text);
+    background-color: var(--color-light-gray);
+    line-height: 1.5;
+}
+
+#app {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-size: 18px;
+    color: var(--color-text-secondary);
+}
+
+/* Welcome Container */
+.welcome-container {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    background: linear-gradient(135deg, var(--color-pine) 0%, var(--color-water) 100%);
+    padding: var(--spacing-md);
+}
+
+.header {
+    text-align: center;
+    padding: var(--spacing-lg) 0;
+    color: var(--color-white);
+}
+
+.brand {
+    font-size: 36px;
+    font-weight: 700;
+    margin-bottom: var(--spacing-xs);
+    letter-spacing: -0.5px;
+}
+
+.tagline {
+    font-size: 16px;
+    opacity: 0.9;
+    font-weight: 400;
+}
+
+/* Main Menu */
+.main-menu {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.menu-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: var(--spacing-md);
+    width: 100%;
+    max-width: 600px;
+}
+
+.menu-item {
+    background: var(--color-white);
+    border: none;
+    border-radius: 16px;
+    padding: var(--spacing-lg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-sm);
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.menu-item:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.menu-item:active {
+    transform: translateY(-2px);
+}
+
+.menu-item.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.menu-item.disabled:hover {
+    transform: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.menu-icon {
+    font-size: 48px;
+}
+
+.menu-label {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+/* Access Denied / Error Containers */
+.access-denied-container,
+.error-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: var(--spacing-md);
+    background: var(--color-light-gray);
+}
+
+.message-box {
+    background: var(--color-white);
+    border-radius: 16px;
+    padding: var(--spacing-xl);
+    text-align: center;
+    max-width: 400px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+.icon-large {
+    font-size: 64px;
+    margin-bottom: var(--spacing-md);
+}
+
+.message-box h2 {
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: var(--spacing-sm);
+    color: var(--color-text);
+}
+
+.message-box p {
+    font-size: 16px;
+    color: var(--color-text-secondary);
+    margin-bottom: var(--spacing-md);
+    line-height: 1.6;
+}
+
+.message-box code {
+    background: var(--color-light-gray);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-family: 'SF Mono', 'Courier New', monospace;
+    font-size: 14px;
+}
+
+.back-button,
+.retry-button {
+    background: var(--color-pine);
+    color: var(--color-white);
+    border: none;
+    border-radius: 12px;
+    padding: var(--spacing-sm) var(--spacing-lg);
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.back-button:hover,
+.retry-button:hover {
+    background: var(--color-water);
+}
+
+.back-button:active,
+.retry-button:active {
+    transform: scale(0.98);
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+    .menu-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .brand {
+        font-size: 28px;
+    }
+    
+    .message-box {
+        padding: var(--spacing-md);
+    }
+}

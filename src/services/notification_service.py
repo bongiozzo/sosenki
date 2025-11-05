@@ -1,7 +1,7 @@
 """Notification service for sending Telegram messages."""
 
 from telegram.ext import Application
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
 
 class NotificationService:
@@ -84,17 +84,32 @@ class NotificationService:
         await self.send_message(bot_config.admin_telegram_id, notification_text, reply_markup=keyboard)
 
     async def send_welcome_message(self, client_id: str) -> None:
-        """Send welcome message to approved client.
+        """Send welcome message to approved client with Mini App button.
 
         Args:
             client_id: Client's Telegram ID
         """
-        # T041: Send welcome message after approval
+        # Import here to avoid circular import
+        from src.bot.config import bot_config
+        
+        # T041: Send welcome message after approval with Mini App button (US1)
         welcome_text = (
-            "Welcome to SOSenki! Your request has been approved and access "
-            "has been granted. You can now use all features."
+            "🎉 <b>Welcome to SOSenki!</b>\n\n"
+            "Your request has been approved and access has been granted.\n\n"
+            "Tap the button below to open the SOSenki app:"
         )
-        await self.send_message(client_id, welcome_text)
+        
+        # Add Mini App button if MINI_APP_URL is configured
+        keyboard = None
+        if bot_config.mini_app_url:
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton(
+                    text="📱 Open App",
+                    web_app=WebAppInfo(url=bot_config.mini_app_url)
+                )]
+            ])
+        
+        await self.send_message(client_id, welcome_text, reply_markup=keyboard)
 
     async def send_rejection_message(self, client_id: str) -> None:
         """Send rejection message to rejected client.

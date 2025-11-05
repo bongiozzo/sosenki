@@ -28,13 +28,15 @@ class BaseModel:
 
 # Import models to register them with Base (after Base is defined)
 # This must be after Base declaration to avoid circular imports
+from src.models.user import User  # noqa: E402
+from src.models.access_request import AccessRequest, RequestStatus  # noqa: E402
 from src.models.admin_config import Administrator  # noqa: E402
-from src.models.client_request import ClientRequest, RequestStatus  # noqa: E402
 
 __all__ = [
     "Base",
     "BaseModel",
-    "ClientRequest",
+    "User",
+    "AccessRequest",
     "RequestStatus",
     "Administrator",
 ]

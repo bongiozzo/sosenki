@@ -55,7 +55,7 @@ async def handle_request_command(update: Update, context: ContextTypes.DEFAULT_T
         try:
             request_service = RequestService(db)
             new_request = await request_service.create_request(
-                client_telegram_id=client_id,
+                user_telegram_id=client_id,
                 request_message=request_message
             )
 
@@ -169,10 +169,10 @@ async def handle_admin_approve(update: Update, context: ContextTypes.DEFAULT_TYP
             # T041: Send welcome message to client
             notification_service = NotificationService(context.application)
             await notification_service.send_welcome_message(
-                client_id=request.client_telegram_id
+                client_id=request.user_telegram_id
             )
             logger.info("Sent welcome message to client %s",
-                       request.client_telegram_id)
+                       request.user_telegram_id)
 
             # Send confirmation to admin
             await update.message.reply_text("✅ Request approved and client notified")
@@ -258,10 +258,10 @@ async def handle_admin_reject(update: Update, context: ContextTypes.DEFAULT_TYPE
             # T050: Send rejection message to client
             notification_service = NotificationService(context.application)
             await notification_service.send_rejection_message(
-                client_id=request.client_telegram_id
+                client_id=request.user_telegram_id
             )
             logger.info("Sent rejection message to client %s",
-                       request.client_telegram_id)
+                       request.user_telegram_id)
 
             # Send confirmation to admin
             await update.message.reply_text("✅ Request rejected and client notified")
@@ -365,7 +365,7 @@ async def handle_admin_response(update: Update, context: ContextTypes.DEFAULT_TY
                     return
 
                 notification_service = NotificationService(context.application)
-                await notification_service.send_welcome_message(client_id=request.client_telegram_id)
+                await notification_service.send_welcome_message(client_id=request.user_telegram_id)
                 try:
                     await update.message.reply_text("✅ Request approved and client notified")
                 except Exception:
@@ -382,7 +382,7 @@ async def handle_admin_response(update: Update, context: ContextTypes.DEFAULT_TY
                     return
 
                 notification_service = NotificationService(context.application)
-                await notification_service.send_rejection_message(client_id=request.client_telegram_id)
+                await notification_service.send_rejection_message(client_id=request.user_telegram_id)
                 try:
                     await update.message.reply_text("✅ Request rejected and client notified")
                 except Exception:
@@ -444,7 +444,7 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
                     return
 
                 notification_service = NotificationService(context.application)
-                await notification_service.send_welcome_message(client_id=request.client_telegram_id)
+                await notification_service.send_welcome_message(client_id=request.user_telegram_id)
                 try:
                     await cq.answer("Request approved")
                     await cq.edit_message_text(f"Request #{request_id} — ✅ Approved by {admin_name}")
@@ -458,7 +458,7 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
                     return
 
                 notification_service = NotificationService(context.application)
-                await notification_service.send_rejection_message(client_id=request.client_telegram_id)
+                await notification_service.send_rejection_message(client_id=request.user_telegram_id)
                 try:
                     await cq.answer("Request rejected")
                     await cq.edit_message_text(f"Request #{request_id} — ❌ Rejected by {admin_name}")

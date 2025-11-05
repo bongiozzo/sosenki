@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SOSenki</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+    <div id="app">
+        <div class="loading">Loading...</div>
+    </div>
+    
+    <!-- Welcome Screen Template (registered user) -->
+    <template id="welcome-template">
+        <div class="welcome-container">
+            <header class="header">
+                <h1 class="brand">SOSenki</h1>
+                <p class="tagline">Welcome back, <span id="user-name">User</span></p>
+            </header>
+            
+            <main class="main-menu">
+                <nav class="menu-grid">
+                    <button class="menu-item" data-action="rule">
+                        <span class="menu-icon">📋</span>
+                        <span class="menu-label">Rule</span>
+                    </button>
+                    <button class="menu-item" data-action="pay">
+                        <span class="menu-icon">💰</span>
+                        <span class="menu-label">Pay</span>
+                    </button>
+                    <button class="menu-item" data-action="invest" id="invest-item">
+                        <span class="menu-icon">📈</span>
+                        <span class="menu-label">Invest</span>
+                    </button>
+                </nav>
+            </main>
+        </div>
+    </template>
+    
+    <!-- Access Denied Template (non-registered user) -->
+    <template id="access-denied-template">
+        <div class="access-denied-container">
+            <div class="message-box">
+                <div class="icon-large">🔒</div>
+                <h2>Access is limited</h2>
+                <p class="instruction">
+                    To get access to SOSenki, please send <code>/request</code> to the bot.
+                </p>
+                <button class="back-button" onclick="window.Telegram.WebApp.close()">
+                    Close
+                </button>
+            </div>
+        </div>
+    </template>
+    
+    <!-- Error Template -->
+    <template id="error-template">
+        <div class="error-container">
+            <div class="message-box">
+                <div class="icon-large">⚠️</div>
+                <h2>Something went wrong</h2>
+                <p class="error-message" id="error-message">Please try again later.</p>
+                <button class="retry-button" onclick="location.reload()">
+                    Retry
+                </button>
+            </div>
+        </div>
+    </template>
+    
+    <script src="app.js"></script>
+</body>
+</html>

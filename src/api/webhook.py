@@ -1,9 +1,11 @@
 """FastAPI webhook endpoint for Telegram updates."""
 
 import logging
+from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException
+from fastapi.staticfiles import StaticFiles
 from telegram import Update
 from telegram.ext import Application
 
@@ -15,6 +17,16 @@ app = FastAPI(
     description="Client Request Approval Workflow - Telegram Bot",
     version="0.1.0",
 )
+
+# Mount static files for Mini App (002-welcome-mini-app)
+static_path = Path(__file__).parent.parent / "static" / "mini_app"
+if static_path.exists():
+    app.mount("/mini-app", StaticFiles(directory=str(static_path), html=True), name="mini-app")
+    logger.info(f"Mounted Mini App static files from {static_path}")
+
+# Include Mini App API router
+from src.api.mini_app import router as mini_app_router
+app.include_router(mini_app_router)
 
 # Global bot application reference (will be set via setup_webhook_route or dependency)
 _bot_app: Optional[Application] = None

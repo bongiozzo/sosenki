@@ -17,6 +17,10 @@ class BotConfig(BaseSettings):
 
     telegram_bot_token: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
     admin_telegram_id: str = os.getenv("ADMIN_TELEGRAM_ID", "")
+    
+    # Mini App configuration (002-welcome-mini-app)
+    telegram_mini_app_id: str = os.getenv("TELEGRAM_MINI_APP_ID", "")
+    mini_app_url: str = os.getenv("MINI_APP_URL", "")
 
     def validate(self) -> None:
         """Validate required configuration is present."""

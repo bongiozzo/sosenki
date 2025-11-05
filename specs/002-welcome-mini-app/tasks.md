@@ -20,9 +20,9 @@ Format: `[ID] [P?] [Story] Description`
 
 Purpose: Ensure local environment and configuration for Mini App feature
 
-- [ ] T001 Create `.env.example` with Mini App variables at repo root (`/Users/serpo/Work/SOSenki/.env.example`) including TELEGRAM_MINI_APP_ID and MINI_APP_URL
-- [ ] T002 Add Mini App config constants in `src/bot/config.py` (read MINI_APP_URL, TELEGRAM_MINI_APP_ID from env)
-- [ ] T003 [P] Verify FastAPI app exposes health at `GET /health` in `src/main.py` (ensure ready for new routes)
+- [X] T001 Create `.env.example` with Mini App variables at repo root (`/Users/serpo/Work/SOSenki/.env.example`) including TELEGRAM_MINI_APP_ID and MINI_APP_URL
+- [X] T002 Add Mini App config constants in `src/bot/config.py` (read MINI_APP_URL, TELEGRAM_MINI_APP_ID from env)
+- [X] T003 [P] Verify FastAPI app exposes health at `GET /health` in `src/main.py` (ensure ready for new routes)
 
 ---
 
@@ -30,16 +30,16 @@ Purpose: Ensure local environment and configuration for Mini App feature
 
 Purpose: Core schema and service layer required by all stories
 
-- [ ] T004 Create unified `User` model with boolean role flags in `src/models/user.py`
-- [ ] T005 Refactor `ClientRequest` → `AccessRequest` model in `src/models/access_request.py` (rename from `src/models/client_request.py`)
-- [ ] T006 Create Alembic migration `[timestamp]_refactor_user_model_and_add_mini_app_schema.py` in `src/migrations/versions/` per `data-model.md`
-- [ ] T007 Update references from `client_request` to `access_request` in `src/services/request_service.py` (or create `access_request_service.py` if needed)
-- [ ] T008 [P] Implement `UserService` with `can_access_mini_app(telegram_id: str)` in `src/services/user_service.py`
-- [ ] T009 [P] Wire SQLAlchemy models into `src/models/__init__.py` for imports
-- [ ] T010 Mount static files under `/mini-app` in `src/main.py` using `src/static/mini_app/` directory
-- [ ] T011 Create static directory structure `src/static/mini_app/` (empty placeholders): `index.html`, `styles.css`, `app.js`
-- [ ] T012 [P] Create API router module `src/api/mini_app.py` (register APIRouter, no endpoints yet)
-- [ ] T013 Ensure test environment uses SQLite URL from env in `src/main.py` or app factory
+- [X] T004 Create unified `User` model with boolean role flags in `src/models/user.py`
+- [X] T005 Refactor `ClientRequest` → `AccessRequest` model in `src/models/access_request.py` (rename from `src/models/client_request.py`)
+- [X] T006 Create Alembic migration `[timestamp]_refactor_user_model_and_add_mini_app_schema.py` in `src/migrations/versions/` per `data-model.md`
+- [X] T007 Update references from `client_request` to `access_request` in `src/services/request_service.py` (or create `access_request_service.py` if needed)
+- [X] T008 [P] Implement `UserService` with `can_access_mini_app(telegram_id: str)` in `src/services/user_service.py`
+- [X] T009 [P] Wire SQLAlchemy models into `src/models/__init__.py` for imports
+- [X] T010 Mount static files under `/mini-app` in `src/main.py` using `src/static/mini_app/` directory
+- [X] T011 Create static directory structure `src/static/mini_app/` (empty placeholders): `index.html`, `styles.css`, `app.js`
+- [X] T012 [P] Create API router module `src/api/mini_app.py` (register APIRouter, no endpoints yet)
+- [X] T013 Ensure test environment uses SQLite URL from env in `src/main.py` or app factory
 
 Checkpoint: Foundation ready — user story implementation can now begin in parallel
 
@@ -53,14 +53,14 @@ Independent Test: Approve a user → within 5 seconds user receives message cont
 
 ### Tests for User Story 1 (Contract/Integration)
 
-- [ ] T014 [P] [US1] Add integration test for approval → welcome with WebApp button in `tests/integration/test_approval_flow_to_mini_app.py`
+- [X] T014 [P] [US1] Add integration test for approval → welcome with WebApp button in `tests/integration/test_approval_flow_to_mini_app.py`
 
 ### Implementation for User Story 1
 
-- [ ] T015 [US1] Add WebApp button to welcome notification in `src/services/notification_service.py` using `InlineKeyboardButton(web_app=WebAppInfo(url=MINI_APP_URL))`
-- [ ] T016 [US1] Ensure approval handler triggers updated notification in `src/bot/handlers.py` (after approval state change)
-- [ ] T017 [US1] Add MINI_APP_URL to config and inject into services in `src/bot/config.py`
-- [ ] T018 [US1] Manual sanity route to serve Mini App shell at `GET /mini-app` in `src/main.py` (opens `src/static/mini_app/index.html`)
+- [X] T015 [US1] Add WebApp button to welcome notification in `src/services/notification_service.py` using `InlineKeyboardButton(web_app=WebAppInfo(url=MINI_APP_URL))`
+- [X] T016 [US1] Ensure approval handler triggers updated notification in `src/bot/handlers.py` (after approval state change)
+- [X] T017 [US1] Add MINI_APP_URL to config and inject into services in `src/bot/config.py`
+- [X] T018 [US1] Manual sanity route to serve Mini App shell at `GET /mini-app` in `src/main.py` (opens `src/static/mini_app/index.html`)
 
 Checkpoint: US1 complete — approved users receive a welcome with working Mini App button
 
@@ -74,17 +74,17 @@ Independent Test: Open Mini App as an approved user → welcome content + three 
 
 ### Tests for User Story 2 (Contract/Integration)
 
-- [ ] T019 [P] [US2] Contract test for `GET /api/mini-app/init` in `tests/contract/test_mini_app_endpoints.py`
-- [ ] T020 [P] [US2] Integration test for registered user Mini App load in `tests/integration/test_mini_app_flow.py`
+- [X] T019 [P] [US2] Contract test for `GET /api/mini-app/init` in `tests/contract/test_mini_app_endpoints.py`
+- [X] T020 [P] [US2] Integration test for registered user Mini App load in `tests/integration/test_mini_app_flow.py`
 
 ### Implementation for User Story 2
 
-- [ ] T021 [P] [US2] Implement Telegram signature verification helper in `src/services/user_service.py` (or `src/services/mini_app_service.py`)
-- [ ] T022 [US2] Implement `GET /api/mini-app/init` in `src/api/mini_app.py` (returns registered status + menu for approved users)
-- [ ] T023 [P] [US2] Implement Mini App HTML shell in `src/static/mini_app/index.html` (welcome section + 3-item menu)
-- [ ] T024 [P] [US2] Implement nature-inspired styles in `src/static/mini_app/styles.css` (pine, water, sand palette via CSS variables)
-- [ ] T025 [P] [US2] Implement client logic in `src/static/mini_app/app.js` (WebApp init, call `/api/mini-app/init`, render registered view)
-- [ ] T026 [US2] Add basic error handling UI for network/signature errors in `src/static/mini_app/app.js`
+- [X] T021 [P] [US2] Implement Telegram signature verification helper in `src/services/user_service.py` (or `src/services/mini_app_service.py`)
+- [X] T022 [US2] Implement `GET /api/mini-app/init` in `src/api/mini_app.py` (returns registered status + menu for approved users)
+- [X] T023 [P] [US2] Implement Mini App HTML shell in `src/static/mini_app/index.html` (welcome section + 3-item menu)
+- [X] T024 [P] [US2] Implement nature-inspired styles in `src/static/mini_app/styles.css` (pine, water, sand palette via CSS variables)
+- [X] T025 [P] [US2] Implement client logic in `src/static/mini_app/app.js` (WebApp init, call `/api/mini-app/init`, render registered view)
+- [X] T026 [US2] Add basic error handling UI for network/signature errors in `src/static/mini_app/app.js`
 
 Checkpoint: US2 complete — approved users see welcome + menu inside Mini App
 
@@ -98,13 +98,13 @@ Independent Test: Open Mini App as a non-registered user → access limited mess
 
 ### Tests for User Story 3 (Contract/Integration)
 
-- [ ] T027 [P] [US3] Contract test for non-registered response from `GET /api/mini-app/init` in `tests/contract/test_mini_app_endpoints.py`
-- [ ] T028 [P] [US3] Integration test for non-registered Mini App load in `tests/integration/test_mini_app_flow.py`
+- [X] T027 [P] [US3] Contract test for non-registered response from `GET /api/mini-app/init` in `tests/contract/test_mini_app_endpoints.py`
+- [X] T028 [P] [US3] Integration test for non-registered Mini App load in `tests/integration/test_mini_app_flow.py`
 
 ### Implementation for User Story 3
 
-- [ ] T029 [US3] Ensure `/api/mini-app/init` returns `{ isRegistered: false, message, instruction }` for inactive users in `src/api/mini_app.py`
-- [ ] T030 [US3] Render access-limited state in `src/static/mini_app/app.js` (hide menu, show instruction to send `/request`)
+- [X] T029 [US3] Ensure `/api/mini-app/init` returns `{ isRegistered: false, message, instruction }` for inactive users in `src/api/mini_app.py`
+- [X] T030 [US3] Render access-limited state in `src/static/mini_app/app.js` (hide menu, show instruction to send `/request`)
 
 Checkpoint: US3 complete — non-registered users receive access guidance
 
@@ -114,15 +114,14 @@ Checkpoint: US3 complete — non-registered users receive access guidance
 
 Purpose: Quality, resilience, and developer experience improvements
 
-- [ ] T031 [P] Add `/api/mini-app/verify-registration` endpoint in `src/api/mini_app.py` (explicit refresh)
-- [ ] T032 [P] Add `/api/mini-app/menu-action` placeholder endpoint in `src/api/mini_app.py`
+- [X] T031 [P] Add `/api/mini-app/verify-registration` endpoint in `src/api/mini_app.py` (explicit refresh)
+- [X] T032 [P] Add `/api/mini-app/menu-action` placeholder endpoint in `src/api/mini_app.py`
 - [ ] T033 Implement rate limiting headers per contract in `src/api/mini_app.py`
 - [ ] T034 [P] Add usage docs in `specs/002-welcome-mini-app/quickstart.md` (validate Mini App manual test steps)
 - [ ] T035 Add graceful error response format and requestId in `src/api/mini_app.py`
 - [ ] T036 [P] Update `alembic.ini` or env to ensure DB URL correctness for all environments
-- [ ] T037 Add unit tests for `UserService` in `tests/unit/test_user_service.py`
-- [ ] T038 Code cleanup: remove deprecated references to `client_request` and old role models
- - [ ] T038 Code cleanup: remove deprecated references to `client_request` and old role models in `src/services/`, `src/models/`, and `src/api/`
+- [X] T037 Add unit tests for `UserService` in `tests/unit/test_user_service.py`
+- [X] T038 Code cleanup: remove deprecated references to `client_request` and old role models in `src/services/`, `src/models/`, and `src/api/`
 
 ---
 

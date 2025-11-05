@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
-from src.models.client_request import ClientRequest, RequestStatus
+from src.models.access_request import AccessRequest, RequestStatus
 
 
 class AdminService:
@@ -17,7 +17,7 @@ class AdminService:
         self,
         request_id: int,
         admin_telegram_id: str,
-    ) -> ClientRequest | None:
+    ) -> AccessRequest | None:
         """Approve a client request.
 
         T040, T042: Update status to approved, mark client as active.
@@ -31,8 +31,8 @@ class AdminService:
         """
         try:
             # Find the request
-            request = self.db.query(ClientRequest).filter(
-                ClientRequest.id == request_id
+            request = self.db.query(AccessRequest).filter(
+                AccessRequest.id == request_id
             ).first()
 
             if not request:
@@ -55,7 +55,7 @@ class AdminService:
         self,
         request_id: int,
         admin_telegram_id: str,
-    ) -> ClientRequest | None:
+    ) -> AccessRequest | None:
         """Reject a client request.
 
         T040: Update status to rejected.
@@ -69,8 +69,8 @@ class AdminService:
         """
         try:
             # Find the request
-            request = self.db.query(ClientRequest).filter(
-                ClientRequest.id == request_id
+            request = self.db.query(AccessRequest).filter(
+                AccessRequest.id == request_id
             ).first()
 
             if not request:
