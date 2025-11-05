@@ -25,7 +25,6 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def get_db() -> Generator[Session, None, None]:
     """Get database session."""
-    """Get database session."""
     db = SessionLocal()
     try:
         yield db

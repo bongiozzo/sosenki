@@ -90,7 +90,7 @@ async def run_polling_mode():
         try:
             await asyncio.Event().wait()
         except KeyboardInterrupt:
-            pass
+            logger.info("Shutdown requested by user (KeyboardInterrupt)")
         finally:
             await bot_app.stop()
 

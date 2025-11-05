@@ -334,7 +334,7 @@ async def handle_admin_response(update: Update, context: ContextTypes.DEFAULT_TY
         reply_text = update.message.reply_to_message.text or ""
         try:
             # Use regex to find Request #<id> in any format (HTML or plain text)
-            import re
+
             match = re.search(r'Request #(\d+)', reply_text)
             if match:
                 request_id = int(match.group(1))

@@ -81,8 +81,8 @@ class RequestService:
         Returns:
             ClientRequest or None if not found
         """
-        return self.db.query(ClientRequest).filter(
-            ClientRequest.id == request_id
+        return self.db.execute(
+            select(ClientRequest).where(ClientRequest.id == request_id)
         ).scalar_one_or_none()
 
     async def update_request_status(
@@ -104,8 +104,8 @@ class RequestService:
             True if successful, False otherwise
         """
         # T040: Query, update status and admin details, commit
-        request = self.db.query(ClientRequest).filter(
-            ClientRequest.id == request_id
+        request = self.db.execute(
+            select(ClientRequest).where(ClientRequest.id == request_id)
         ).scalar_one_or_none()
 
         if not request:

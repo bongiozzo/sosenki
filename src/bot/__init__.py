@@ -10,7 +10,7 @@ from src.bot.handlers import (
     handle_admin_callback,
 )
 
-logger = logging.getLogger(__name__)
+# logger = logging.getLogger(__name__)
 
 
 async def create_bot_app() -> Application:

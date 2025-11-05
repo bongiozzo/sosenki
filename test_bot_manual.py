@@ -10,8 +10,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from src.bot import create_bot_app
 from src.bot.config import bot_config
-from telegram import Update, User, Chat, Message
-from telegram.ext import ContextTypes
+from telegram import Update
 import logging
 
 logging.basicConfig(

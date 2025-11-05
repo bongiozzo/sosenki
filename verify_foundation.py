@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 os.environ.setdefault("DATABASE_URL", "sqlite:///./sosenkibot.db")
 
 from sqlalchemy import inspect
-from src.models import Base, ClientRequest, Administrator, RequestStatus
+from src.models import ClientRequest, Administrator, RequestStatus
 from src.services import engine
 
 print("\n" + "=" * 60)
