@@ -68,10 +68,6 @@ src/migrations/versions/__pycache__/
 *.temp
 *.cache
 
-# uv (package manager)
-.uv/
-uv.lock
-
 # IDE files
 *.iml
 *.user
