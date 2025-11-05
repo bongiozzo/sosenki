@@ -1,4 +1,4 @@
-# SOSenki.SDD Project Constitution
+# SOSenki Project Constitution
 
 <!--
 SYNC IMPACT REPORT:
