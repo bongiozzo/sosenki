@@ -1,0 +1,93 @@
+[project]
+name = "sosenkibot"
+version = "0.1.0"
+description = "SOSenki Client Request Approval Workflow - Telegram Bot"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+    { name = "SOSenki Team" }
+]
+
+dependencies = [
+    "python-telegram-bot[all]>=20.0",
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "sqlalchemy>=2.0.0",
+    "alembic>=1.12.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "aiosqlite>=0.19.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-mock>=3.11.0",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.1.0",
+    "mypy>=1.5.0",
+    "black>=23.0.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --strict-markers"
+markers = [
+    "contract: Contract tests for API endpoints",
+    "integration: Integration tests for full workflows",
+    "unit: Unit tests for services and models",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # Pyflakes
+    "I",      # isort
+    "C",      # flake8-comprehensions
+    "B",      # flake8-bugbear
+]
+ignore = [
+    "E501",   # line too long (handled by black)
+]
+
+[tool.ruff.isort]
+known-first-party = ["src"]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+strict_optional = true
+
+# uv-specific configuration for application (non-packaged project)
+[tool.uv]
+# Mark as application (no build-system required for deployment)
+package = false
+
+# Install dev group by default with uv sync
+default-groups = ["dev"]
+
+# Allow python-telegram-bot[all] extras to be resolved
+[tool.uv.pip]
+all-extras = true
