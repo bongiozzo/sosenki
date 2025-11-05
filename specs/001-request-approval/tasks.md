@@ -118,7 +118,7 @@
 
 - [X] T028 [P] [US1] Implement `create_request()` in `src/services/request_service.py`: accept client_telegram_id and request_message, validate no pending request exists, insert ClientRequest record with status=pending, return created request object
 - [X] T029 [P] [US1] Implement `send_confirmation_to_client()` in `src/services/notification_service.py`: send message "Your request has been received and is pending review." to client Telegram ID
-- [X] T030 [P] [US1] Implement `send_notification_to_admin()` in `src/services/notification_service.py`: send message "Client Request: {first_name} (ID: {client_id}) - '{message}'" to admin Telegram ID with reply keyboard containing [Approve] [Reject] buttons
+- [X] T030 [P] [US1] Implement `send_notification_to_admin()` in `src/services/notification_service.py`: send message with request details (including clickable client profile link), and inline keyboard with [Approve] [Reject] callback buttons to admin Telegram ID; buttons trigger admin handlers with request ID extracted from callback_data
 - [X] T031 [US1] Implement `/request` command handler in `src/bot/handlers.py`: parse incoming Update object, extract client_id and message text, call request_service.create_request(), send confirmation via notification_service, send admin notification via notification_service, handle errors (duplicate request, DB error) and return appropriate messages to client
 - [X] T032 [US1] Wire handler to bot application in `src/bot/__init__.py`: register handle_request_command with `/request` command filter
 - [X] T033 [US1] Wire webhook endpoint to bot in `src/api/webhook.py`: POST /webhook/telegram endpoint calls application.process_update(update) to dispatch to handlers

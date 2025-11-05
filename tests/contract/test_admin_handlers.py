@@ -80,17 +80,14 @@ def client(mock_bot):
         async def process_update_impl(update):
             """Process update through the handler."""
             if update.message and update.message.text:
-                from src.bot.handlers import handle_admin_approve, handle_admin_reject
+                from src.bot.handlers import handle_admin_response
 
                 ctx = MagicMock()
                 ctx.application = mock_app
                 ctx.bot_data = {}
 
-                # Determine which handler to call based on message text
-                if "approve" in update.message.text.lower():
-                    await handle_admin_approve(update, ctx)
-                elif "reject" in update.message.text.lower():
-                    await handle_admin_reject(update, ctx)
+                # Use the unified admin response handler
+                await handle_admin_response(update, ctx)
 
         mock_app.process_update.side_effect = process_update_impl
 
@@ -144,7 +141,7 @@ class TestAdminHandlers:
                 "reply_to_message": {
                     "message_id": 50,
                     "from": {"id": 777, "is_bot": True},
-                    "text": f"Client Request: Test (ID: {request.id})",
+                    "text": f"<b>Request #{request.id}</b>\n\n<a href='tg://user?id={client_id}'>Test</a> (ID: {client_id})\n\n<b>Message:</b>\nEmergency help\n\nReply with 'Approve' or 'Reject' or use the buttons below",
                 },
             },
         }
@@ -188,7 +185,7 @@ class TestAdminHandlers:
                 "reply_to_message": {
                     "message_id": 99,
                     "from": {"id": 777, "is_bot": True},
-                    "text": "Client Request: Unknown (ID: 99999)",
+                    "text": "<b>Request #99999</b>\n\n<a href='tg://user?id=999999'>Unknown</a> (ID: 999999)\n\n<b>Message:</b>\nTest\n\nReply with 'Approve' or 'Reject' or use the buttons below",
                 },
             },
         }
@@ -216,7 +213,7 @@ class TestAdminHandlers:
         """
         # Setup: Create a pending request
         client_id = 111222333
-        admin_id = 444555666
+        admin_id = 987654321
         request = self._create_request_in_db(client_id, "Suspicious request")
 
         # Create Telegram Update for admin rejection
@@ -229,9 +226,9 @@ class TestAdminHandlers:
                 "from": {"id": admin_id, "is_bot": False, "first_name": "Admin"},
                 "text": "Reject",
                 "reply_to_message": {
-                    "message_id": 150,
+                    "message_id": 60,
                     "from": {"id": 777, "is_bot": True},
-                    "text": f"Client Request: Test2 (ID: {request.id})",
+                    "text": f"<b>Request #{request.id}</b>\n\n<a href='tg://user?id={client_id}'>Test2</a> (ID: {client_id})\n\n<b>Message:</b>\nSuspicious request\n\nReply with 'Approve' or 'Reject' or use the buttons below",
                 },
             },
         }
@@ -275,7 +272,7 @@ class TestAdminHandlers:
                 "reply_to_message": {
                     "message_id": 199,
                     "from": {"id": 777, "is_bot": True},
-                    "text": "Client Request: Unknown (ID: 99999)",
+                    "text": "<b>Request #99999</b>\n\n<a href='tg://user?id=999999'>Unknown</a> (ID: 999999)\n\n<b>Message:</b>\nTest\n\nReply with 'Approve' or 'Reject' or use the buttons below",
                 },
             },
         }

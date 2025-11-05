@@ -1,9 +1,16 @@
 """Telegram bot application factory."""
 
-from telegram.ext import Application, CommandHandler
+import logging
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters
 
 from src.bot.config import bot_config
-from src.bot.handlers import handle_request_command
+from src.bot.handlers import (
+    handle_request_command,
+    handle_admin_response,
+    handle_admin_callback,
+)
+
+logger = logging.getLogger(__name__)
 
 
 async def create_bot_app() -> Application:
@@ -19,10 +26,13 @@ async def create_bot_app() -> Application:
 
     # T031/T032: Register /request command handler
     app.add_handler(CommandHandler("request", handle_request_command))
+    # Unified admin response handler: handles both Approve and Reject replies
+    # Register after /request so it only handles replies to notifications
+    # Uses a simple filter: any text message that is a reply (handler will validate content)
+    app.add_handler(MessageHandler(filters.TEXT & filters.REPLY, handle_admin_response))
 
-    # Note: Approval/Rejection handlers are called directly in test fixtures
-    # and via Update message routing in production. Handler registration
-    # deferred to Phase 6 for production deployment (T044, T052).
+    # Handle inline button callbacks (Approve/Reject)
+    app.add_handler(CallbackQueryHandler(handle_admin_callback))
 
     # Initialize any other bot-level setup here
 

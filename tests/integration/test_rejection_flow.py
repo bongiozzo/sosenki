@@ -167,7 +167,7 @@ class TestRejectionFlow:
                 "reply_to_message": {
                     "message_id": 50,
                     "from": {"id": 777, "is_bot": True},
-                    "text": f"Client Request: {client_name} (ID: {request_id})",
+                    "text": f"<b>Request #{request_id}</b>\n\n<a href='tg://user?id={client_id}'>{client_name}</a> (ID: {client_id})\n\n<b>Message:</b>\n{request_message}\n\nReply with 'Approve' or 'Reject' or use the buttons below",
                 },
             },
         }
@@ -236,7 +236,7 @@ class TestRejectionFlow:
                 "reply_to_message": {
                     "message_id": 99,
                     "from": {"id": 777, "is_bot": True},
-                    "text": "Client Request: Unknown (ID: 99999)",
+                    "text": "<b>Request #99999</b>\n\n<a href='tg://user?id=999999'>Unknown</a> (ID: 999999)\n\n<b>Message:</b>\nTest\n\nReply with 'Approve' or 'Reject' or use the buttons below",
                 },
             },
         }
@@ -302,7 +302,7 @@ class TestRejectionFlow:
                 "reply_to_message": {
                     "message_id": 50,
                     "from": {"id": 777, "is_bot": True},
-                    "text": f"Client Request: User (ID: {request_id})",
+                    "text": f"<b>Request #{request_id}</b>\n\n<a href='tg://user?id={client_id}'>User</a> (ID: {client_id})\n\n<b>Message:</b>\nTest\n\nReply with 'Approve' or 'Reject' or use the buttons below",
                 },
             },
         }
@@ -355,7 +355,7 @@ class TestRejectionFlow:
                 "reply_to_message": {
                     "message_id": 50,
                     "from": {"id": 777, "is_bot": True},
-                    "text": f"Client Request: User (ID: {request_id})",
+                    "text": f"<b>Request #{request_id}</b>\n\n<a href='tg://user?id={client_id}'>User</a> (ID: {client_id})\n\n<b>Message:</b>\n{request_message}\n\nReply with 'Approve' or 'Reject' or use the buttons below",
                 },
             },
         }
