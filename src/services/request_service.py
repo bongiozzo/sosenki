@@ -1,11 +1,14 @@
 """Request service for managing client access requests."""
 
+import logging
 from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from src.models import AccessRequest, RequestStatus
+from src.models import AccessRequest, RequestStatus, User
+
+logger = logging.getLogger(__name__)
 
 
 class RequestService:
@@ -21,6 +24,7 @@ class RequestService:
 
         Validates that no pending request exists for this client,
         then creates a new AccessRequest with status=pending.
+        Also ensures the user exists in the users table (foreign key requirement).
 
         Args:
             user_telegram_id: Client's Telegram ID
@@ -40,6 +44,21 @@ class RequestService:
         if existing_pending:
             # Client already has a pending request
             return None
+
+        # Ensure user exists in users table (required for foreign key)
+        existing_user = self.db.execute(
+            select(User).where(User.telegram_id == user_telegram_id)
+        ).scalar_one_or_none()
+
+        if not existing_user:
+            # Create user with is_active=False (will be activated on approval)
+            user = User(
+                telegram_id=user_telegram_id,
+                is_active=False,  # Not active until approved
+            )
+            self.db.add(user)
+            self.db.flush()  # Ensure user is written before creating request
+            logger.info("Created new user %s for request", user_telegram_id)
 
         # Create new request
         new_request = AccessRequest(
