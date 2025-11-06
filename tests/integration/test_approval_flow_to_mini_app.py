@@ -5,7 +5,6 @@ from unittest.mock import AsyncMock, MagicMock
 from telegram import Update, Message, User as TelegramUser, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
-from src.bot.handlers import handle_admin_approve_button
 from src.services.notification_service import NotificationService
 
 

@@ -14,7 +14,7 @@ from sqlalchemy import delete
 from telegram import Update
 
 from src.api import webhook as webhook_module
-from src.models.client_request import ClientRequest, RequestStatus
+from src.models.access_request import AccessRequest, RequestStatus
 from src.services import SessionLocal
 
 
@@ -26,8 +26,10 @@ class TestRejectionFlow:
         """Clean up database before and after each test."""
         db = SessionLocal()
         try:
-            db.execute(delete(ClientRequest))
+            db.execute(delete(AccessRequest))
             db.commit()
+        except Exception:
+            db.rollback()
         finally:
             db.close()
 
@@ -36,8 +38,10 @@ class TestRejectionFlow:
         # Cleanup after test
         db = SessionLocal()
         try:
-            db.execute(delete(ClientRequest))
+            db.execute(delete(AccessRequest))
             db.commit()
+        except Exception:
+            db.rollback()
         finally:
             db.close()
 
@@ -142,8 +146,8 @@ class TestRejectionFlow:
         # Verify request stored in database
         db = SessionLocal()
         try:
-            stored_request = db.query(ClientRequest).filter(
-                ClientRequest.client_telegram_id == str(client_id)
+            stored_request = db.query(AccessRequest).filter(
+                AccessRequest.user_telegram_id == str(client_id)
             ).first()
             assert stored_request is not None
             assert stored_request.status == RequestStatus.PENDING
@@ -180,13 +184,13 @@ class TestRejectionFlow:
         # Step 3: Verify request status updated to REJECTED
         db = SessionLocal()
         try:
-            updated_request = db.query(ClientRequest).filter(
-                ClientRequest.id == request_id
+            updated_request = db.query(AccessRequest).filter(
+                AccessRequest.id == request_id
             ).first()
             assert updated_request is not None
             assert updated_request.status == RequestStatus.REJECTED
-            assert updated_request.admin_telegram_id == str(admin_id)
-            assert updated_request.admin_response == "rejected"
+            assert updated_request.responded_by_admin_id == str(admin_id)
+            assert updated_request.response_message == "rejected"
             assert updated_request.responded_at is not None
         finally:
             db.close()
@@ -247,7 +251,7 @@ class TestRejectionFlow:
         # Verify no requests exist in database
         db = SessionLocal()
         try:
-            all_requests = db.query(ClientRequest).all()
+            all_requests = db.query(AccessRequest).all()
             assert len(all_requests) == 0
         finally:
             db.close()
@@ -281,8 +285,8 @@ class TestRejectionFlow:
         # Get request ID
         db = SessionLocal()
         try:
-            stored_request = db.query(ClientRequest).filter(
-                ClientRequest.client_telegram_id == str(client_id)
+            stored_request = db.query(AccessRequest).filter(
+                AccessRequest.user_telegram_id == str(client_id)
             ).first()
             request_id = stored_request.id
         finally:
@@ -330,8 +334,8 @@ class TestRejectionFlow:
         # Create request
         db = SessionLocal()
         try:
-            request = ClientRequest(
-                client_telegram_id=str(client_id),
+            request = AccessRequest(
+                user_telegram_id=str(client_id),
                 request_message=request_message,
                 status=RequestStatus.PENDING,
                 submitted_at=datetime.now(timezone.utc),
@@ -366,7 +370,7 @@ class TestRejectionFlow:
         # Verify rejected
         db = SessionLocal()
         try:
-            req = db.query(ClientRequest).filter(ClientRequest.id == request_id).first()
+            req = db.query(AccessRequest).filter(AccessRequest.id == request_id).first()
             assert req.status == RequestStatus.REJECTED
         finally:
             db.close()
@@ -395,7 +399,7 @@ class TestRejectionFlow:
         # Verify still rejected
         db = SessionLocal()
         try:
-            req = db.query(ClientRequest).filter(ClientRequest.id == request_id).first()
+            req = db.query(AccessRequest).filter(AccessRequest.id == request_id).first()
             assert req.status == RequestStatus.REJECTED
         finally:
             db.close()

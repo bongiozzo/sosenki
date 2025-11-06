@@ -355,6 +355,7 @@ async def handle_admin_response(update: Update, context: ContextTypes.DEFAULT_TY
             admin_service = AdminService(db)
 
             if action == "approve":
+                logger.info("Calling approve_request for request %d", request_id)
                 request = await admin_service.approve_request(request_id=request_id, admin_telegram_id=admin_id)
                 if not request:
                     logger.warning("Request %d not found for approval", request_id)
@@ -364,6 +365,7 @@ async def handle_admin_response(update: Update, context: ContextTypes.DEFAULT_TY
                         logger.debug("Could not send 'not found' reply for approval to admin %s", admin_id, exc_info=True)
                     return
 
+                logger.info("Approval successful, sending welcome message to client %s", request.user_telegram_id)
                 notification_service = NotificationService(context.application)
                 await notification_service.send_welcome_message(client_id=request.user_telegram_id)
                 try:
@@ -372,6 +374,7 @@ async def handle_admin_response(update: Update, context: ContextTypes.DEFAULT_TY
                     logger.debug("Could not confirm approval to admin %s", admin_id, exc_info=True)
 
             else:  # reject
+                logger.info("Calling reject_request for request %d", request_id)
                 request = await admin_service.reject_request(request_id=request_id, admin_telegram_id=admin_id)
                 if not request:
                     logger.warning("Request %d not found for rejection", request_id)
@@ -381,6 +384,7 @@ async def handle_admin_response(update: Update, context: ContextTypes.DEFAULT_TY
                         logger.debug("Could not send 'not found' reply for rejection to admin %s", admin_id, exc_info=True)
                     return
 
+                logger.info("Rejection successful, sending rejection message to client %s", request.user_telegram_id)
                 notification_service = NotificationService(context.application)
                 await notification_service.send_rejection_message(client_id=request.user_telegram_id)
                 try:

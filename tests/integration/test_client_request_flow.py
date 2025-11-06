@@ -14,11 +14,11 @@ from sqlalchemy import delete
 from telegram import Update
 
 from src.api import webhook as webhook_module
-from src.models.client_request import ClientRequest, RequestStatus
+from src.models.access_request import AccessRequest, RequestStatus
 from src.services import SessionLocal
 
 
-class TestClientRequestFlow:
+class TestAccessRequestFlow:
     """Integration tests for the complete client request submission flow."""
 
     @pytest.fixture(autouse=True)
@@ -27,8 +27,10 @@ class TestClientRequestFlow:
         db = SessionLocal()
         try:
             # Delete all requests before test
-            db.execute(delete(ClientRequest))
+            db.execute(delete(AccessRequest))
             db.commit()
+        except Exception:
+            db.rollback()
         finally:
             db.close()
 
@@ -37,8 +39,10 @@ class TestClientRequestFlow:
         # Cleanup after test
         db = SessionLocal()
         try:
-            db.execute(delete(ClientRequest))
+            db.execute(delete(AccessRequest))
             db.commit()
+        except Exception:
+            db.rollback()
         finally:
             db.close()
 
@@ -138,20 +142,20 @@ class TestClientRequestFlow:
         # Step 2: Verify request is stored in database
         db = SessionLocal()
         try:
-            stored_requests = db.query(ClientRequest).filter(
-                ClientRequest.client_telegram_id == str(client_id)
+            stored_requests = db.query(AccessRequest).filter(
+                AccessRequest.user_telegram_id == str(client_id)
             ).all()
 
             assert len(stored_requests) == 1, "Request should be stored in database"
             stored_request = stored_requests[0]
 
             # Verify request details
-            assert stored_request.client_telegram_id == str(client_id)
+            assert stored_request.user_telegram_id == str(client_id)
             assert stored_request.request_message == request_message
             assert stored_request.status == RequestStatus.PENDING
             assert stored_request.submitted_at is not None
-            assert stored_request.admin_telegram_id is None
-            assert stored_request.admin_response is None
+            assert stored_request.responded_by_admin_id is None
+            assert stored_request.response_message is None
             assert stored_request.responded_at is None
 
         finally:
@@ -216,8 +220,8 @@ class TestClientRequestFlow:
         # Step 3: Verify only one request in database
         db = SessionLocal()
         try:
-            stored_requests = db.query(ClientRequest).filter(
-                ClientRequest.client_telegram_id == str(client_id)
+            stored_requests = db.query(AccessRequest).filter(
+                AccessRequest.user_telegram_id == str(client_id)
             ).all()
 
             assert len(stored_requests) == 1, "Only one request should be stored"
@@ -261,8 +265,8 @@ class TestClientRequestFlow:
         # Verify request was stored
         db = SessionLocal()
         try:
-            stored_request = db.query(ClientRequest).filter(
-                ClientRequest.client_telegram_id == str(client_id)
+            stored_request = db.query(AccessRequest).filter(
+                AccessRequest.user_telegram_id == str(client_id)
             ).first()
             assert stored_request is not None
         finally:
@@ -295,8 +299,8 @@ class TestClientRequestFlow:
         # Verify request is stored correctly with special characters preserved
         db = SessionLocal()
         try:
-            stored_request = db.query(ClientRequest).filter(
-                ClientRequest.client_telegram_id == str(client_id)
+            stored_request = db.query(AccessRequest).filter(
+                AccessRequest.user_telegram_id == str(client_id)
             ).first()
 
             assert stored_request is not None
@@ -328,8 +332,8 @@ class TestClientRequestFlow:
 
         db = SessionLocal()
         try:
-            stored_request = db.query(ClientRequest).filter(
-                ClientRequest.client_telegram_id == str(client_id)
+            stored_request = db.query(AccessRequest).filter(
+                AccessRequest.user_telegram_id == str(client_id)
             ).first()
 
             assert stored_request is not None

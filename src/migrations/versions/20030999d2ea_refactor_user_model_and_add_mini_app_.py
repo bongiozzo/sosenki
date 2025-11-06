@@ -62,6 +62,8 @@ def upgrade() -> None:
         sa.Column('responded_by_admin_id', sa.String(length=50), nullable=True, comment='Admin who approved/rejected'),
         sa.Column('response_message', sa.Text(), nullable=True, comment="Admin's response message"),
         sa.Column('responded_at', sa.DateTime(timezone=True), nullable=True, comment='When admin responded'),
+        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, comment='Record creation timestamp'),
+        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, comment='Record update timestamp'),
         sa.ForeignKeyConstraint(['user_telegram_id'], ['users.telegram_id']),
         sa.ForeignKeyConstraint(['responded_by_admin_id'], ['users.telegram_id']),
         sa.PrimaryKeyConstraint('id')
@@ -69,8 +71,8 @@ def upgrade() -> None:
     
     # Copy data from old table to new (mapping old column names to new)
     op.execute("""
-        INSERT INTO access_requests_new (id, user_telegram_id, request_message, status, submitted_at, responded_by_admin_id, response_message, responded_at)
-        SELECT id, client_telegram_id, request_message, status, submitted_at, admin_telegram_id, admin_response, responded_at
+        INSERT INTO access_requests_new (id, user_telegram_id, request_message, status, submitted_at, responded_by_admin_id, response_message, responded_at, created_at, updated_at)
+        SELECT id, client_telegram_id, request_message, status, submitted_at, admin_telegram_id, admin_response, responded_at, DATETIME('now'), DATETIME('now')
         FROM access_requests
     """)
     

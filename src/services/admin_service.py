@@ -1,10 +1,15 @@
 """Admin service for approval and rejection workflows."""
 
+import logging
 from datetime import datetime, timezone
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.models.access_request import AccessRequest, RequestStatus
+from src.models.user import User
+
+logger = logging.getLogger(__name__)
 
 
 class AdminService:
@@ -36,18 +41,32 @@ class AdminService:
             ).first()
 
             if not request:
+                logger.warning("Request %d not found for approval", request_id)
                 return None
 
             # Update request status to approved
             request.status = RequestStatus.APPROVED
-            request.admin_telegram_id = admin_telegram_id
-            request.admin_response = "approved"
+            request.responded_by_admin_id = admin_telegram_id
+            request.response_message = "approved"
             request.responded_at = datetime.now(timezone.utc)
 
+            # T042: Activate the user (set is_active=True)
+            user = self.db.execute(
+                select(User).where(User.telegram_id == request.user_telegram_id)
+            ).scalar_one_or_none()
+            
+            if user:
+                user.is_active = True
+                logger.info("Activated user %s on approval", request.user_telegram_id)
+            else:
+                logger.warning("User %s not found for activation on approval", request.user_telegram_id)
+
             self.db.commit()
+            logger.info("Request %d approved by admin %s", request_id, admin_telegram_id)
             return request
 
-        except Exception:
+        except Exception as e:
+            logger.error("Error approving request %d: %s", request_id, e, exc_info=True)
             self.db.rollback()
             return None
 
@@ -74,18 +93,21 @@ class AdminService:
             ).first()
 
             if not request:
+                logger.warning("Request %d not found for rejection", request_id)
                 return None
 
             # Update request status to rejected
             request.status = RequestStatus.REJECTED
-            request.admin_telegram_id = admin_telegram_id
-            request.admin_response = "rejected"
+            request.responded_by_admin_id = admin_telegram_id
+            request.response_message = "rejected"
             request.responded_at = datetime.now(timezone.utc)
 
             self.db.commit()
+            logger.info("Request %d rejected by admin %s", request_id, admin_telegram_id)
             return request
 
-        except Exception:
+        except Exception as e:
+            logger.error("Error rejecting request %d: %s", request_id, e, exc_info=True)
             self.db.rollback()
             return None
 

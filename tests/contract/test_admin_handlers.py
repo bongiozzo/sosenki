@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import delete
 
 from src.api import webhook as webhook_module
-from src.models.client_request import ClientRequest, RequestStatus
+from src.models.access_request import AccessRequest, RequestStatus
 from src.services import SessionLocal
 
 
@@ -21,8 +21,12 @@ def cleanup_db():
     """Clean up database before and after each test."""
     db = SessionLocal()
     try:
-        db.execute(delete(ClientRequest))
+        # Try to delete, but ignore if table doesn't exist
+        db.execute(delete(AccessRequest))
         db.commit()
+    except Exception:
+        # Table may not exist if migrations haven't run
+        db.rollback()
     finally:
         db.close()
 
@@ -30,8 +34,10 @@ def cleanup_db():
 
     db = SessionLocal()
     try:
-        db.execute(delete(ClientRequest))
+        db.execute(delete(AccessRequest))
         db.commit()
+    except Exception:
+        db.rollback()
     finally:
         db.close()
 
@@ -105,8 +111,8 @@ class TestAdminHandlers:
         """Helper to create a pending request in database."""
         db = SessionLocal()
         try:
-            request = ClientRequest(
-                client_telegram_id=str(client_id),
+            request = AccessRequest(
+                user_telegram_id=str(client_id),
                 request_message=message,
                 status=RequestStatus.PENDING,
                 submitted_at=datetime.now(timezone.utc),
@@ -156,12 +162,12 @@ class TestAdminHandlers:
         # Verify request status updated in database
         db = SessionLocal()
         try:
-            updated_request = db.query(ClientRequest).filter(
-                ClientRequest.id == request.id
+            updated_request = db.query(AccessRequest).filter(
+                AccessRequest.id == request.id
             ).first()
             assert updated_request is not None
             assert updated_request.status == RequestStatus.APPROVED
-            assert updated_request.admin_telegram_id == str(admin_id)
+            assert updated_request.responded_by_admin_id == str(admin_id)
         finally:
             db.close()
 
@@ -200,7 +206,7 @@ class TestAdminHandlers:
         # Verify no requests in database (invalid request, nothing changed)
         db = SessionLocal()
         try:
-            all_requests = db.query(ClientRequest).all()
+            all_requests = db.query(AccessRequest).all()
             assert len(all_requests) == 0
         finally:
             db.close()
@@ -243,12 +249,12 @@ class TestAdminHandlers:
         # Verify request status updated in database
         db = SessionLocal()
         try:
-            updated_request = db.query(ClientRequest).filter(
-                ClientRequest.id == request.id
+            updated_request = db.query(AccessRequest).filter(
+                AccessRequest.id == request.id
             ).first()
             assert updated_request is not None
             assert updated_request.status == RequestStatus.REJECTED
-            assert updated_request.admin_telegram_id == str(admin_id)
+            assert updated_request.responded_by_admin_id == str(admin_id)
         finally:
             db.close()
 
@@ -287,7 +293,7 @@ class TestAdminHandlers:
         # Verify no requests in database
         db = SessionLocal()
         try:
-            all_requests = db.query(ClientRequest).all()
+            all_requests = db.query(AccessRequest).all()
             assert len(all_requests) == 0
         finally:
             db.close()
