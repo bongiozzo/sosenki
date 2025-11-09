@@ -164,20 +164,20 @@ Phase 1 (Setup) → Phase 2 (Foundational) → [User Stories 3-5 in parallel] �
 
 **Tasks**:
 
-- [ ] T037 [US2] Implement `record_contribution()` method in `PaymentService` in `src/services/payment_service.py`
-- [ ] T038 [US2] Implement `get_contributions()` method to list contributions for period in `src/services/payment_service.py`
-- [ ] T039 [US2] Implement `get_owner_contributions()` method to get cumulative contributions for owner in period in `src/services/payment_service.py`
-- [ ] T040 [US2] Implement `edit_contribution()` method to update contribution in open period in `src/services/payment_service.py`
-- [ ] T041 [US2] Implement POST `/api/periods/{id}/contributions` endpoint in `src/api/payment.py` to record contribution
-- [ ] T042 [US2] Implement GET `/api/periods/{id}/contributions` endpoint in `src/api/payment.py` to list contributions
-- [ ] T043 [US2] Implement GET `/api/periods/{id}/contributions?owner_id={owner_id}` endpoint in `src/api/payment.py` for owner-specific contributions
-- [ ] T044 [US2] Implement PATCH `/api/contributions/{id}` endpoint in `src/api/payment.py` to edit contribution
-- [ ] T045 [US2] Add validation: amount > 0, date within period range, user_id exists
-- [ ] T046 [US2] Prevent contribution recording in CLOSED periods with error response
-- [ ] T047 [US2] Integration test: record contribution → verify in history → calculate cumulative in `tests/integration/test_financial_flows.py`
-- [ ] T048 [US2] Contract test: POST /contributions returns 201 with contribution object in `tests/contract/test_payment_endpoints.py`
-- [ ] T049 [US2] Contract test: GET /contributions returns chronological list in `tests/contract/test_payment_endpoints.py`
-- [ ] T050 [US2] Unit test: contribution cumulative calculation in `tests/unit/test_payment_service.py`
+- [x] T037 [US2] Implement `record_contribution()` method in `PaymentService` in `src/services/payment_service.py`
+- [x] T038 [US2] Implement `get_contributions()` method to list contributions for period in `src/services/payment_service.py`
+- [x] T039 [US2] Implement `get_owner_contributions()` method to get cumulative contributions for owner in period in `src/services/payment_service.py`
+- [x] T040 [US2] Implement `edit_contribution()` method to update contribution in open period in `src/services/payment_service.py`
+- [x] T041 [US2] Implement POST `/api/periods/{id}/contributions` endpoint in `src/api/payment.py` to record contribution
+- [x] T042 [US2] Implement GET `/api/periods/{id}/contributions` endpoint in `src/api/payment.py` to list contributions
+- [x] T043 [US2] Implement GET `/api/periods/{id}/contributions?owner_id={owner_id}` endpoint in `src/api/payment.py` for owner-specific contributions
+- [x] T044 [US2] Implement PATCH `/api/contributions/{id}` endpoint in `src/api/payment.py` to edit contribution
+- [x] T045 [US2] Add validation: amount > 0, date within period range, user_id exists
+- [x] T046 [US2] Prevent contribution recording in CLOSED periods with error response
+- [x] T047 [US2] Integration test: record contribution → verify in history → calculate cumulative in `tests/integration/test_contribution_workflows.py`
+- [x] T048 [US2] Contract test: POST /contributions returns 201 with contribution object in `tests/contract/test_payment_api_contract.py`
+- [x] T049 [US2] Contract test: GET /contributions returns chronological list in `tests/contract/test_payment_api_contract.py`
+- [x] T050 [US2] Unit test: contribution cumulative calculation in `tests/unit/test_payment_service_periods.py`
 
 ---
 
@@ -197,21 +197,21 @@ Phase 1 (Setup) → Phase 2 (Foundational) → [User Stories 3-5 in parallel] �
 
 **Tasks**:
 
-- [ ] T051 [US3] Implement `record_expense()` method in `PaymentService` in `src/services/payment_service.py`
-- [ ] T052 [US3] Implement `get_expenses()` method to list expenses for period in `src/services/payment_service.py`
-- [ ] T053 [US3] Implement `get_paid_by_user()` method to get expenses paid by specific user in `src/services/payment_service.py`
-- [ ] T054 [US3] Implement `edit_expense()` method to update expense in open period in `src/services/payment_service.py`
-- [ ] T055 [US3] Implement POST `/api/periods/{id}/expenses` endpoint in `src/api/payment.py` to record expense
-- [ ] T056 [US3] Implement GET `/api/periods/{id}/expenses` endpoint in `src/api/payment.py` to list expenses
-- [ ] T057 [US3] Implement GET `/api/periods/{id}/expenses?paid_by={user_id}` endpoint in `src/api/payment.py` for payer-specific expenses
-- [ ] T058 [US3] Implement PATCH `/api/expenses/{id}` endpoint in `src/api/payment.py` to edit expense
-- [ ] T059 [US3] Add validation: amount > 0, paid_by_user_id exists, payment_type not empty, date within period range
-- [ ] T060 [US3] Prevent expense recording in CLOSED periods with error response
-- [ ] T061 [US3] Store expense with reference to BudgetItem for later allocation (allow NULL if no budget item yet)
-- [ ] T062 [US3] Integration test: record expense → verify in history → verify payer credited in `tests/integration/test_financial_flows.py`
-- [ ] T063 [US3] Contract test: POST /expenses returns 201 with expense object in `tests/contract/test_payment_endpoints.py`
-- [ ] T064 [US3] Contract test: GET /expenses returns all expenses with paid_by information in `tests/contract/test_payment_endpoints.py`
-- [ ] T065 [US3] Unit test: expense recording and payer attribution in `tests/unit/test_payment_service.py`
+- [x] T051 [US3] Implement `record_expense()` method in `PaymentService` in `src/services/payment_service.py`
+- [x] T052 [US3] Implement `get_expenses()` method to list expenses for period in `src/services/payment_service.py`
+- [x] T053 [US3] Implement `get_paid_by_user()` method to get expenses paid by specific user in `src/services/payment_service.py`
+- [x] T054 [US3] Implement `edit_expense()` method to update expense in open period in `src/services/payment_service.py`
+- [x] T055 [US3] Implement POST `/api/periods/{id}/expenses` endpoint in `src/api/payment.py` to record expense
+- [x] T056 [US3] Implement GET `/api/periods/{id}/expenses` endpoint in `src/api/payment.py` to list expenses
+- [x] T057 [US3] Implement GET `/api/periods/{id}/expenses?paid_by={user_id}` endpoint in `src/api/payment.py` for payer-specific expenses (via get_paid_by_user)
+- [x] T058 [US3] Implement PATCH `/api/expenses/{id}` endpoint in `src/api/payment.py` to edit expense
+- [x] T059 [US3] Add validation: amount > 0, paid_by_user_id exists, payment_type not empty, date within period range
+- [x] T060 [US3] Prevent expense recording in CLOSED periods with error response
+- [x] T061 [US3] Store expense with reference to BudgetItem for later allocation (allow NULL if no budget item yet)
+- [x] T062 [US3] Integration test: record expense → verify in history → verify payer credited in `tests/integration/test_expense_workflows.py`
+- [x] T063 [US3] Contract test: POST /expenses returns 201 with expense object in `tests/contract/test_payment_api_contract.py`
+- [x] T064 [US3] Contract test: GET /expenses returns all expenses with paid_by information in `tests/contract/test_payment_api_contract.py`
+- [x] T065 [US3] Unit test: expense recording and payer attribution in `tests/integration/test_expense_workflows.py`
 
 ---
 
