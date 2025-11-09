@@ -200,6 +200,21 @@ class BalanceSheetResponse(BaseModel):
     total_period_balance: Decimal
 
 
+class CarryForwardRequest(BaseModel):
+    """Request to carry forward balances to next period."""
+    from_period_id: int
+    to_period_id: int
+
+
+class CarryForwardResponse(BaseModel):
+    """Response with carry-forward results."""
+    from_period_id: int
+    to_period_id: int
+    carried_forward_owners: Dict[int, Decimal]  # owner_id -> balance
+    total_carried: Decimal
+    message: str
+
+
 # ============================================================================
 # Service Period Endpoints
 # ============================================================================
@@ -868,3 +883,127 @@ async def get_owner_balance(
         "total_charges": charge,
         "balance": balance
     }
+
+
+# ============================================================================
+# Multi-Period Management Endpoints
+# ============================================================================
+
+@router.post("/periods/carry-forward", response_model=CarryForwardResponse)
+async def carry_forward_balance(
+    request: CarryForwardRequest,
+    db: Session = Depends(lambda: None)  # TODO: Add proper DB dependency
+) -> CarryForwardResponse:
+    """Carry forward balances from closed period to next period.
+
+    Calculates balances from source period and applies them to target period:
+    - Positive balances (credits) are added as opening contributions
+    - Negative balances (debts) are added as opening service charges
+
+    Args:
+        request: Carry-forward request with from_period_id and to_period_id
+        db: Database session
+
+    Returns:
+        Carry-forward results including owner balances applied
+
+    Raises:
+        HTTPException: If periods not found or invalid transition
+    """
+    balance_service = BalanceService(db=db)
+    payment_service = PaymentService(db=db)
+
+    # Verify both periods exist
+    from_period = payment_service.get_period(request.from_period_id)
+    to_period = payment_service.get_period(request.to_period_id)
+
+    if not from_period:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Source period not found")
+    if not to_period:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Target period not found")
+
+    # Verify source period is closed
+    if from_period.status != "CLOSED":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Source period must be CLOSED to carry forward"
+        )
+
+    # Calculate balances to carry forward
+    carried = balance_service.carry_forward_balance(request.from_period_id, request.to_period_id)
+    total_carried = sum(carried.values())
+
+    # Apply opening balances to target period
+    balance_service.apply_opening_balance(request.to_period_id, carried)
+
+    return CarryForwardResponse(
+        from_period_id=request.from_period_id,
+        to_period_id=request.to_period_id,
+        carried_forward_owners=carried,
+        total_carried=total_carried,
+        message=f"Successfully carried forward {len(carried)} owner balances"
+    )
+
+
+@router.get("/periods/{period_id}/opening-transactions")
+async def get_opening_transactions(
+    period_id: int,
+    db: Session = Depends(lambda: None)  # TODO: Add proper DB dependency
+) -> Dict:
+    """Get opening transactions from carry-forward for a period.
+
+    Allows administrators to audit which transactions were applied as opening balances.
+
+    Args:
+        period_id: Period ID
+        db: Database session
+
+    Returns:
+        Dictionary with opening contributions and charges
+
+    Raises:
+        HTTPException: If period not found
+    """
+    from src.models import ContributionLedger, ServiceCharge
+
+    payment_service = PaymentService(db=db)
+    period = payment_service.get_period(period_id)
+    if not period:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Period not found")
+
+    # Query opening transactions (marked with "Opening balance" or "Opening debt" comments)
+    opening_contribs = db.query(ContributionLedger).filter(
+        ContributionLedger.service_period_id == period_id,
+        ContributionLedger.comment.like("%Opening balance%") if ContributionLedger.comment else False
+    ).all()
+
+    opening_charges = db.query(ServiceCharge).filter(
+        ServiceCharge.service_period_id == period_id,
+        ServiceCharge.description.like("%Opening debt%") if ServiceCharge.description else False
+    ).all()
+
+    return {
+        "period_id": period_id,
+        "opening_contributions": [
+            {
+                "id": c.id,
+                "user_id": c.user_id,
+                "amount": c.amount,
+                "date": c.date,
+                "comment": c.comment
+            }
+            for c in opening_contribs
+        ],
+        "opening_charges": [
+            {
+                "id": c.id,
+                "user_id": c.user_id,
+                "amount": c.amount,
+                "description": c.description
+            }
+            for c in opening_charges
+        ],
+        "total_opening_contributions": sum(c.amount for c in opening_contribs),
+        "total_opening_charges": sum(c.amount for c in opening_charges)
+    }
+
