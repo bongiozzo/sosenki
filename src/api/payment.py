@@ -9,13 +9,14 @@ Handles financial operations:
 
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field, ConfigDict
 from sqlalchemy.orm import Session
 
 from src.services.payment_service import PaymentService
+from src.services.balance_service import BalanceService
 from src.models import PeriodStatus
 
 router = APIRouter(prefix="/api/payments", tags=["payments"])
@@ -180,6 +181,23 @@ class ServiceChargeResponse(BaseModel):
     user_id: int
     description: str
     amount: Decimal
+
+
+class BalanceSheetEntryResponse(BaseModel):
+    """Balance sheet entry for owner in period."""
+    owner_id: int
+    username: str
+    total_contributions: Decimal
+    total_expenses: Decimal
+    total_charges: Decimal
+    balance: Decimal  # contributions - (expenses + charges)
+
+
+class BalanceSheetResponse(BaseModel):
+    """Complete balance sheet for period."""
+    period_id: int
+    entries: List[BalanceSheetEntryResponse]
+    total_period_balance: Decimal
 
 
 # ============================================================================
@@ -766,3 +784,87 @@ async def delete_service_charge(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service charge not found")
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+# ============================================================================
+# Balance Sheet Endpoints
+# ============================================================================
+
+@router.get("/periods/{period_id}/balance-sheet", response_model=BalanceSheetResponse)
+async def get_period_balance_sheet(
+    period_id: int,
+    db: Session = Depends(lambda: None)  # TODO: Add proper DB dependency
+) -> BalanceSheetResponse:
+    """Generate balance sheet for entire period.
+
+    Shows all owners with their contributions, expenses, charges, and balance.
+
+    Args:
+        period_id: Period ID
+        db: Database session
+
+    Returns:
+        Complete balance sheet for period
+
+    Raises:
+        HTTPException: If period not found
+    """
+    service = BalanceService(db=db)
+    
+    # Verify period exists
+    payment_service = PaymentService(db=db)
+    period = payment_service.get_period(period_id)
+    if not period:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Period not found")
+    
+    sheet = service.generate_period_balance_sheet(period_id)
+    total_balance = service.get_period_total_balance(period_id)
+    
+    entries = [BalanceSheetEntryResponse(**entry) for entry in sheet]
+    return BalanceSheetResponse(
+        period_id=period_id,
+        entries=entries,
+        total_period_balance=total_balance
+    )
+
+
+@router.get("/periods/{period_id}/owner-balance/{owner_id}", response_model=Dict)
+async def get_owner_balance(
+    period_id: int,
+    owner_id: int,
+    db: Session = Depends(lambda: None)  # TODO: Add proper DB dependency
+) -> Dict:
+    """Get balance details for specific owner in period.
+
+    Args:
+        period_id: Period ID
+        owner_id: Owner ID
+        db: Database session
+
+    Returns:
+        Owner's balance details
+
+    Raises:
+        HTTPException: If period or owner not found
+    """
+    service = BalanceService(db=db)
+    
+    # Verify period exists
+    payment_service = PaymentService(db=db)
+    period = payment_service.get_period(period_id)
+    if not period:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Period not found")
+    
+    contrib = service.get_owner_contributions(period_id, owner_id)
+    expense = service.get_owner_expenses(period_id, owner_id)
+    charge = service.get_owner_service_charges(period_id, owner_id)
+    balance = service.get_owner_balance(period_id, owner_id)
+    
+    return {
+        "owner_id": owner_id,
+        "period_id": period_id,
+        "total_contributions": contrib,
+        "total_expenses": expense,
+        "total_charges": charge,
+        "balance": balance
+    }
