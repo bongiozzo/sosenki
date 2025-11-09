@@ -175,3 +175,54 @@ class AllocationService:
 
         # Convert to shares (consumption as weight)
         return self.distribute_with_remainder(total_cost, consumption_by_owner)
+
+    def allocate_expenses(
+        self,
+        expense_amount: Decimal,
+        allocation_strategy: str,
+        owner_shares: Dict[int, Decimal] = None,
+        owner_consumption: Dict[int, Decimal] = None,
+    ) -> Dict[int, Decimal]:
+        """Allocate expense using specified strategy.
+
+        Orchestrates allocation based on strategy type.
+
+        Args:
+            expense_amount: Total expense to allocate
+            allocation_strategy: Strategy name (PROPORTIONAL, FIXED_FEE, USAGE_BASED, NONE)
+            owner_shares: Dict for PROPORTIONAL/FIXED_FEE (owner_id -> weight)
+            owner_consumption: Dict for USAGE_BASED (owner_id -> consumption)
+
+        Returns:
+            Dict mapping owner_id to allocated amount
+
+        Raises:
+            ValueError: If strategy invalid or required data missing
+        """
+        if allocation_strategy == "PROPORTIONAL":
+            if not owner_shares:
+                raise ValueError("owner_shares required for PROPORTIONAL allocation")
+            return self.allocate_proportional(expense_amount, owner_shares)
+
+        elif allocation_strategy == "FIXED_FEE":
+            if not owner_shares:
+                raise ValueError("owner_shares required for FIXED_FEE allocation")
+            return self.allocate_fixed_fee(expense_amount, len(owner_shares))
+
+        elif allocation_strategy == "USAGE_BASED":
+            if not owner_consumption:
+                raise ValueError("owner_consumption required for USAGE_BASED allocation")
+            return self.allocate_usage_based(expense_amount, owner_consumption)
+
+        elif allocation_strategy == "NONE":
+            # No allocation - return zeros
+            if owner_shares:
+                return {k: Decimal(0) for k in owner_shares.keys()}
+            elif owner_consumption:
+                return {k: Decimal(0) for k in owner_consumption.keys()}
+            else:
+                return {}
+
+        else:
+            raise ValueError(f"Unknown allocation strategy: {allocation_strategy}")
+

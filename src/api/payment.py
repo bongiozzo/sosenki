@@ -114,6 +114,25 @@ class OwnerContributionSummary(BaseModel):
     total_contributed: Decimal
 
 
+class BudgetItemCreateRequest(BaseModel):
+    """Request to create a budget item."""
+    payment_type: str = Field(..., min_length=1, max_length=100)
+    budgeted_cost: Decimal = Field(..., gt=0, decimal_places=2)
+    allocation_strategy: str = Field(..., pattern="^(PROPORTIONAL|FIXED_FEE|USAGE_BASED|NONE)$")
+
+
+class BudgetItemResponse(BaseModel):
+    """Response with budget item details."""
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: int
+    service_period_id: int
+    payment_type: str
+    budgeted_cost: Decimal
+    allocation_strategy: str
+    description: Optional[str] = None
+
+
 # ============================================================================
 # Service Period Endpoints
 # ============================================================================
@@ -448,4 +467,60 @@ async def list_service_charges(
     return [ServiceChargeResponse.model_validate(c) for c in charges]
 
 
-# TODO: Implement endpoints
+# ============================================================================
+# Budget Item Endpoints
+# ============================================================================
+
+@router.post("/periods/{period_id}/budget-items", response_model=BudgetItemResponse, status_code=status.HTTP_201_CREATED)
+async def create_budget_item(
+    period_id: int,
+    request: BudgetItemCreateRequest,
+    db: Session = Depends(lambda: None)  # TODO: Add proper DB dependency
+) -> BudgetItemResponse:
+    """Create a budget item for expense allocation.
+
+    Args:
+        period_id: Period ID
+        request: Budget item details
+        db: Database session
+
+    Returns:
+        Created budget item details
+
+    Raises:
+        HTTPException: If validation fails
+    """
+    try:
+        service = PaymentService(db=db)
+        budget_item = service.create_budget_item(
+            period_id=period_id,
+            payment_type=request.payment_type,
+            budgeted_cost=request.budgeted_cost,
+            allocation_strategy=request.allocation_strategy,
+            description=request.description
+        )
+        return BudgetItemResponse.model_validate(budget_item)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+
+@router.get("/periods/{period_id}/budget-items", response_model=List[BudgetItemResponse])
+async def list_budget_items(
+    period_id: int,
+    db: Session = Depends(lambda: None)  # TODO: Add proper DB dependency
+) -> List[BudgetItemResponse]:
+    """List budget items for a period.
+
+    Args:
+        period_id: Period ID
+        db: Database session
+
+    Returns:
+        List of budget items
+    """
+    service = PaymentService(db=db)
+    budget_items = service.get_budget_items(period_id)
+    return [BudgetItemResponse.model_validate(b) for b in budget_items]
