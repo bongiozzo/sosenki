@@ -570,3 +570,121 @@ class PaymentService:
             transactions.sort(key=lambda t: t.date if hasattr(t, 'date') else t.created_at)
             return transactions
         return []
+
+    def create_budget_item(
+        self,
+        period_id: int,
+        payment_type: str,
+        budgeted_cost: Decimal,
+        allocation_strategy: str,
+    ) -> BudgetItem:
+        """Create a budget item for expense allocation.
+
+        Args:
+            period_id: Service period ID
+            payment_type: Type of expense (e.g., "Water", "Electric")
+            budgeted_cost: Budgeted amount for this type
+            allocation_strategy: Strategy for allocation (PROPORTIONAL, FIXED_FEE, USAGE_BASED, NONE)
+
+        Returns:
+            Created BudgetItem object
+
+        Raises:
+            ValueError: If period not found, amount invalid, or invalid strategy
+        """
+        if self.db:
+            # Validate period exists
+            period = self.db.query(ServicePeriod).filter_by(id=period_id).first()
+            if not period:
+                raise ValueError(f"Period {period_id} not found")
+
+            # Validate amount
+            if budgeted_cost <= Decimal(0):
+                raise ValueError("Budgeted cost must be positive")
+
+            # Validate strategy
+            valid_strategies = ["PROPORTIONAL", "FIXED_FEE", "USAGE_BASED", "NONE"]
+            if allocation_strategy not in valid_strategies:
+                raise ValueError(f"Invalid strategy. Must be one of: {', '.join(valid_strategies)}")
+
+            budget_item = BudgetItem(
+                service_period_id=period_id,
+                payment_type=payment_type,
+                budgeted_cost=budgeted_cost,
+                allocation_strategy=allocation_strategy,
+            )
+            self.db.add(budget_item)
+            self.db.commit()
+            self.db.refresh(budget_item)
+            return budget_item
+        return None
+
+    def get_budget_items(self, period_id: int) -> List[BudgetItem]:
+        """Get all budget items for a period.
+
+        Args:
+            period_id: Period ID
+
+        Returns:
+            List of BudgetItem objects
+        """
+        if self.db:
+            return (
+                self.db.query(BudgetItem)
+                .filter_by(service_period_id=period_id)
+                .all()
+            )
+        return []
+
+    def get_budget_item(self, budget_item_id: int) -> Optional[BudgetItem]:
+        """Get a specific budget item by ID.
+
+        Args:
+            budget_item_id: Budget item ID
+
+        Returns:
+            BudgetItem object or None if not found
+        """
+        if self.db:
+            return self.db.query(BudgetItem).filter_by(id=budget_item_id).first()
+        return None
+
+    def update_budget_item(
+        self,
+        budget_item_id: int,
+        budgeted_cost: Optional[Decimal] = None,
+        allocation_strategy: Optional[str] = None,
+    ) -> BudgetItem:
+        """Update a budget item.
+
+        Args:
+            budget_item_id: Budget item ID
+            budgeted_cost: New cost (optional)
+            allocation_strategy: New strategy (optional)
+
+        Returns:
+            Updated BudgetItem object
+
+        Raises:
+            ValueError: If item not found or invalid data
+        """
+        if self.db:
+            budget_item = self.db.query(BudgetItem).filter_by(id=budget_item_id).first()
+            if not budget_item:
+                raise ValueError(f"Budget item {budget_item_id} not found")
+
+            if budgeted_cost is not None:
+                if budgeted_cost <= Decimal(0):
+                    raise ValueError("Budgeted cost must be positive")
+                budget_item.budgeted_cost = budgeted_cost
+
+            if allocation_strategy is not None:
+                valid_strategies = ["PROPORTIONAL", "FIXED_FEE", "USAGE_BASED", "NONE"]
+                if allocation_strategy not in valid_strategies:
+                    raise ValueError(f"Invalid strategy. Must be one of: {', '.join(valid_strategies)}")
+                budget_item.allocation_strategy = allocation_strategy
+
+            self.db.commit()
+            self.db.refresh(budget_item)
+            return budget_item
+        return None
