@@ -30,7 +30,15 @@ class BaseModel:
 # This must be after Base declaration to avoid circular imports
 from src.models.user import User  # noqa: E402
 from src.models.access_request import AccessRequest, RequestStatus  # noqa: E402
-from src.models.admin_config import Administrator  # noqa: E402
+from src.models.property import Property  # noqa: E402
+
+# Financial/Payment models
+from src.models.payment.service_period import ServicePeriod, PeriodStatus  # noqa: E402
+from src.models.payment.contribution_ledger import ContributionLedger  # noqa: E402
+from src.models.payment.expense_ledger import ExpenseLedger  # noqa: E402
+from src.models.payment.budget_item import BudgetItem, AllocationStrategy  # noqa: E402
+from src.models.payment.utility_reading import UtilityReading  # noqa: E402
+from src.models.payment.service_charge import ServiceCharge  # noqa: E402
 
 __all__ = [
     "Base",
@@ -38,6 +46,14 @@ __all__ = [
     "User",
     "AccessRequest",
     "RequestStatus",
-    "Administrator",
+    "Property",
+    "ServicePeriod",
+    "PeriodStatus",
+    "ContributionLedger",
+    "ExpenseLedger",
+    "BudgetItem",
+    "AllocationStrategy",
+    "UtilityReading",
+    "ServiceCharge",
 ]
 

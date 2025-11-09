@@ -3,7 +3,7 @@
 from datetime import datetime, timezone
 
 from sqlalchemy import Boolean, DateTime, Index, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models import Base, BaseModel
 
@@ -95,6 +95,13 @@ class User(Base, BaseModel):
         Index("idx_username", "username"),
         Index("idx_is_active", "is_active"),
         Index("idx_investor_active", "is_investor", "is_active"),
+    )
+
+    # Relationships
+    properties: Mapped[list["Property"]] = relationship(  # noqa: F821
+        "Property",
+        back_populates="owner",
+        foreign_keys="Property.owner_id",
     )
 
     def __repr__(self) -> str:
