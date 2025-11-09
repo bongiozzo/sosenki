@@ -67,7 +67,7 @@ The administrator configures how different types of expenses are allocated to ow
 
 1. **Given** an administrator is configuring budget allocation, **When** they create a budget item for "Охрана" with 60000 rubles budget, allocation_strategy=PROPORTIONAL, **Then** the system stores the budget item and applies this strategy to all security expenses in that period.
 2. **Given** a property owner has share_weight=2.5 and total weighted shares across all properties=10, **When** the system allocates a 10000 ruble security expense proportionally, **Then** the owner is charged 2500 rubles (2.5/10 * 10000).
-3. **Given** an administrator specifies allocation_strategy=FIXED_FEE for a budget item, **When** an expense of 1000 rubles occurs, **Then** each owner with an active property is charged an equal fixed fee, not proportional.
+3. **Given** an administrator specifies allocation_strategy=FIXED_FEE for a budget item, **When** an expense of 1000 rubles occurs, **Then** each owner with an active property (exists at period start and not deactivated) is charged an equal fixed fee, not proportional.
 4. **Given** utility readings are recorded for usage-based billing, **When** the system allocates utility costs with strategy=USAGE_BASED, **Then** each owner is charged based on their consumption relative to total usage.
 
 ---
@@ -138,36 +138,39 @@ When closing a service period, the system carries forward unsettled balances (de
 ### Edge Cases
 
 - What happens if an administrator records a contribution or expense with a date outside the service period's date range? Should the system reject it or allow it with a warning?
-- How does the system handle corrections or reversals? If an expense is recorded incorrectly, can it be edited or must it be reversed with an offsetting transaction?
+- **CLARIFIED**: How does the system handle corrections or reversals? If an expense is recorded incorrectly, it can be edited in open periods with audit trail; closed periods are read-only and require period reopening or separate reversal transactions.
 - What if a property's share weight changes mid-period? Should charges already allocated be recalculated, or does the change apply only to future charges?
 - How does the system handle multiple expenses with different expense types on the same date? Does order of allocation matter?
 - What happens to allocated charges if the allocation strategy for a budget item is changed after expenses are already recorded?
 - If usage readings are missing for a period, how does the system handle calculation of usage-based charges?
 - Can service charges be applied retroactively to closed periods, or only to open periods?
-- How are rounding errors handled when allocating fractional amounts across owners?
+- **CLARIFIED**: How are rounding errors handled when allocating fractional amounts across owners? → Allocate with normal rounding to all owners, then distribute any remainder (cents) to the owner(s) with the largest share weight(s).
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
 - **FR-001**: System MUST support creating service periods with name, start_date, end_date, and status (OPEN/CLOSED).
-- **FR-002**: System MUST allow closing a service period, which calculates final balances and transitions them to the next period (if one exists).
+- **FR-002**: System MUST allow closing a service period, which calculates final balances and transitions them to the next period (if one exists). Administrators can reopen a closed period to make corrections; reopening triggers recalculation of all allocations in that period and automatic recalculation of balances carried to subsequent periods.
 - **FR-003**: System MUST record contribution transactions with: service_period_id, user_id, amount, date, and optional comment.
 - **FR-004**: System MUST maintain a contribution ledger for each service period showing all recorded payments from owners.
 - **FR-005**: System MUST record expense transactions with: service_period_id, paid_by_user_id (who paid out-of-pocket), date, payment_type, description, amount, and vendor information.
 - **FR-006**: System MUST maintain an expense ledger for each service period showing all recorded expenses and who paid them.
 - **FR-007**: System MUST support creating budget items that define: period, payment_type, budgeted_cost, and allocation_strategy (PROPORTIONAL, FIXED_FEE, USAGE_BASED, or NONE).
 - **FR-008**: System MUST allocate PROPORTIONAL expenses to owners based on their property's share_weight relative to total weighted shares.
-- **FR-009**: System MUST allocate FIXED_FEE expenses equally to all owners with active properties in the period.
+- **FR-009**: System MUST allocate FIXED_FEE expenses equally to all owners with active properties in the period. An "active" property is one that exists at the service period start and has not been explicitly deactivated during the period.
 - **FR-010**: System MUST support recording utility readings: property_id, service_period_id, meter_start_reading, meter_end_reading, and automatically calculate total_cost based on consumption and cost_per_unit.
 - **FR-011**: System MUST allocate USAGE_BASED expenses to owners proportionally based on their property's recorded consumption.
 - **FR-012**: System MUST support recording service charges that apply to a specific owner: owner_id, service_period_id, description, and amount.
 - **FR-013**: System MUST generate a balance sheet report showing each owner's total contributions, total charges, and resulting balance (credit/debt) for a given service period.
-- **FR-014**: System MUST persist all financial records (contributions, expenses, charges, readings) for audit purposes and enable historical retrieval.
+- **FR-014**: System MUST persist all financial records (contributions, expenses, charges, readings) to enable historical retrieval and basic transparency. Detailed audit logging of transaction changes is deferred to a future enhancement.
 - **FR-015**: System MUST ensure data consistency: all allocated charges must sum to the total expense amount (no loss or creation of money).
 - **FR-016**: System MUST prevent modifications to closed service periods; closed periods are read-only for historical reference.
 - **FR-017**: System MUST relate all financial records to a service period to support discrete accounting periods with proper financial closing.
 - **FR-018**: System MUST link all financial records to relevant properties and owners through the User and Property models to maintain referential integrity.
+- **FR-019**: System MUST allow administrators to edit recorded transactions (contributions, expenses, service charges) for open service periods. Transaction edits overwrite previous values (change history/audit trail is a future enhancement).
+- **FR-020**: System MUST prevent editing of transactions in closed service periods unless the period is explicitly reopened by an administrator. When a period is reopened, all transactions become editable and all balances are recalculated upon re-closing.
+- **FR-021**: System MUST handle fractional allocations in proportional and fixed-fee expense distributions by: (1) allocating amounts with normal rounding to all owners, (2) calculating any remainder in cents, (3) distributing the remainder to the owner(s) with the largest share weight(s). This ensures the sum of all allocated amounts equals the total expense amount exactly.
 
 ### Key Entities
 
@@ -194,7 +197,7 @@ When closing a service period, the system carries forward unsettled balances (de
 - **SC-001**: Administrators can create a new service period and assign it to the system within 1 minute.
 - **SC-002**: The system stores and retrieves 100% of recorded contributions and expenses without data loss.
 - **SC-003**: A balance sheet report can be generated and displayed to an administrator within 5 seconds, even with 100+ transactions in the period.
-- **SC-004**: Proportional allocation calculations are accurate to the cent (no monetary rounding errors) for all owners in a service period.
+- **SC-004**: Proportional and fixed-fee allocation calculations are accurate to the cent with zero money loss or creation: sum of all allocated amounts equals the total expense amount exactly (no remainder unallocated).
 - **SC-005**: Administrators can record a contribution, expense, or service charge and see it reflected in the balance sheet within 2 seconds.
 - **SC-006**: The system successfully prevents modifications to closed service periods (reads-only enforcement).
 - **SC-007**: When a service period is closed, final balances are correctly calculated and transitioned to the next period with 100% accuracy.
@@ -212,3 +215,13 @@ When closing a service period, the system carries forward unsettled balances (de
 - Currency is in rubles (₽) throughout the system, though the models are designed to be currency-agnostic.
 - Allocation strategies are applied at the expense level: each recorded expense matches one budget item's allocation strategy.
 - The system assumes administrator actions are trustworthy and properly authorized; detailed role-based access control is not in scope for this feature (handled by existing User authentication).
+
+## Clarifications
+
+### Session 2025-11-09
+
+- Q: How should the system handle corrections to already recorded transactions? → A: Allow direct editing of recorded transactions with audit trail logging all changes.
+- Q: What defines an "active" property for allocation purposes? → A: A property is active throughout the entire service period if it exists at the start of the period and hasn't been explicitly deactivated during the period.
+- Q: What level of audit logging is required for compliance? → A: Audit logging is deferred as a future enhancement; MVP focuses on core functionality (data persistence and retrieval for transparency).
+- Q: How should corrections be handled after a period is closed? → A: Administrators can reopen a closed period, make corrections, recalculate all balances, then close again. Balances carried to the next period are automatically recalculated.
+- Q: How should fractional amounts be handled when allocating expenses across owners? → A: Allocate to all owners with normal rounding, then distribute any remainder (cents) to the owner(s) with the largest share weight(s) to ensure no money is lost or created.
