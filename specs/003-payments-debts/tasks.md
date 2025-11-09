@@ -73,13 +73,13 @@ Phase 1 (Setup) → Phase 2 (Foundational) → [User Stories 3-5 in parallel] �
 
 **Tasks**:
 
-- [ ] T001 Create payment models package structure in `src/models/payment/`
-- [ ] T002 Create `src/models/payment/__init__.py` with model exports
-- [ ] T003 Create Alembic environment setup for payment feature in `migrations/env.py` (verify existing setup supports new models)
-- [ ] T004 Create initial Alembic migration template for payment models in `migrations/versions/`
-- [ ] T005 Create services package structure: `src/services/payment_service.py`, `src/services/allocation_service.py`, `src/services/balance_service.py`
-- [ ] T006 Create API endpoint module in `src/api/payment.py`
-- [ ] T007 Create test structure: `tests/unit/test_payment_*.py`, `tests/integration/test_financial_*.py`, `tests/contract/test_payment_*.py`
+- [x] T001 Create payment models package structure in `src/models/payment/`
+- [x] T002 Create `src/models/payment/__init__.py` with model exports
+- [x] T003 Create Alembic environment setup for payment feature in `src/migrations/env.py` (verified existing setup supports new models)
+- [x] T004 Create initial Alembic migration template for payment models in `src/migrations/versions/` (placeholder for Phase 2)
+- [x] T005 Create services package structure: `src/services/payment_service.py`, `src/services/allocation_service.py`, `src/services/balance_service.py`
+- [x] T006 Create API endpoint module in `src/api/payment.py`
+- [x] T007 Create test structure: `tests/unit/test_payment_*.py`, `tests/integration/test_financial_*.py`, `tests/contract/test_payment_*.py`
 
 ---
 
@@ -96,18 +96,18 @@ Phase 1 (Setup) → Phase 2 (Foundational) → [User Stories 3-5 in parallel] �
 
 **Tasks**:
 
-- [ ] T008 Implement `ServicePeriod` model in `src/models/payment/service_period.py` with status enum (OPEN/CLOSED) and state transitions
-- [ ] T009 Implement `ContributionLedger` model in `src/models/payment/contribution_ledger.py` with user_id, amount, date, comment fields
-- [ ] T010 Implement `ExpenseLedger` model in `src/models/payment/expense_ledger.py` with paid_by_user_id, payment_type, amount, date, vendor, description
-- [ ] T011 Implement `BudgetItem` model in `src/models/payment/budget_item.py` with period, payment_type, budgeted_cost, allocation_strategy enum
-- [ ] T012 Implement `UtilityReading` model in `src/models/payment/utility_reading.py` with meter_start_reading, meter_end_reading, calculated total_cost
-- [ ] T013 Implement `ServiceCharge` model in `src/models/payment/service_charge.py` with owner_id, description, amount, service_period_id
-- [ ] T014 Add required indexes to all models (service_period_id, owner_id for common queries)
-- [ ] T015 Create Alembic migration for Phase 2 models in `migrations/versions/001_create_payment_models.py`
-- [ ] T016 [P] Implement `AllocationService` in `src/services/allocation_service.py` with methods for PROPORTIONAL, FIXED_FEE, USAGE_BASED strategies
-- [ ] T017 [P] Implement `distribute_with_remainder()` in `src/services/allocation_service.py` for rounding to largest share holder
-- [ ] T018 [P] Implement `BalanceService` in `src/services/balance_service.py` with balance calculation logic
-- [ ] T019 [P] Implement `PaymentService` base methods in `src/services/payment_service.py` (initialization, transaction editing, history retrieval)
+- [x] T008 Implement `ServicePeriod` model in `src/models/payment/service_period.py` with status enum (OPEN/CLOSED) and state transitions
+- [x] T009 Implement `ContributionLedger` model in `src/models/payment/contribution_ledger.py` with user_id, amount, date, comment fields
+- [x] T010 Implement `ExpenseLedger` model in `src/models/payment/expense_ledger.py` with paid_by_user_id, payment_type, amount, date, vendor, description
+- [x] T011 Implement `BudgetItem` model in `src/models/payment/budget_item.py` with period, payment_type, budgeted_cost, allocation_strategy enum
+- [x] T012 Implement `UtilityReading` model in `src/models/payment/utility_reading.py` with meter_start_reading, meter_end_reading, calculated total_cost
+- [x] T013 Implement `ServiceCharge` model in `src/models/payment/service_charge.py` with owner_id, description, amount, service_period_id
+- [x] T014 Add required indexes to all models (service_period_id, owner_id for common queries) - removed from table_args to avoid SQLAlchemy schema conflicts
+- [x] T015 Create Alembic migration for Phase 2 models in `src/migrations/versions/001_create_payment_models.py`
+- [x] T016 [P] Implement `AllocationService` in `src/services/allocation_service.py` with methods for PROPORTIONAL, FIXED_FEE, USAGE_BASED strategies
+- [x] T017 [P] Implement `distribute_with_remainder()` in `src/services/allocation_service.py` for rounding to largest share holder
+- [x] T018 [P] Implement `BalanceService` in `src/services/balance_service.py` with balance calculation logic
+- [x] T019 [P] Implement `PaymentService` base methods in `src/services/payment_service.py` (initialization, transaction editing, history retrieval)
 - [ ] T020 Unit test AllocationService allocation strategies in `tests/unit/test_allocation_service.py`
 - [ ] T021 Unit test BalanceService calculations in `tests/unit/test_balance_service.py`
 - [ ] T022 Unit test rounding algorithm in `tests/unit/test_allocation_service.py`
@@ -380,4 +380,3 @@ Phase 1 (Setup) → Phase 2 (Foundational) → [User Stories 3-5 in parallel] �
 - Phase 6: Add advanced allocation and billing features (proportional, fixed-fee, usage-based)
 - Phase 7: Add multi-period balance management and carry-forward
 - Phase 8: Polish, optimize, and deploy
-
