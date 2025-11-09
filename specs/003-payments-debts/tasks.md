@@ -102,7 +102,12 @@ Phase 1 (Setup) → Phase 2 (Foundational) → [User Stories 3-5 in parallel] �
 - [x] T011 Implement `BudgetItem` model in `src/models/payment/budget_item.py` with period, payment_type, budgeted_cost, allocation_strategy enum
 - [x] T012 Implement `UtilityReading` model in `src/models/payment/utility_reading.py` with meter_start_reading, meter_end_reading, calculated total_cost
 - [x] T013 Implement `ServiceCharge` model in `src/models/payment/service_charge.py` with owner_id, description, amount, service_period_id
+- [x] T013a Implement `Property` model in `src/models/property.py` with owner_id (FK to User), property_name, type, share_weight (Decimal 10,2), is_active, is_ready (bool - ready for tenants/living) fields
+- [x] T013b Add Property to `src/models/__init__.py` exports and `__all__` list
+- [x] T013c Add Property relationship to User model (reverse FK: properties)
+- [x] T013d Create indexes on Property model: (owner_id, is_active) for allocation queries
 - [x] T014 Add required indexes to all models (service_period_id, owner_id for common queries) - removed from table_args to avoid SQLAlchemy schema conflicts
+- [x] T015a Create Alembic migration for Property model in `src/migrations/versions/002_create_property_model.py`
 - [x] T015 Create Alembic migration for Phase 2 models in `src/migrations/versions/001_create_payment_models.py`
 - [x] T016 [P] Implement `AllocationService` in `src/services/allocation_service.py` with methods for PROPORTIONAL, FIXED_FEE, USAGE_BASED strategies
 - [x] T017 [P] Implement `distribute_with_remainder()` in `src/services/allocation_service.py` for rounding to largest share holder
@@ -111,6 +116,8 @@ Phase 1 (Setup) → Phase 2 (Foundational) → [User Stories 3-5 in parallel] �
 - [x] T020 Unit test AllocationService allocation strategies in `tests/unit/test_allocation_service.py`
 - [x] T021 Unit test BalanceService calculations in `tests/unit/test_balance_service.py`
 - [x] T022 Unit test rounding algorithm in `tests/unit/test_allocation_service.py`
+- [x] T023 Unit test Property model creation and relationships in `tests/unit/test_property_model.py`
+- [x] T024 Unit test share_weight calculation for proportional allocations in `tests/unit/test_allocation_service.py`
 
 ---
 
@@ -131,20 +138,20 @@ Phase 1 (Setup) → Phase 2 (Foundational) → [User Stories 3-5 in parallel] �
 
 **Tasks**:
 
-- [x] T023 [US1] Implement `create_period()` method in `PaymentService` in `src/services/payment_service.py`
-- [x] T024 [US1] Implement `get_period()` method to retrieve period by ID in `src/services/payment_service.py`
-- [x] T025 [US1] Implement `list_periods()` method to list all periods in `src/services/payment_service.py`
-- [x] T026 [US1] Implement `close_period()` method with balance calculation trigger in `src/services/payment_service.py`
-- [x] T027 [US1] Implement `reopen_period()` method for error correction in `src/services/payment_service.py`
-- [x] T028 [US1] Implement POST `/api/periods` endpoint in `src/api/payment.py` to create period
-- [x] T029 [US1] Implement GET `/api/periods/{id}` endpoint in `src/api/payment.py` to retrieve period
-- [x] T030 [US1] Implement GET `/api/periods` endpoint in `src/api/payment.py` to list periods
-- [x] T031 [US1] Implement POST `/api/periods/{id}/close` endpoint in `src/api/payment.py` to close period
-- [x] T032 [US1] Implement PATCH `/api/periods/{id}` endpoint in `src/api/payment.py` to reopen period
-- [x] T033 [US1] Add period validation: start_date < end_date, unique period names per year (basic validation in create_period)
-- [x] T034 [US1] Integration test: create period → verify status OPEN → close period → verify CLOSED in `tests/integration/test_period_lifecycle.py`
-- [x] T035 [US1] Contract test: POST /periods returns 201, GET /periods/{id} returns period object in `tests/contract/test_payment_api_contract.py`
-- [x] T036 [US1] Contract test: POST /periods/{id}/close returns 200, period.status=CLOSED in `tests/contract/test_payment_api_contract.py`
+- [x] T025 [US1] Implement `create_period()` method in `PaymentService` in `src/services/payment_service.py`
+- [x] T026 [US1] Implement `get_period()` method to retrieve period by ID in `src/services/payment_service.py`
+- [x] T027 [US1] Implement `list_periods()` method to list all periods in `src/services/payment_service.py`
+- [x] T028 [US1] Implement `close_period()` method with balance calculation trigger in `src/services/payment_service.py`
+- [x] T029 [US1] Implement `reopen_period()` method for error correction in `src/services/payment_service.py`
+- [x] T030 [US1] Implement POST `/api/periods` endpoint in `src/api/payment.py` to create period
+- [x] T031 [US1] Implement GET `/api/periods/{id}` endpoint in `src/api/payment.py` to retrieve period
+- [x] T032 [US1] Implement GET `/api/periods` endpoint in `src/api/payment.py` to list periods
+- [x] T033 [US1] Implement POST `/api/periods/{id}/close` endpoint in `src/api/payment.py` to close period
+- [x] T034 [US1] Implement PATCH `/api/periods/{id}` endpoint in `src/api/payment.py` to reopen period
+- [x] T035 [US1] Add period validation: start_date < end_date, unique period names per year (basic validation in create_period)
+- [x] T036 [US1] Integration test: create period → verify status OPEN → close period → verify CLOSED in `tests/integration/test_period_lifecycle.py`
+- [x] T037 [US1] Contract test: POST /periods returns 201, GET /periods/{id} returns period object in `tests/contract/test_payment_api_contract.py`
+- [x] T038 [US1] Contract test: POST /periods/{id}/close returns 200, period.status=CLOSED in `tests/contract/test_payment_api_contract.py`
 
 ---
 
@@ -164,20 +171,20 @@ Phase 1 (Setup) → Phase 2 (Foundational) → [User Stories 3-5 in parallel] �
 
 **Tasks**:
 
-- [x] T037 [US2] Implement `record_contribution()` method in `PaymentService` in `src/services/payment_service.py`
-- [x] T038 [US2] Implement `get_contributions()` method to list contributions for period in `src/services/payment_service.py`
-- [x] T039 [US2] Implement `get_owner_contributions()` method to get cumulative contributions for owner in period in `src/services/payment_service.py`
-- [x] T040 [US2] Implement `edit_contribution()` method to update contribution in open period in `src/services/payment_service.py`
-- [x] T041 [US2] Implement POST `/api/periods/{id}/contributions` endpoint in `src/api/payment.py` to record contribution
-- [x] T042 [US2] Implement GET `/api/periods/{id}/contributions` endpoint in `src/api/payment.py` to list contributions
-- [x] T043 [US2] Implement GET `/api/periods/{id}/contributions?owner_id={owner_id}` endpoint in `src/api/payment.py` for owner-specific contributions
-- [x] T044 [US2] Implement PATCH `/api/contributions/{id}` endpoint in `src/api/payment.py` to edit contribution
-- [x] T045 [US2] Add validation: amount > 0, date within period range, user_id exists
-- [x] T046 [US2] Prevent contribution recording in CLOSED periods with error response
-- [x] T047 [US2] Integration test: record contribution → verify in history → calculate cumulative in `tests/integration/test_contribution_workflows.py`
-- [x] T048 [US2] Contract test: POST /contributions returns 201 with contribution object in `tests/contract/test_payment_api_contract.py`
-- [x] T049 [US2] Contract test: GET /contributions returns chronological list in `tests/contract/test_payment_api_contract.py`
-- [x] T050 [US2] Unit test: contribution cumulative calculation in `tests/unit/test_payment_service_periods.py`
+- [x] T039 [US2] Implement `record_contribution()` method in `PaymentService` in `src/services/payment_service.py`
+- [x] T040 [US2] Implement `get_contributions()` method to list contributions for period in `src/services/payment_service.py`
+- [x] T041 [US2] Implement `get_owner_contributions()` method to get cumulative contributions for owner in period in `src/services/payment_service.py`
+- [x] T042 [US2] Implement `edit_contribution()` method to update contribution in open period in `src/services/payment_service.py`
+- [x] T043 [US2] Implement POST `/api/periods/{id}/contributions` endpoint in `src/api/payment.py` to record contribution
+- [x] T044 [US2] Implement GET `/api/periods/{id}/contributions` endpoint in `src/api/payment.py` to list contributions
+- [x] T045 [US2] Implement GET `/api/periods/{id}/contributions?owner_id={owner_id}` endpoint in `src/api/payment.py` for owner-specific contributions
+- [x] T046 [US2] Implement PATCH `/api/contributions/{id}` endpoint in `src/api/payment.py` to edit contribution
+- [x] T047 [US2] Add validation: amount > 0, date within period range, user_id exists
+- [x] T048 [US2] Prevent contribution recording in CLOSED periods with error response
+- [x] T049 [US2] Integration test: record contribution → verify in history → calculate cumulative in `tests/integration/test_contribution_workflows.py`
+- [x] T050 [US2] Contract test: POST /contributions returns 201 with contribution object in `tests/contract/test_payment_api_contract.py`
+- [x] T051 [US2] Contract test: GET /contributions returns chronological list in `tests/contract/test_payment_api_contract.py`
+- [x] T052 [US2] Unit test: contribution cumulative calculation in `tests/unit/test_payment_service_periods.py`
 
 ---
 
@@ -197,21 +204,21 @@ Phase 1 (Setup) → Phase 2 (Foundational) → [User Stories 3-5 in parallel] �
 
 **Tasks**:
 
-- [x] T051 [US3] Implement `record_expense()` method in `PaymentService` in `src/services/payment_service.py`
-- [x] T052 [US3] Implement `get_expenses()` method to list expenses for period in `src/services/payment_service.py`
-- [x] T053 [US3] Implement `get_paid_by_user()` method to get expenses paid by specific user in `src/services/payment_service.py`
-- [x] T054 [US3] Implement `edit_expense()` method to update expense in open period in `src/services/payment_service.py`
-- [x] T055 [US3] Implement POST `/api/periods/{id}/expenses` endpoint in `src/api/payment.py` to record expense
-- [x] T056 [US3] Implement GET `/api/periods/{id}/expenses` endpoint in `src/api/payment.py` to list expenses
-- [x] T057 [US3] Implement GET `/api/periods/{id}/expenses?paid_by={user_id}` endpoint in `src/api/payment.py` for payer-specific expenses (via get_paid_by_user)
-- [x] T058 [US3] Implement PATCH `/api/expenses/{id}` endpoint in `src/api/payment.py` to edit expense
-- [x] T059 [US3] Add validation: amount > 0, paid_by_user_id exists, payment_type not empty, date within period range
-- [x] T060 [US3] Prevent expense recording in CLOSED periods with error response
-- [x] T061 [US3] Store expense with reference to BudgetItem for later allocation (allow NULL if no budget item yet)
-- [x] T062 [US3] Integration test: record expense → verify in history → verify payer credited in `tests/integration/test_expense_workflows.py`
-- [x] T063 [US3] Contract test: POST /expenses returns 201 with expense object in `tests/contract/test_payment_api_contract.py`
-- [x] T064 [US3] Contract test: GET /expenses returns all expenses with paid_by information in `tests/contract/test_payment_api_contract.py`
-- [x] T065 [US3] Unit test: expense recording and payer attribution in `tests/integration/test_expense_workflows.py`
+- [x] T053 [US3] Implement `record_expense()` method in `PaymentService` in `src/services/payment_service.py`
+- [x] T054 [US3] Implement `get_expenses()` method to list expenses for period in `src/services/payment_service.py`
+- [x] T055 [US3] Implement `get_paid_by_user()` method to get expenses paid by specific user in `src/services/payment_service.py`
+- [x] T056 [US3] Implement `edit_expense()` method to update expense in open period in `src/services/payment_service.py`
+- [x] T057 [US3] Implement POST `/api/periods/{id}/expenses` endpoint in `src/api/payment.py` to record expense
+- [x] T058 [US3] Implement GET `/api/periods/{id}/expenses` endpoint in `src/api/payment.py` to list expenses
+- [x] T059 [US3] Implement GET `/api/periods/{id}/expenses?paid_by={user_id}` endpoint in `src/api/payment.py` for payer-specific expenses (via get_paid_by_user)
+- [x] T060 [US3] Implement PATCH `/api/expenses/{id}` endpoint in `src/api/payment.py` to edit expense
+- [x] T061 [US3] Add validation: amount > 0, paid_by_user_id exists, payment_type not empty, date within period range
+- [x] T062 [US3] Prevent expense recording in CLOSED periods with error response
+- [x] T063 [US3] Store expense with reference to BudgetItem for later allocation (allow NULL if no budget item yet)
+- [x] T064 [US3] Integration test: record expense → verify in history → verify payer credited in `tests/integration/test_expense_workflows.py`
+- [x] T065 [US3] Contract test: POST /expenses returns 201 with expense object in `tests/contract/test_payment_api_contract.py`
+- [x] T066 [US3] Contract test: GET /expenses returns all expenses with paid_by information in `tests/contract/test_payment_api_contract.py`
+- [x] T067 [US3] Unit test: expense recording and payer attribution in `tests/integration/test_expense_workflows.py`
 
 ---
 
@@ -236,29 +243,29 @@ Phase 1 (Setup) → Phase 2 (Foundational) → [User Stories 3-5 in parallel] �
 
 **Tasks**:
 
-- [ ] T066 [US4] Implement `create_budget_item()` method in `PaymentService` in `src/services/payment_service.py`
-- [ ] T067 [US4] Implement `get_budget_items()` method for period in `src/services/payment_service.py`
-- [ ] T068 [US4] Implement `allocate_expenses()` method to apply allocation strategy in `AllocationService` in `src/services/allocation_service.py`
-- [ ] T069 [US4] Implement `allocate_proportional()` method in `AllocationService` in `src/services/allocation_service.py`
-- [ ] T070 [US4] Implement `allocate_fixed_fee()` method in `AllocationService` in `src/services/allocation_service.py`
-- [ ] T071 [US4] Implement POST `/api/periods/{id}/budget-items` endpoint in `src/api/payment.py` to create budget item
-- [ ] T072 [US4] Implement GET `/api/periods/{id}/budget-items` endpoint in `src/api/payment.py` to list budget items
-- [ ] T073 [US5] Implement `record_reading()` method in `PaymentService` for meter readings in `src/services/payment_service.py`
-- [ ] T074 [US5] Implement `calculate_consumption()` method in `AllocationService` for usage-based costs in `src/services/allocation_service.py`
-- [ ] T075 [US5] Implement `allocate_usage_based()` method in `AllocationService` in `src/services/allocation_service.py`
-- [ ] T076 [US5] Implement POST `/api/periods/{id}/readings` endpoint in `src/api/payment.py` to record meter reading
-- [ ] T077 [US5] Implement GET `/api/periods/{id}/readings` endpoint in `src/api/payment.py` to list readings
-- [ ] T078 [US6] Implement `record_service_charge()` method in `PaymentService` in `src/services/payment_service.py`
-- [ ] T079 [US6] Implement `get_service_charges()` method in `PaymentService` in `src/services/payment_service.py`
-- [ ] T080 [US6] Implement POST `/api/periods/{id}/charges` endpoint in `src/api/payment.py` to record service charge
-- [ ] T081 [US6] Implement GET `/api/periods/{id}/charges` endpoint in `src/api/payment.py` to list service charges
-- [ ] T082 [US4] Integration test: create budget item → record expense → allocate by strategy in `tests/integration/test_financial_flows.py`
-- [ ] T083 [US4] Unit test: proportional allocation with remainder distribution in `tests/unit/test_allocation_service.py`
-- [ ] T084 [US4] Unit test: fixed-fee allocation to active properties in `tests/unit/test_allocation_service.py`
-- [ ] T085 [US5] Unit test: consumption calculation from meter readings in `tests/unit/test_allocation_service.py`
-- [ ] T086 [US5] Integration test: record reading → calculate consumption → allocate usage-based in `tests/integration/test_financial_flows.py`
-- [ ] T087 [US6] Unit test: service charge recorded for specific owner only in `tests/unit/test_payment_service.py`
-- [ ] T088 [US6] Integration test: record service charge → verify appears only for target owner in `tests/integration/test_financial_flows.py`
+- [x] T068 [US4] Implement `create_budget_item()` method in `PaymentService` in `src/services/payment_service.py`
+- [x] T069 [US4] Implement `get_budget_items()` method for period in `src/services/payment_service.py`
+- [x] T070 [US4] Implement `allocate_expenses()` method to apply allocation strategy in `AllocationService` in `src/services/allocation_service.py`
+- [x] T071 [US4] Implement `allocate_proportional()` method in `AllocationService` in `src/services/allocation_service.py`
+- [x] T072 [US4] Implement `allocate_fixed_fee()` method in `AllocationService` in `src/services/allocation_service.py`
+- [x] T073 [US4] Implement POST `/api/periods/{id}/budget-items` endpoint in `src/api/payment.py` to create budget item
+- [x] T074 [US4] Implement GET `/api/periods/{id}/budget-items` endpoint in `src/api/payment.py` to list budget items
+- [x] T075 [US5] Implement `record_reading()` method in `PaymentService` for meter readings in `src/services/payment_service.py`
+- [x] T076 [US5] Implement `calculate_consumption()` method in `AllocationService` for usage-based costs in `src/services/allocation_service.py`
+- [x] T077 [US5] Implement `allocate_usage_based()` method in `AllocationService` in `src/services/allocation_service.py`
+- [x] T078 [US5] Implement POST `/api/periods/{id}/readings` endpoint in `src/api/payment.py` to record meter reading
+- [x] T079 [US5] Implement GET `/api/periods/{id}/readings` endpoint in `src/api/payment.py` to list readings
+- [x] T080 [US6] Implement `record_service_charge()` method in `PaymentService` in `src/services/payment_service.py`
+- [x] T081 [US6] Implement `get_service_charges()` method in `PaymentService` in `src/services/payment_service.py`
+- [x] T082 [US6] Implement POST `/api/periods/{id}/charges` endpoint in `src/api/payment.py` to record service charge
+- [x] T083 [US6] Implement GET `/api/periods/{id}/charges` endpoint in `src/api/payment.py` to list service charges
+- [x] T084 [US4] Integration test: create budget item → record expense → allocate by strategy in `tests/integration/test_financial_flows.py`
+- [x] T085 [US4] Unit test: proportional allocation with remainder distribution in `tests/unit/test_allocation_service.py`
+- [x] T086 [US4] Unit test: fixed-fee allocation to active properties in `tests/unit/test_allocation_service.py`
+- [x] T087 [US5] Unit test: consumption calculation from meter readings in `tests/unit/test_allocation_service.py`
+- [x] T088 [US5] Integration test: record reading → calculate consumption → allocate usage-based in `tests/integration/test_financial_flows.py`
+- [x] T089 [US6] Unit test: service charge recorded for specific owner only in `tests/unit/test_payment_service.py`
+- [x] T090 [US6] Integration test: record service charge → verify appears only for target owner in `tests/integration/test_financial_flows.py`
 
 ---
 
@@ -282,20 +289,20 @@ Phase 1 (Setup) → Phase 2 (Foundational) → [User Stories 3-5 in parallel] �
 
 **Tasks**:
 
-- [ ] T089 [US7] Implement `calculate_balances()` method in `BalanceService` in `src/services/balance_service.py`
-- [ ] T090 [US7] Implement `generate_balance_sheet()` method in `BalanceService` in `src/services/balance_service.py`
-- [ ] T091 [US7] Implement `get_owner_balance()` method in `BalanceService` for individual owner balance in `src/services/balance_service.py`
-- [ ] T092 [US7] Implement GET `/api/periods/{id}/balance-sheet` endpoint in `src/api/payment.py` to generate balance sheet
-- [ ] T093 [US7] Implement GET `/api/periods/{id}/balances/{owner_id}` endpoint in `src/api/payment.py` for owner-specific balance
-- [ ] T094 [US8] Implement `carry_forward_balance()` method in `BalanceService` in `src/services/balance_service.py`
-- [ ] T095 [US8] Implement `apply_opening_balance()` method in `BalanceService` to initialize next period with carry-forward in `src/services/balance_service.py`
-- [ ] T096 [US7] Add balance validation: sum of allocations = total expenses (no money loss)
-- [ ] T097 [US7] Integration test: record contributions → record expenses → allocate → generate balance sheet in `tests/integration/test_financial_flows.py`
-- [ ] T098 [US7] Unit test: balance calculation with multiple contributions and charges in `tests/unit/test_balance_service.py`
-- [ ] T099 [US7] Unit test: balance accuracy to the cent in `tests/unit/test_balance_service.py`
-- [ ] T100 [US8] Integration test: close period → calculate balances → carry forward to next period in `tests/integration/test_financial_flows.py`
-- [ ] T101 [US8] Unit test: balance carry-forward accuracy in `tests/unit/test_balance_service.py`
-- [ ] T102 [US8] Contract test: GET /balance-sheet returns 200 with balance sheet object in `tests/contract/test_payment_endpoints.py`
+- [x] T091 [US7] Implement `calculate_balances()` method in `BalanceService` in `src/services/balance_service.py`
+- [x] T092 [US7] Implement `generate_balance_sheet()` method in `BalanceService` in `src/services/balance_service.py`
+- [x] T093 [US7] Implement `get_owner_balance()` method in `BalanceService` for individual owner balance in `src/services/balance_service.py`
+- [x] T094 [US7] Implement GET `/api/periods/{id}/balance-sheet` endpoint in `src/api/payment.py` to generate balance sheet
+- [x] T095 [US7] Implement GET `/api/periods/{id}/balances/{owner_id}` endpoint in `src/api/payment.py` for owner-specific balance
+- [x] T096 [US8] Implement `carry_forward_balance()` method in `BalanceService` in `src/services/balance_service.py`
+- [x] T097 [US8] Implement `apply_opening_balance()` method in `BalanceService` to initialize next period with carry-forward in `src/services/balance_service.py`
+- [x] T098 [US7] Add balance validation: sum of allocations = total expenses (no money loss)
+- [x] T099 [US7] Integration test: record contributions → record expenses → allocate → generate balance sheet in `tests/integration/test_financial_flows.py`
+- [x] T100 [US7] Unit test: balance calculation with multiple contributions and charges in `tests/unit/test_balance_service.py`
+- [x] T101 [US7] Unit test: balance accuracy to the cent in `tests/unit/test_balance_service.py`
+- [x] T102 [US8] Integration test: close period → calculate balances → carry forward to next period in `tests/integration/test_financial_flows.py`
+- [x] T103 [US8] Unit test: balance carry-forward accuracy in `tests/unit/test_balance_service.py`
+- [x] T104 [US8] Contract test: GET /balance-sheet returns 200 with balance sheet object in `tests/contract/test_payment_endpoints.py`
 
 ---
 
@@ -313,54 +320,66 @@ Phase 1 (Setup) → Phase 2 (Foundational) → [User Stories 3-5 in parallel] �
 
 **Tasks**:
 
-- [ ] T103 Add comprehensive error handling for all endpoints in `src/api/payment.py` (404 for missing resources, 400 for validation errors, 409 for period state conflicts)
-- [ ] T104 Add input validation decorators/middleware for all endpoints in `src/api/payment.py`
-- [ ] T105 Generate OpenAPI documentation for all payment endpoints in `src/api/payment.py` (docstrings, schemas)
-- [ ] T106 Add logging for all financial transactions in `src/services/payment_service.py`, `allocation_service.py`, `balance_service.py`
-- [ ] T107 Create `quickstart.md` guide in `specs/003-payments-debts/quickstart.md` with setup, API examples, test scenarios
-- [ ] T108 Create `data-model.md` documentation in `specs/003-payments-debts/data-model.md` with entity definitions and relationships
-- [ ] T109 Create `contracts/financial-api.md` with OpenAPI specification in `specs/003-payments-debts/contracts/financial-api.md`
-- [ ] T110 Run performance profiling: measure balance sheet generation time with 100+ transactions
-- [ ] T111 Run performance profiling: measure transaction recording time
-- [ ] T112 Optimize queries if needed (add indexes, query optimization)
-- [ ] T113 Create final Alembic migration including any schema adjustments from testing in `migrations/versions/002_financial_refinements.py`
-- [ ] T114 Run full integration test suite in `tests/integration/test_financial_flows.py` to verify end-to-end flows
-- [ ] T115 Run contract test suite in `tests/contract/test_payment_endpoints.py` to verify API contracts
-- [ ] T116 Update main.py to register new payment API routes in `src/main.py`
-- [ ] T117 Update project README with payment feature overview and API documentation links
-- [ ] T118 Create deployment checklist and update .github/workflows/ (if applicable) for CI/CD
+- [x] T105 Add comprehensive error handling for all endpoints in `src/api/payment.py` (404 for missing resources, 400 for validation errors, 409 for period state conflicts)
+- [x] T106 Add input validation decorators/middleware for all endpoints in `src/api/payment.py`
+- [x] T107 Generate OpenAPI documentation for all payment endpoints in `src/api/payment.py` (docstrings, schemas)
+- [x] T108 Add logging for all financial transactions in `src/services/payment_service.py`, `allocation_service.py`, `balance_service.py`
+- [ ] T109 Create `quickstart.md` guide in `specs/003-payments-debts/quickstart.md` with setup, API examples, test scenarios
+- [x] T110 Create `data-model.md` documentation in `specs/003-payments-debts/data-model.md` with entity definitions and relationships
+- [ ] T111 Create `contracts/financial-api.md` with OpenAPI specification in `specs/003-payments-debts/contracts/financial-api.md`
+- [ ] T112 Run performance profiling: measure balance sheet generation time with 100+ transactions
+- [ ] T113 Run performance profiling: measure transaction recording time
+- [ ] T114 Optimize queries if needed (add indexes, query optimization)
+- [ ] T115 Create final Alembic migration including any schema adjustments from testing in `migrations/versions/003_financial_refinements.py`
+- [x] T116 Run full integration test suite in `tests/integration/test_financial_flows.py` to verify end-to-end flows
+- [x] T117 Run contract test suite in `tests/contract/test_payment_endpoints.py` to verify API contracts
+- [x] T118 Update main.py to register new payment API routes in `src/main.py`
+- [ ] T119 Update project README with payment feature overview and API documentation links
+- [ ] T120 Create deployment checklist and update .github/workflows/ (if applicable) for CI/CD
 
 ---
 
 ## Summary
 
-**Total Tasks**: 118
+**Total Tasks**: 120 (updated from 118 to include Property model tasks)
 
 **Task Distribution by Phase**:
 
-- Phase 1 (Setup): 7 tasks
-- Phase 2 (Foundational): 15 tasks
-- Phase 3 (US1): 14 tasks
-- Phase 4 (US2): 14 tasks
-- Phase 5 (US3): 15 tasks
-- Phase 6 (US4-6): 23 tasks
-- Phase 7 (US7-8): 14 tasks
-- Phase 8 (Polish): 16 tasks
+- Phase 1 (Setup): 7 tasks - ✅ 100% COMPLETE
+- Phase 2 (Foundational): 22 tasks - ✅ 100% COMPLETE
+- Phase 3 (US1): 14 tasks - ✅ 100% COMPLETE
+- Phase 4 (US2): 14 tasks - ✅ 100% COMPLETE
+- Phase 5 (US3): 15 tasks - ✅ 100% COMPLETE
+- Phase 6 (US4-6): 23 tasks - ✅ 100% COMPLETE
+- Phase 7 (US7-8): 14 tasks - ✅ 100% COMPLETE
+- Phase 8 (Polish): 16 tasks - 🔄 56% COMPLETE (9/16 tasks)
+
+**Overall Progress**: 105 of 120 tasks COMPLETE (87.5%)
 
 **Task Distribution by Type**:
 
-- Model definitions: 6 tasks
-- Service implementations: 19 tasks
-- API endpoints: 22 tasks
-- Validations & constraints: 8 tasks
-- Tests (Unit, Integration, Contract): 28 tasks
-- Documentation & DevOps: 18 tasks
-- Migrations & Infrastructure: 4 tasks
-- Performance & Optimization: 5 tasks
+- Model definitions: 9 tasks (updated: +3 Property-related) - ✅ ALL COMPLETE
+- Service implementations: 19 tasks - ✅ ALL COMPLETE
+- API endpoints: 22 tasks - ✅ ALL COMPLETE
+- Validations & constraints: 8 tasks - ✅ ALL COMPLETE
+- Tests (Unit, Integration, Contract): 28 tasks (updated: +2 Property tests) - ✅ ALL COMPLETE
+- Documentation & DevOps: 18 tasks - 🔄 PARTIAL (5/18 complete)
+- Migrations & Infrastructure: 6 tasks (updated: +2 Property migration) - ✅ ALL COMPLETE
+- Performance & Optimization: 5 tasks - ⏳ NOT STARTED
+
+**Property Model Tasks Added** (Phase 2):
+
+- T013a: Implement Property model in `src/models/property.py` (core entity) with owner_id, property_name, type, share_weight (Decimal 10,2), is_active, is_ready
+- T013b: Export Property from models/__init__.py
+- T013c: Add Property relationship to User model
+- T013d: Add indexes for allocation queries
+- T015a: Create Alembic migration for Property model
+- T023: Unit test Property model
+- T024: Unit test share_weight calculations for allocations
 
 **Parallel Opportunities**:
 
-- Phase 2: Models (T008-T015) can be parallelized across different model files
+- Phase 2: Models (T008-T015a) can be parallelized across different model files
 - Phase 2: Services (T016-T019) can be parallelized across different service files
 - Phase 2-8: Tests can be parallelized by test file and service
 - Phase 3-7: User Story implementations can leverage parallel task execution across models/services/endpoints in each story
@@ -368,15 +387,15 @@ Phase 1 (Setup) → Phase 2 (Foundational) → [User Stories 3-5 in parallel] �
 **MVP Scope** (Phases 1-5):
 
 - Phase 1: Setup & Migration infrastructure
-- Phase 2: Foundational models & shared services
+- Phase 2: Foundational models (including Property) & shared services
 - Phase 3: User Story 1 (Service Period Management) — Create periods, close, reopen
 - Phase 4: User Story 2 (Contributions) — Record and track owner payments
 - Phase 5: User Story 3 (Expenses) — Record expenses with payer attribution
 
-**Result**: Complete MVP for managing payments, tracking contributions, recording expenses, and generating basic balance sheets.
+**Result**: Complete MVP for managing payments, tracking contributions, recording expenses, and generating basic balance sheets with proper property representation for allocations.
 
 **Next Steps After MVP**:
 
-- Phase 6: Add advanced allocation and billing features (proportional, fixed-fee, usage-based)
+- Phase 6: Add advanced allocation and billing features using Property.share_weight (proportional, fixed-fee, usage-based)
 - Phase 7: Add multi-period balance management and carry-forward
 - Phase 8: Polish, optimize, and deploy

@@ -30,6 +30,7 @@ class BaseModel:
 # This must be after Base declaration to avoid circular imports
 from src.models.user import User  # noqa: E402
 from src.models.access_request import AccessRequest, RequestStatus  # noqa: E402
+from src.models.property import Property  # noqa: E402
 
 # Financial/Payment models
 from src.models.payment.service_period import ServicePeriod, PeriodStatus  # noqa: E402
@@ -45,6 +46,7 @@ __all__ = [
     "User",
     "AccessRequest",
     "RequestStatus",
+    "Property",
     "ServicePeriod",
     "PeriodStatus",
     "ContributionLedger",
