@@ -352,6 +352,8 @@ class BalanceService:
             period_id: Target period ID
             opening_balances: Dict mapping owner_id to balance to apply
         """
+        from datetime import datetime
+
         if not self.db:
             return
 
@@ -360,9 +362,10 @@ class BalanceService:
             if balance > Decimal(0):
                 contrib = ContributionLedger(
                     service_period_id=period_id,
-                    owner_id=owner_id,
+                    user_id=owner_id,
                     amount=balance,
-                    description=f"Opening balance from previous period"
+                    date=datetime.now(),
+                    comment="Opening balance from previous period"
                 )
                 self.db.add(contrib)
 
@@ -371,7 +374,7 @@ class BalanceService:
                 charge = ServiceCharge(
                     service_period_id=period_id,
                     user_id=owner_id,
-                    description=f"Opening debt from previous period",
+                    description="Opening debt from previous period",
                     amount=-balance  # Convert negative to positive
                 )
                 self.db.add(charge)
