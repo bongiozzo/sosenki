@@ -8,6 +8,7 @@
     },
     "chat.tools.terminal.autoApprove": {
 
+        "python -m pytest": true,
         "tail": true,
         "uv run ruff check": true,
         "/.*uv run pytest.*/": true,
