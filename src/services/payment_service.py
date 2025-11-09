@@ -8,11 +8,20 @@ Provides methods for:
 - Transaction history and editing (in OPEN periods)
 """
 
-from datetime import datetime
+from datetime import datetime, date
 from decimal import Decimal
 from typing import Optional, List
 
 from sqlalchemy.orm import Session
+
+from src.models import (
+    ServicePeriod,
+    PeriodStatus,
+    ContributionLedger,
+    ExpenseLedger,
+    ServiceCharge,
+    BudgetItem,
+)
 
 
 class PaymentService:
@@ -29,10 +38,10 @@ class PaymentService:
     def create_period(
         self,
         name: str,
-        start_date,
-        end_date,
+        start_date: date,
+        end_date: date,
         description: Optional[str] = None,
-    ):
+    ) -> ServicePeriod:
         """Create a new service period.
 
         Args:
@@ -43,29 +52,69 @@ class PaymentService:
 
         Returns:
             Created ServicePeriod object
-        """
-        pass
 
-    def get_period(self, period_id: int):
+        Raises:
+            ValueError: If start_date >= end_date or period name already exists
+        """
+        if start_date >= end_date:
+            raise ValueError("start_date must be before end_date")
+
+        # Check for duplicate name
+        if self.db:
+            existing = self.db.query(ServicePeriod).filter_by(name=name).first()
+            if existing:
+                raise ValueError(f"Period with name '{name}' already exists")
+
+            period = ServicePeriod(
+                name=name,
+                start_date=start_date,
+                end_date=end_date,
+                status=PeriodStatus.OPEN,
+                description=description,
+            )
+            self.db.add(period)
+            self.db.commit()
+            self.db.refresh(period)
+            return period
+        else:
+            # Mock implementation for testing
+            period = ServicePeriod(
+                name=name,
+                start_date=start_date,
+                end_date=end_date,
+                status=PeriodStatus.OPEN,
+                description=description,
+            )
+            return period
+
+    def get_period(self, period_id: int) -> Optional[ServicePeriod]:
         """Get service period by ID.
 
         Args:
             period_id: Period ID
 
         Returns:
-            ServicePeriod object or None
+            ServicePeriod object or None if not found
         """
-        pass
+        if self.db:
+            return self.db.query(ServicePeriod).filter_by(id=period_id).first()
+        return None
 
-    def list_periods(self):
+    def list_periods(self) -> List[ServicePeriod]:
         """List all service periods.
 
         Returns:
-            List of ServicePeriod objects
+            List of ServicePeriod objects sorted by start_date descending
         """
-        pass
+        if self.db:
+            return (
+                self.db.query(ServicePeriod)
+                .order_by(ServicePeriod.start_date.desc())
+                .all()
+            )
+        return []
 
-    def close_period(self, period_id: int):
+    def close_period(self, period_id: int) -> ServicePeriod:
         """Close a service period (finalize balances).
 
         Transitions period from OPEN to CLOSED.
@@ -76,10 +125,27 @@ class PaymentService:
 
         Returns:
             Updated ServicePeriod object
-        """
-        pass
 
-    def reopen_period(self, period_id: int):
+        Raises:
+            ValueError: If period not found or already closed
+        """
+        if self.db:
+            period = self.db.query(ServicePeriod).filter_by(id=period_id).first()
+            if not period:
+                raise ValueError(f"Period {period_id} not found")
+            if period.status == PeriodStatus.CLOSED:
+                raise ValueError(f"Period {period_id} is already closed")
+
+            period.status = PeriodStatus.CLOSED
+            period.closed_at = datetime.now(
+                datetime.now().astimezone().tzinfo
+            )
+            self.db.commit()
+            self.db.refresh(period)
+            return period
+        return None
+
+    def reopen_period(self, period_id: int) -> ServicePeriod:
         """Reopen a closed period for corrections.
 
         Transitions period from CLOSED to OPEN.
@@ -90,43 +156,91 @@ class PaymentService:
 
         Returns:
             Updated ServicePeriod object
+
+        Raises:
+            ValueError: If period not found or already open
         """
-        pass
+        if self.db:
+            period = self.db.query(ServicePeriod).filter_by(id=period_id).first()
+            if not period:
+                raise ValueError(f"Period {period_id} not found")
+            if period.status == PeriodStatus.OPEN:
+                raise ValueError(f"Period {period_id} is already open")
+
+            period.status = PeriodStatus.OPEN
+            period.closed_at = None
+            self.db.commit()
+            self.db.refresh(period)
+            return period
+        return None
 
     def record_contribution(
         self,
         period_id: int,
         user_id: int,
         amount: Decimal,
-        date: datetime,
+        date_val: datetime,
         comment: Optional[str] = None,
-    ):
+    ) -> ContributionLedger:
         """Record owner contribution (payment).
 
         Args:
             period_id: Service period ID
             user_id: Owner ID
             amount: Contribution amount
-            date: Date of contribution
+            date_val: Date of contribution
             comment: Optional notes
 
         Returns:
             Created ContributionLedger object
-        """
-        pass
 
-    def get_contributions(self, period_id: int):
+        Raises:
+            ValueError: If period not found, period is closed, or amount is invalid
+        """
+        if self.db:
+            # Validate period
+            period = self.db.query(ServicePeriod).filter_by(id=period_id).first()
+            if not period:
+                raise ValueError(f"Period {period_id} not found")
+            if period.status != PeriodStatus.OPEN:
+                raise ValueError(f"Period {period_id} is not open for contributions")
+
+            # Validate amount
+            if amount <= Decimal(0):
+                raise ValueError("Contribution amount must be positive")
+
+            contribution = ContributionLedger(
+                service_period_id=period_id,
+                user_id=user_id,
+                amount=amount,
+                date=date_val,
+                comment=comment,
+            )
+            self.db.add(contribution)
+            self.db.commit()
+            self.db.refresh(contribution)
+            return contribution
+        return None
+
+    def get_contributions(self, period_id: int) -> List[ContributionLedger]:
         """List all contributions in period.
 
         Args:
             period_id: Period ID
 
         Returns:
-            List of ContributionLedger objects
+            List of ContributionLedger objects sorted by date
         """
-        pass
+        if self.db:
+            return (
+                self.db.query(ContributionLedger)
+                .filter_by(service_period_id=period_id)
+                .order_by(ContributionLedger.date)
+                .all()
+            )
+        return []
 
-    def get_owner_contributions(self, period_id: int, owner_id: int):
+    def get_owner_contributions(self, period_id: int, owner_id: int) -> Decimal:
         """Get cumulative contributions for owner in period.
 
         Args:
@@ -136,14 +250,23 @@ class PaymentService:
         Returns:
             Total contribution amount (Decimal)
         """
-        pass
+        if self.db:
+            from sqlalchemy import func
+
+            result = (
+                self.db.query(func.sum(ContributionLedger.amount))
+                .filter_by(service_period_id=period_id, user_id=owner_id)
+                .scalar()
+            )
+            return Decimal(result or 0)
+        return Decimal(0)
 
     def edit_contribution(
         self,
         contribution_id: int,
         amount: Optional[Decimal] = None,
         comment: Optional[str] = None,
-    ):
+    ) -> ContributionLedger:
         """Edit contribution in OPEN period.
 
         Args:
@@ -153,8 +276,36 @@ class PaymentService:
 
         Returns:
             Updated ContributionLedger object
+
+        Raises:
+            ValueError: If contribution not found or period is closed
         """
-        pass
+        if self.db:
+            contribution = self.db.query(ContributionLedger).filter_by(
+                id=contribution_id
+            ).first()
+            if not contribution:
+                raise ValueError(f"Contribution {contribution_id} not found")
+
+            # Verify period is open
+            period = self.db.query(ServicePeriod).filter_by(
+                id=contribution.service_period_id
+            ).first()
+            if period.status != PeriodStatus.OPEN:
+                raise ValueError("Cannot edit contribution in closed period")
+
+            if amount is not None:
+                if amount <= Decimal(0):
+                    raise ValueError("Contribution amount must be positive")
+                contribution.amount = amount
+
+            if comment is not None:
+                contribution.comment = comment
+
+            self.db.commit()
+            self.db.refresh(contribution)
+            return contribution
+        return None
 
     def record_expense(
         self,
@@ -162,11 +313,11 @@ class PaymentService:
         paid_by_user_id: int,
         amount: Decimal,
         payment_type: str,
-        date: datetime,
+        date_val: datetime,
         vendor: Optional[str] = None,
         description: Optional[str] = None,
         budget_item_id: Optional[int] = None,
-    ):
+    ) -> ExpenseLedger:
         """Record community expense.
 
         Args:
@@ -174,28 +325,64 @@ class PaymentService:
             paid_by_user_id: User who paid the expense
             amount: Expense amount
             payment_type: Category of expense
-            date: Date of expense
+            date_val: Date of expense
             vendor: Vendor/service provider (optional)
             description: Details (optional)
             budget_item_id: Reference to budget item (optional)
 
         Returns:
             Created ExpenseLedger object
-        """
-        pass
 
-    def get_expenses(self, period_id: int):
+        Raises:
+            ValueError: If period not found, period is closed, or amount is invalid
+        """
+        if self.db:
+            # Validate period
+            period = self.db.query(ServicePeriod).filter_by(id=period_id).first()
+            if not period:
+                raise ValueError(f"Period {period_id} not found")
+            if period.status != PeriodStatus.OPEN:
+                raise ValueError(f"Period {period_id} is not open for expenses")
+
+            # Validate amount
+            if amount <= Decimal(0):
+                raise ValueError("Expense amount must be positive")
+
+            expense = ExpenseLedger(
+                service_period_id=period_id,
+                paid_by_user_id=paid_by_user_id,
+                amount=amount,
+                payment_type=payment_type,
+                date=date_val,
+                vendor=vendor,
+                description=description,
+                budget_item_id=budget_item_id,
+            )
+            self.db.add(expense)
+            self.db.commit()
+            self.db.refresh(expense)
+            return expense
+        return None
+
+    def get_expenses(self, period_id: int) -> List[ExpenseLedger]:
         """List all expenses in period.
 
         Args:
             period_id: Period ID
 
         Returns:
-            List of ExpenseLedger objects
+            List of ExpenseLedger objects sorted by date
         """
-        pass
+        if self.db:
+            return (
+                self.db.query(ExpenseLedger)
+                .filter_by(service_period_id=period_id)
+                .order_by(ExpenseLedger.date)
+                .all()
+            )
+        return []
 
-    def get_paid_by_user(self, period_id: int, user_id: int):
+    def get_paid_by_user(self, period_id: int, user_id: int) -> List[ExpenseLedger]:
         """Get expenses paid by specific user.
 
         Args:
@@ -205,7 +392,14 @@ class PaymentService:
         Returns:
             List of ExpenseLedger objects
         """
-        pass
+        if self.db:
+            return (
+                self.db.query(ExpenseLedger)
+                .filter_by(service_period_id=period_id, paid_by_user_id=user_id)
+                .order_by(ExpenseLedger.date)
+                .all()
+            )
+        return []
 
     def edit_expense(
         self,
@@ -214,7 +408,7 @@ class PaymentService:
         payment_type: Optional[str] = None,
         vendor: Optional[str] = None,
         description: Optional[str] = None,
-    ):
+    ) -> ExpenseLedger:
         """Edit expense in OPEN period.
 
         Args:
@@ -226,8 +420,40 @@ class PaymentService:
 
         Returns:
             Updated ExpenseLedger object
+
+        Raises:
+            ValueError: If expense not found or period is closed
         """
-        pass
+        if self.db:
+            expense = self.db.query(ExpenseLedger).filter_by(id=expense_id).first()
+            if not expense:
+                raise ValueError(f"Expense {expense_id} not found")
+
+            # Verify period is open
+            period = self.db.query(ServicePeriod).filter_by(
+                id=expense.service_period_id
+            ).first()
+            if period.status != PeriodStatus.OPEN:
+                raise ValueError("Cannot edit expense in closed period")
+
+            if amount is not None:
+                if amount <= Decimal(0):
+                    raise ValueError("Expense amount must be positive")
+                expense.amount = amount
+
+            if payment_type is not None:
+                expense.payment_type = payment_type
+
+            if vendor is not None:
+                expense.vendor = vendor
+
+            if description is not None:
+                expense.description = description
+
+            self.db.commit()
+            self.db.refresh(expense)
+            return expense
+        return None
 
     def record_service_charge(
         self,
@@ -235,7 +461,7 @@ class PaymentService:
         user_id: int,
         description: str,
         amount: Decimal,
-    ):
+    ) -> ServiceCharge:
         """Record service charge for specific owner.
 
         Args:
@@ -246,10 +472,35 @@ class PaymentService:
 
         Returns:
             Created ServiceCharge object
-        """
-        pass
 
-    def get_service_charges(self, period_id: int):
+        Raises:
+            ValueError: If period not found, period is closed, or amount is invalid
+        """
+        if self.db:
+            # Validate period
+            period = self.db.query(ServicePeriod).filter_by(id=period_id).first()
+            if not period:
+                raise ValueError(f"Period {period_id} not found")
+            if period.status != PeriodStatus.OPEN:
+                raise ValueError(f"Period {period_id} is not open for charges")
+
+            # Validate amount
+            if amount <= Decimal(0):
+                raise ValueError("Charge amount must be positive")
+
+            charge = ServiceCharge(
+                service_period_id=period_id,
+                user_id=user_id,
+                description=description,
+                amount=amount,
+            )
+            self.db.add(charge)
+            self.db.commit()
+            self.db.refresh(charge)
+            return charge
+        return None
+
+    def get_service_charges(self, period_id: int) -> List[ServiceCharge]:
         """List all service charges in period.
 
         Args:
@@ -258,13 +509,19 @@ class PaymentService:
         Returns:
             List of ServiceCharge objects
         """
-        pass
+        if self.db:
+            return (
+                self.db.query(ServiceCharge)
+                .filter_by(service_period_id=period_id)
+                .all()
+            )
+        return []
 
     def get_transaction_history(
         self,
         period_id: int,
         user_id: Optional[int] = None,
-    ):
+    ) -> List:
         """Get complete transaction history for period.
 
         Returns contributions, expenses, and charges combined and sorted by date.
@@ -276,4 +533,40 @@ class PaymentService:
         Returns:
             List of transactions sorted by date
         """
-        pass
+        if self.db:
+            # This is a simplified implementation
+            # In production, would use proper transaction representation
+            transactions = []
+
+            # Get contributions
+            contributions = (
+                self.db.query(ContributionLedger)
+                .filter_by(service_period_id=period_id)
+            )
+            if user_id:
+                contributions = contributions.filter_by(user_id=user_id)
+            transactions.extend(contributions.all())
+
+            # Get expenses
+            expenses = (
+                self.db.query(ExpenseLedger)
+                .filter_by(service_period_id=period_id)
+            )
+            if user_id:
+                # For expenses, user_id refers to paid_by_user_id
+                expenses = expenses.filter_by(paid_by_user_id=user_id)
+            transactions.extend(expenses.all())
+
+            # Get charges
+            charges = (
+                self.db.query(ServiceCharge)
+                .filter_by(service_period_id=period_id)
+            )
+            if user_id:
+                charges = charges.filter_by(user_id=user_id)
+            transactions.extend(charges.all())
+
+            # Sort by date
+            transactions.sort(key=lambda t: t.date if hasattr(t, 'date') else t.created_at)
+            return transactions
+        return []

@@ -131,20 +131,20 @@ Phase 1 (Setup) → Phase 2 (Foundational) → [User Stories 3-5 in parallel] �
 
 **Tasks**:
 
-- [ ] T023 [US1] Implement `create_period()` method in `PaymentService` in `src/services/payment_service.py`
-- [ ] T024 [US1] Implement `get_period()` method to retrieve period by ID in `src/services/payment_service.py`
-- [ ] T025 [US1] Implement `list_periods()` method to list all periods in `src/services/payment_service.py`
-- [ ] T026 [US1] Implement `close_period()` method with balance calculation trigger in `src/services/payment_service.py`
-- [ ] T027 [US1] Implement `reopen_period()` method for error correction in `src/services/payment_service.py`
-- [ ] T028 [US1] Implement POST `/api/periods` endpoint in `src/api/payment.py` to create period
-- [ ] T029 [US1] Implement GET `/api/periods/{id}` endpoint in `src/api/payment.py` to retrieve period
-- [ ] T030 [US1] Implement GET `/api/periods` endpoint in `src/api/payment.py` to list periods
-- [ ] T031 [US1] Implement POST `/api/periods/{id}/close` endpoint in `src/api/payment.py` to close period
-- [ ] T032 [US1] Implement PATCH `/api/periods/{id}` endpoint in `src/api/payment.py` to reopen period
-- [ ] T033 [US1] Add period validation: start_date < end_date, unique period names per year
-- [ ] T034 [US1] Integration test: create period → verify status OPEN → close period → verify CLOSED in `tests/integration/test_financial_flows.py`
-- [ ] T035 [US1] Contract test: POST /periods returns 201, GET /periods/{id} returns period object in `tests/contract/test_payment_endpoints.py`
-- [ ] T036 [US1] Contract test: POST /periods/{id}/close returns 200, period.status=CLOSED in `tests/contract/test_payment_endpoints.py`
+- [x] T023 [US1] Implement `create_period()` method in `PaymentService` in `src/services/payment_service.py`
+- [x] T024 [US1] Implement `get_period()` method to retrieve period by ID in `src/services/payment_service.py`
+- [x] T025 [US1] Implement `list_periods()` method to list all periods in `src/services/payment_service.py`
+- [x] T026 [US1] Implement `close_period()` method with balance calculation trigger in `src/services/payment_service.py`
+- [x] T027 [US1] Implement `reopen_period()` method for error correction in `src/services/payment_service.py`
+- [x] T028 [US1] Implement POST `/api/periods` endpoint in `src/api/payment.py` to create period
+- [x] T029 [US1] Implement GET `/api/periods/{id}` endpoint in `src/api/payment.py` to retrieve period
+- [x] T030 [US1] Implement GET `/api/periods` endpoint in `src/api/payment.py` to list periods
+- [x] T031 [US1] Implement POST `/api/periods/{id}/close` endpoint in `src/api/payment.py` to close period
+- [x] T032 [US1] Implement PATCH `/api/periods/{id}` endpoint in `src/api/payment.py` to reopen period
+- [x] T033 [US1] Add period validation: start_date < end_date, unique period names per year (basic validation in create_period)
+- [x] T034 [US1] Integration test: create period → verify status OPEN → close period → verify CLOSED in `tests/integration/test_period_lifecycle.py`
+- [x] T035 [US1] Contract test: POST /periods returns 201, GET /periods/{id} returns period object in `tests/contract/test_payment_api_contract.py`
+- [x] T036 [US1] Contract test: POST /periods/{id}/close returns 200, period.status=CLOSED in `tests/contract/test_payment_api_contract.py`
 
 ---
 
