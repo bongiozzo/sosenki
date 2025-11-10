@@ -5,6 +5,18 @@
 **Status**: Draft  
 **Input**: Developer requirement to automate canonical data synchronization from Google Sheets to local development database
 
+## Clarifications
+
+### Session 2025-11-10
+
+- Q: When a new User is created from the sheet data (owner name not found in database), what default role flags should be assigned? → A: Auto-create with is_investor=True, is_administrator=False, is_stakeholder=<based on "Доля в Т" column>. All users have is_investor and is_owner roles by default. is_administrator is set only for П. is_stakeholder is determined by presence of data in "Доля в Т" column.
+- Q: How should the system handle Properties with empty, null, or whitespace-only owner names? → A: Skip the row and log a WARNING; include count of skipped rows in final summary. This maintains unattended execution while alerting developers to data quality issues.
+- Q: What logging level and output destinations should the seeding process use? → A: INFO level to both stdout and file (logs/seed.log) with WARN/ERROR highlighted. Provides real-time feedback and audit trail while preserving observability.
+- Q: When the Google Sheets API call fails (timeout, rate limit, temporary unavailability), how should the seed process respond? → A: Fail immediately with clear error message; no retry. Simplest approach, requires manual re-run for transient failures but prevents masking of persistent configuration issues.
+- Q: How should the seeding process manage database transactions during concurrent application access? → A: Document that seed must run when application is offline. This is appropriate for a development tool; clear documentation in Makefile and quickstart establishes operational discipline without unnecessary transaction complexity.
+
+---
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Refresh Development Database (Priority: P1)
@@ -41,17 +53,18 @@ The seeding process must securely load Google Sheets credentials without storing
 
 ### User Story 3 - Correctly Migrate Properties and Users (Priority: P1)
 
-The seeding script must accurately parse the "Дома" (Houses) sheet and populate the Property and User tables while maintaining relational integrity. Owner names from the sheet must be correctly resolved to User primary keys, creating new Users if necessary.
+The seeding script must accurately parse the "Дома" (Houses) sheet and populate the Property and User tables while maintaining relational integrity. Owner names from the sheet must be correctly resolved to User primary keys. If an owner name is not found in the database, a new User is automatically created with default role flags (is_investor=True, is_owner=True, is_administrator=False by default, and is_stakeholder based on "Доля в Т" column presence).
 
 **Why this priority**: Data correctness is fundamental - without proper entity mapping and relational integrity, the database will contain inconsistent or incomplete data.
 
-**Independent Test**: Can be tested by verifying Property records have correct foreign key references to User records, owner names are correctly matched, and all expected properties appear in the database with accurate share weights and statuses.
+**Independent Test**: Can be tested by verifying Property records have correct foreign key references to User records, owner names are correctly matched, and all expected properties appear in the database with accurate share weights and statuses. Verify newly created Users have correct default role flags.
 
 **Acceptance Scenarios**:
 
 1. **Given** the "Дома" sheet contains property records with owner names, **When** `make seed` runs, **Then** each Property is correctly linked to the corresponding User via owner_id foreign key.
-2. **Given** an owner name appears in the sheet but no corresponding User exists, **When** `make seed` runs, **Then** a new User is created with the name from the sheet, and Properties are correctly linked to this new User.
-3. **Given** property data includes share weights and status flags, **When** `make seed` runs, **Then** these values are correctly stored in the database (e.g., share_weight as Decimal, is_ready as Boolean).
+2. **Given** an owner name appears in the sheet but no corresponding User exists, **When** `make seed` runs, **Then** a new User is created with is_investor=True, is_owner=True, is_administrator=False, and is_stakeholder determined by "Доля в Т" column data, and Properties are correctly linked to this new User.
+3. **Given** an owner name is "П", **When** `make seed` runs, **Then** the User record for П has is_administrator=True (and is_investor=True, is_owner=True, is_stakeholder based on column data).
+4. **Given** property data includes share weights and status flags, **When** `make seed` runs, **Then** these values are correctly stored in the database (e.g., share_weight as Decimal, is_ready as Boolean).
 
 ---
 
@@ -89,9 +102,9 @@ The Makefile must include a standardized `make seed` target that encapsulates th
 
 ### Edge Cases
 
-- What happens when the Google Sheet is temporarily unavailable or the API rate limit is exceeded? (Should fail with clear messaging, not corrupt the database)
-- How does the system handle if a Property row references an owner name that is empty or contains whitespace? (Should either skip the row with warning or handle gracefully)
-- What happens when running `make seed` while the application is actively reading from the database? (Should not corrupt data; transaction handling is important)
+- What happens when the Google Sheet is temporarily unavailable or the API rate limit is exceeded? (Fail with clear messaging, not corrupt the database; no automatic retry)
+- How does the system handle if a Property row references an owner name that is empty or contains whitespace? (Skip the row, log WARNING, include count in summary)
+- What happens when running `make seed` while the application is actively reading from the database? (Seed must run when application is offline; document clearly in Makefile and quickstart)
 - What if the "Дома" sheet structure changes (new columns added or removed)? (Script should be resilient to extra columns, may need updates for removed columns)
 - What if a Property's share weight is missing or invalid? (Should skip or use a default, with a warning)
 
@@ -100,11 +113,12 @@ The Makefile must include a standardized `make seed` target that encapsulates th
 ### Functional Requirements
 
 - **FR-001**: System MUST provide a `make seed` Makefile target that is the single entry point for the entire seeding process.
-- **FR-002**: System MUST fetch data directly from the Google Sheets API using the configured Sheet ID and service account credentials.
+- **FR-002**: System MUST fetch data directly from the Google Sheets API using the configured Sheet ID and service account credentials. API calls MUST NOT include automatic retry logic; transient failures will require manual re-execution of the seed command.
 - **FR-003**: System MUST NOT read from local CSV or Excel files; API is the exclusive data source.
 - **FR-004**: System MUST truncate all data from the `users` and `properties` tables before populating them with fresh data (destructive refresh / truncate-and-load pattern).
 - **FR-005**: System MUST correctly parse the "Дома" sheet and map columns to the User and Property models.
-- **FR-006**: System MUST resolve owner names from the sheet to corresponding User records by name matching, creating new Users if they do not exist.
+- **FR-006**: System MUST resolve owner names from the sheet to corresponding User records by name matching. When creating a new User, system MUST assign: is_investor=True, is_owner=True, is_administrator=False (except for owner name "П" which receives is_administrator=True), and is_stakeholder based on presence of value in "Доля в Т" column.
+- **FR-006a**: System MUST map is_stakeholder to User records based on "Доля в Т" column: if owner name has non-empty value in this column, is_stakeholder=True; otherwise is_stakeholder=False.
 - **FR-007**: System MUST correctly parse Russian number formatting (decimal commas, thousand separators with spaces) and convert to Python numeric types (Decimal for financial values).
 - **FR-008**: System MUST correctly parse currency values (e.g., "р.65 000") by stripping the ruble symbol and converting to Decimal.
 - **FR-009**: System MUST correctly parse percentage values (e.g., "3,85%") and store as numeric Decimal.
@@ -116,18 +130,20 @@ The Makefile must include a standardized `make seed` target that encapsulates th
 - **FR-015**: System MUST provide clear error messages if credentials are missing or invalid, explaining the required configuration.
 - **FR-016**: System MUST be idempotent: running the seed command N times must result in the exact same database state as running it once.
 - **FR-017**: System MUST handle the initial seeding phase to include only the "Дома" sheet (Properties and Users); transaction tables will be handled in a future phase.
-- **FR-018**: System MUST provide progress feedback (e.g., logging) during the seeding process so developers know what is happening.
+- **FR-018**: System MUST provide progress feedback (e.g., logging) during the seeding process so developers know what is happening. Logging MUST use INFO level, output to both stdout and file (logs/seed.log), and highlight WARN/ERROR messages visually for immediate visibility.
 - **FR-019**: System MUST handle and report data validation errors gracefully (e.g., if a property has no owner name, log a warning and skip the row).
+- **FR-019a**: System MUST skip Properties with empty, null, or whitespace-only owner names ("Фамилия" column). For each skipped row, log a WARNING message with row number and reason. Include a final summary showing total skipped rows and continue processing remaining rows.
 - **FR-020**: System MUST complete the seeding process in a reasonable time frame for development (target: under 30 seconds for the current data volume).
+- **FR-021**: System MUST document clearly (in Makefile help, quickstart guide, and any user-facing documentation) that the seed command must run when the application is offline. This is appropriate for a development tool and eliminates complex transaction handling.
 
 ### Key Entities *(include if feature involves data)*
 
-- **User**: Represents a property owner or stakeholder. Key attributes: name (unique identifier), telegram_id (optional, added later), is_active, is_investor, is_administrator, is_stakeholder. Relationships: owns multiple Properties.
+- **User**: Represents a property owner or stakeholder. Key attributes: name (unique identifier), telegram_id (optional, added later), is_active (default=True), is_investor (default=True for all auto-created Users), is_owner (default=True for all auto-created Users), is_administrator (default=False, except owner named "П"=True), is_stakeholder (based on "Доля в Т" column). Relationships: owns multiple Properties.
 
 - **Property**: Represents a physical house or building. Key attributes: property_name, type (Большой/Малый/etc.), share_weight (allocation coefficient), is_active, is_ready, is_for_tenant, photo_link, sale_price. Relationships: owned by a single User.
 
 - **Mapping**: The "Дома" sheet structure maps to these entities:
-  - Column "Фамилия" (Owner name) → User.name (creates User if not exists)
+  - Column "Фамилия" (Owner name) → User.name (creates User if not exists; auto-assign role flags as specified)
   - Column "Дом" (House number) → Property.property_name
   - Column "Размер" (Size) → Property.type
   - Column "Коэффициент" (Coefficient) → Property.share_weight
@@ -135,6 +151,7 @@ The Makefile must include a standardized `make seed` target that encapsulates th
   - Column "Аренда" (Rental) → Property.is_for_tenant (Да=True, Нет/empty=False)
   - Column "Фото" (Photo) → Property.photo_link
   - Column "Цена" (Price) → Property.sale_price
+  - Column "Доля в Т" (Share) → User.is_stakeholder (presence of value = True, absence = False)
 
 ## Success Criteria *(mandatory)*
 
@@ -178,6 +195,4 @@ The Makefile must include a standardized `make seed` target that encapsulates th
 
 ## Open Questions
 
-- Should the seeding process create Users for owners not yet in the system, or should it only link to existing Users? (Current assumption: create new Users if needed, but this should be confirmed)
-- Should we soft-delete (logical delete) or hard-delete when truncating tables? (Current assumption: hard delete to ensure clean state, but team should confirm)
-- What is the desired logging level (DEBUG, INFO, WARNING)? Should logs be written to a file, stdout, or both?
+- Should we implement data validation for Properties with missing share weights? (Current assumption: log warning and skip or use default, to be determined during planning)
