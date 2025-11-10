@@ -20,7 +20,7 @@ This feature adds a Telegram Mini App that approved users can access after their
 ### 1. Install Dependencies
 
 ```bash
-cd /Users/serpo/Work/SOSenki
+cd path/to/SOSenki
 uv sync --all-groups
 ```
 
@@ -44,7 +44,7 @@ MINI_APP_URL=https://localhost:8000/mini-app
 ### 3. Run Database Migrations
 
 ```bash
-cd /Users/serpo/Work/SOSenki
+cd path/to/SOSenki
 uv run alembic upgrade head
 ```
 
@@ -57,7 +57,7 @@ This applies all migrations including:
 ### 4. Start the Development Server
 
 ```bash
-cd /Users/serpo/Work/SOSenki
+cd path/to/SOSenki
 uv run python src/main.py
 ```
 
@@ -135,7 +135,7 @@ migrations/
 
 ```bash
 # Contract test for Mini App initialization
-cd /Users/serpo/Work/SOSenki
+cd path/to/SOSenki
 uv run pytest tests/contract/test_mini_app_endpoints.py -v
 
 # Integration test for full flow

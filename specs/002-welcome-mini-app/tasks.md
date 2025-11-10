@@ -20,7 +20,7 @@ Format: `[ID] [P?] [Story] Description`
 
 Purpose: Ensure local environment and configuration for Mini App feature
 
-- [X] T001 Create `.env.example` with Mini App variables at repo root (`/Users/serpo/Work/SOSenki/.env.example`) including TELEGRAM_MINI_APP_ID and MINI_APP_URL
+- [X] T001 Create `.env.example` with Mini App variables at repo root (`.env.example`) including TELEGRAM_MINI_APP_ID and MINI_APP_URL
 - [X] T002 Add Mini App config constants in `src/bot/config.py` (read MINI_APP_URL, TELEGRAM_MINI_APP_ID from env)
 - [X] T003 [P] Verify FastAPI app exposes health at `GET /health` in `src/main.py` (ensure ready for new routes)
 

@@ -40,15 +40,13 @@ The Payment and Debt Management System provides a comprehensive REST API for man
 
 
 
-```bash```bash
+```bash
+cd path/to/SOSenki
 
-cd /Users/serpo/Work/SOSenkicd /Users/serpo/Work/SOSenki
+uv sync  # Install dependencies
 
-uv sync  # Install dependenciesuv sync  # Install dependencies
-
-uv run python src/main.py  # Start FastAPI serveruv run python src/main.py  # Start FastAPI server
-
-``````
+uv run python src/main.py  # Start FastAPI server
+`````````
 
 
 
