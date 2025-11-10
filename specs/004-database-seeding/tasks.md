@@ -81,18 +81,18 @@ Establish CLI structure, logging, configuration loading, and data type parsing u
 
 ---
 
-- [ ] T001 Create CLI module structure and entry point in `src/cli/seed.py`
-- [ ] T002 Implement logging system with dual handlers (stdout + file) in `src/cli/seed.py`
-- [ ] T003 Create environment configuration loader in `src/services/config.py`
-- [ ] T004 [P] Implement Russian decimal parser in `src/services/parsers.py`
-- [ ] T005 [P] Implement Russian percentage parser in `src/services/parsers.py`
-- [ ] T006 [P] Implement Russian currency parser (ruble symbol removal) in `src/services/parsers.py`
-- [ ] T007 [P] Implement boolean parser ("Да"/"Нет" → True/False) in `src/services/parsers.py`
-- [ ] T008 Create database session manager in `src/services/db.py`
-- [ ] T009 Create error handling utilities and custom exception classes in `src/services/errors.py`
-- [ ] T010 [P] Update Makefile with `seed` target calling `python -m src.cli.seed`
-- [ ] T011 Create `logs/` directory structure and initialize seed.log
-- [ ] T012 Add `.env.example` template with required variables (GOOGLE_SHEET_ID, CREDENTIALS_PATH)
+- [X] T001 Create CLI module structure and entry point in `src/cli/seed.py`
+- [X] T002 Implement logging system with dual handlers (stdout + file) in `src/cli/seed.py`
+- [X] T003 Create environment configuration loader in `src/services/config.py`
+- [X] T004 [P] Implement Russian decimal parser in `src/services/parsers.py`
+- [X] T005 [P] Implement Russian percentage parser in `src/services/parsers.py`
+- [X] T006 [P] Implement Russian currency parser (ruble symbol removal) in `src/services/parsers.py`
+- [X] T007 [P] Implement boolean parser ("Да"/"Нет" → True/False) in `src/services/parsers.py`
+- [X] T008 Create database session manager in `src/services/db.py`
+- [X] T009 Create error handling utilities and custom exception classes in `src/services/errors.py`
+- [X] T010 [P] Update Makefile with `seed` target calling `python -m src.cli.seed`
+- [X] T011 Create `logs/` directory structure and initialize seed.log
+- [X] T012 Add `.env.example` template with required variables (GOOGLE_SHEET_ID, CREDENTIALS_PATH)
 
 ---
 
@@ -117,24 +117,24 @@ Implement the complete data seeding pipeline: fetch from Google Sheets, parse us
 
 ### T013-T020: Google Sheets API Client & User Parsing (US1/US3)
 
-- [ ] T013 Implement Google Sheets API client authentication in `src/services/google_sheets.py`
-- [ ] T014 Implement sheet data fetching in `src/services/google_sheets.py`
-- [ ] T015 Implement user parsing with role assignment logic in `src/services/parsers.py`
-- [ ] T016 [P] [US3] Implement user lookup and auto-creation logic in `src/services/user_service.py`
-- [ ] T017 [P] [US3] Handle "Поляков" special case (is_administrator=True) in `src/services/parsers.py`
-- [ ] T018 [P] [US3] Implement is_stakeholder detection from "Доля в Терра-М" column in `src/services/parsers.py`
+- [X] T013 Implement Google Sheets API client authentication in `src/services/google_sheets.py`
+- [X] T014 Implement sheet data fetching in `src/services/google_sheets.py`
+- [X] T015 Implement user parsing with role assignment logic in `src/services/seeding_utils.py`
+- [X] T016 [P] [US3] Implement user lookup and auto-creation logic in `src/services/seeding_utils.py`
+- [X] T017 [P] [US3] Handle "Поляков" special case (is_administrator=True) in `src/services/seeding_utils.py`
+- [X] T018 [P] [US3] Implement is_stakeholder detection from "Доля в Терра-М" column in `src/services/seeding_utils.py`
 - [ ] T019 Create unit tests for user parsing in `tests/unit/test_user_parser.py`
 - [ ] T020 Create contract test stub for user creation in `tests/contract/test_seeding_end_to_end.py`
 
 ### T021-T030: Property Parsing with "Доп" Column & Seeding Orchestration (US1/US3/US4)
 
-- [ ] T021 [P] [US4] Implement property parsing (main row columns) in `src/services/parsers.py`
-- [ ] T022 [P] [US4] Implement "Доп" column splitting and type mapping in `src/services/parsers.py`
-- [ ] T023 Implement selective attribute inheritance (owner_id, is_ready, is_for_tenant; NULL share_weight, photo_link, sale_price) in `src/services/parsers.py`
-- [ ] T024 [P] Implement property lookup and creation in `src/services/property_service.py`
-- [ ] T025 Implement seeding orchestration (truncate, parse, insert, commit) in `src/services/seeding.py`
-- [ ] T026 [P] Implement transaction management and rollback on error in `src/services/seeding.py`
-- [ ] T027 Implement seed summary generation and reporting in `src/services/seeding.py`
+- [X] T021 [P] [US4] Implement property parsing (main row columns) in `src/services/property_seeding.py`
+- [X] T022 [P] [US4] Implement "Доп" column splitting and type mapping in `src/services/property_seeding.py`
+- [X] T023 Implement selective attribute inheritance (owner_id, is_ready, is_for_tenant; NULL share_weight, photo_link, sale_price) in `src/services/property_seeding.py`
+- [X] T024 [P] Implement property lookup and creation in `src/services/property_seeding.py`
+- [X] T025 Implement seeding orchestration (truncate, parse, insert, commit) in `src/services/seeding.py`
+- [X] T026 [P] Implement transaction management and rollback on error in `src/services/seeding.py`
+- [X] T027 Implement seed summary generation and reporting in `src/services/seeding.py`
 - [ ] T028 Create unit tests for property parsing (including "Доп" column) in `tests/unit/test_property_parser.py`
 - [ ] T029 Create integration test for full seeding flow in `tests/integration/test_seeding_flow.py`
 - [ ] T030 [US1] Create contract test for end-to-end seeding in `tests/contract/test_seeding_end_to_end.py`
