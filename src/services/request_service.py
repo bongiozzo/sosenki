@@ -52,8 +52,11 @@ class RequestService:
 
         if not existing_user:
             # Create user with is_active=False (will be activated on approval)
+            # Generate a placeholder name from telegram_id since name is required and unique
+            placeholder_name = f"User_{user_telegram_id}"
             user = User(
                 telegram_id=user_telegram_id,
+                name=placeholder_name,
                 is_active=False,  # Not active until approved
             )
             self.db.add(user)

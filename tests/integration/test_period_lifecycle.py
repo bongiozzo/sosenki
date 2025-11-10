@@ -25,7 +25,7 @@ def db_session():
 @pytest.fixture
 def sample_user(db_session):
     """Create a sample user for testing."""
-    user = User(id=1, telegram_id=12345, username="testuser")
+    user = User(id=1, telegram_id=12345, username="testuser", name="Test User")
     db_session.add(user)
     db_session.commit()
     return user
@@ -200,7 +200,7 @@ class TestPeriodTransactions:
         service = PaymentService(db=db_session)
         
         # Create second user
-        user2 = User(id=2, telegram_id=54321, username="testuser2")
+        user2 = User(id=2, telegram_id=54321, username="testuser2", name="Test User 2")
         db_session.add(user2)
         db_session.commit()
         
@@ -311,7 +311,7 @@ class TestPeriodTransactions:
         """Test getting expenses paid by specific user."""
         service = PaymentService(db=db_session)
         
-        user2 = User(id=2, telegram_id=54321, username="testuser2")
+        user2 = User(id=2, telegram_id=54321, username="testuser2", name="Test User 2")
         db_session.add(user2)
         db_session.commit()
         

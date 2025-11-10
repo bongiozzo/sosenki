@@ -25,12 +25,11 @@ class User(Base, BaseModel):
     __tablename__ = "users"
 
     # Identity fields
-    telegram_id: Mapped[str] = mapped_column(
+    telegram_id: Mapped[str | None] = mapped_column(
         String(50), 
-        nullable=False, 
-        unique=True, 
+        nullable=True, 
         index=True,
-        comment="Primary identifier from Telegram"
+        comment="Primary identifier from Telegram (nullable until user becomes active)"
     )
     username: Mapped[str | None] = mapped_column(
         String(255), 
@@ -38,8 +37,12 @@ class User(Base, BaseModel):
         index=True,
         comment="Telegram username"
     )
-    first_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    last_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    name: Mapped[str] = mapped_column(
+        String(255), 
+        nullable=False,
+        unique=True,
+        comment="Full name (first and last name combined) - unique identifier"
+    )
 
     # Role flags (independent - user can have multiple roles)
     is_investor: Mapped[bool] = mapped_column(
@@ -65,6 +68,14 @@ class User(Base, BaseModel):
         default=False, 
         nullable=False,
         comment="Can view analytics and support users (future)"
+    )
+    
+    # Stakeholder status
+    is_stakeholder: Mapped[bool] = mapped_column(
+        Boolean, 
+        default=False, 
+        nullable=False,
+        comment="Stakeholder status from Google Sheet 'Доля' column"
     )
     
     # Primary access gate
@@ -95,6 +106,7 @@ class User(Base, BaseModel):
         Index("idx_username", "username"),
         Index("idx_is_active", "is_active"),
         Index("idx_investor_active", "is_investor", "is_active"),
+        Index("idx_name_unique", "name", unique=True),
     )
 
     # Relationships
@@ -117,7 +129,7 @@ class User(Base, BaseModel):
         role_str = ",".join(roles) if roles else "none"
         
         return (
-            f"<User(id={self.id}, telegram_id={self.telegram_id}, "
+            f"<User(id={self.id}, name={self.name}, telegram_id={self.telegram_id}, "
             f"is_active={self.is_active}, roles=[{role_str}])>"
         )
 

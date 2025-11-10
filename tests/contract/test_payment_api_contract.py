@@ -38,7 +38,7 @@ def client(db_session):
 @pytest.fixture
 def sample_user(db_session):
     """Create sample user."""
-    user = User(id=1, telegram_id=12345, username="testuser")
+    user = User(id=1, telegram_id=12345, username="testuser", name="Test User")
     db_session.add(user)
     db_session.commit()
     return user

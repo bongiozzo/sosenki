@@ -40,8 +40,7 @@ class TestPropertyModel:
         try:
             owner = User(
                 telegram_id="test_owner_123",
-                first_name="John",
-                last_name="Owner",
+                name="John Owner",
                 is_owner=True,
                 is_active=True,
             )
@@ -74,8 +73,7 @@ class TestPropertyModel:
         try:
             owner = User(
                 telegram_id="test_owner_234",
-                first_name="Jane",
-                last_name="Owner",
+                name="Jane Owner",
                 is_owner=True,
                 is_active=True,
             )
@@ -110,8 +108,7 @@ class TestPropertyModel:
         try:
             owner = User(
                 telegram_id="test_owner_345",
-                first_name="Bob",
-                last_name="Owner",
+                name="Bob Owner",
                 is_owner=True,
                 is_active=True,
             )
@@ -144,8 +141,7 @@ class TestPropertyModel:
         try:
             owner = User(
                 telegram_id="test_owner_456",
-                first_name="Alice",
-                last_name="Owner",
+                name="Alice Owner",
                 is_owner=True,
                 is_active=True,
             )
@@ -185,8 +181,7 @@ class TestPropertyModel:
         try:
             owner = User(
                 telegram_id="test_owner_567",
-                first_name="Charlie",
-                last_name="Owner",
+                name="Charlie Owner",
                 is_owner=True,
                 is_active=True,
             )
@@ -225,8 +220,7 @@ class TestPropertyModel:
         try:
             owner = User(
                 telegram_id="test_owner_678",
-                first_name="David",
-                last_name="Owner",
+                name="David Owner",
                 is_owner=True,
                 is_active=True,
             )
@@ -257,8 +251,7 @@ class TestPropertyModel:
         try:
             owner = User(
                 telegram_id="test_owner_789",
-                first_name="Eve",
-                last_name="Owner",
+                name="Eve Owner",
                 is_owner=True,
                 is_active=True,
             )
@@ -289,8 +282,7 @@ class TestPropertyModel:
         try:
             owner = User(
                 telegram_id="test_owner_890",
-                first_name="Frank",
-                last_name="Owner",
+                name="Frank Owner",
                 is_owner=True,
                 is_active=True,
             )

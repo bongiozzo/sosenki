@@ -28,10 +28,10 @@ def db_session():
 @pytest.fixture
 def users(db_session):
     """Create test users."""
-    users_data = [(1, 12345, "alice"), (2, 12346, "bob"), (3, 12347, "charlie")]
+    users_data = [(1, 12345, "alice", "Alice User"), (2, 12346, "bob", "Bob User"), (3, 12347, "charlie", "Charlie User")]
     users_list = []
-    for uid, tgid, username in users_data:
-        user = User(id=uid, telegram_id=tgid, username=username)
+    for uid, tgid, username, name in users_data:
+        user = User(id=uid, telegram_id=tgid, username=username, name=name)
         db_session.add(user)
         users_list.append(user)
     db_session.commit()

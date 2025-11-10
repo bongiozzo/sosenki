@@ -59,6 +59,28 @@ class Property(Base, BaseModel):
         comment="Whether property is ready for tenants or habitation",
     )
 
+    # Tenant occupancy status
+    is_for_tenant: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+        comment="Whether property is for tenant",
+    )
+
+    # Property photo gallery URL
+    photo_link: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
+        comment="URL to property's photo gallery",
+    )
+
+    # Selling price
+    sale_price: Mapped[Decimal | None] = mapped_column(
+        Numeric(10, 2),
+        nullable=True,
+        comment="Selling price of the property",
+    )
+
     # Relationships
     owner: Mapped["User"] = relationship(  # noqa: F821
         "User",
@@ -77,7 +99,8 @@ class Property(Base, BaseModel):
             f"<Property(id={self.id}, owner_id={self.owner_id}, "
             f"property_name={self.property_name!r}, type={self.type!r}, "
             f"share_weight={self.share_weight}, is_active={self.is_active}, "
-            f"is_ready={self.is_ready})>"
+            f"is_ready={self.is_ready}, is_for_tenant={self.is_for_tenant}, "
+            f"photo_link={self.photo_link!r}, sale_price={self.sale_price})>"
         )
 
 
