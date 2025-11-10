@@ -137,7 +137,12 @@ def parse_property_row(row, user_lookup):
              * "69", "70", "71", "72", "73", "74" → "Хоздвор"
              * "49" → "Склад"
              * all others → "Баня"
-           - owner_id, share_weight, is_ready, is_for_tenant, photo_link, sale_price = same as main row
+           - owner_id = same as main row (inherited)
+           - is_ready = same as main row (inherited)
+           - is_for_tenant = same as main row (inherited)
+           - share_weight = None (NULL)
+           - photo_link = None (NULL)
+           - sale_price = None (NULL)
            - is_active = True
            - Create new Property instance
     14. Return list containing main Property plus all additional Properties
@@ -382,12 +387,15 @@ UPDATES (via business logic, not in seeding):
 - **Result**: Additional properties created correctly with normalized values
 - **Justification**: User data entry may include accidental whitespace; normalize consistently
 
-### Edge Case 12: Additional Property Inherits Main Row Attributes
+### Edge Case 12: Additional Property Attributes (Partial Inheritance)
 - **Scenario**: Additional property created from "Доп" column value
 - **Detection**: Additional property record constructed
-- **Action**: Copy owner_id, share_weight, is_ready, is_for_tenant, photo_link, sale_price from main row
-- **Result**: Additional property has identical attributes except for property_name and type
-- **Justification** (spec.md FR-22): Additional properties share all attributes of main row
+- **Action**: 
+  - **Inherit**: owner_id, is_ready, is_for_tenant (same as main row)
+  - **Set to NULL**: share_weight, photo_link, sale_price
+  - **Set explicitly**: property_name (from "Доп" value), type (from type mapping)
+- **Result**: Additional property has same owner/readiness/tenant status, but no share_weight or pricing information
+- **Justification** (user requirement): Additional properties are auxiliary structures without independent allocation weight or pricing
 
 ## Database Constraints (Existing Schema)
 

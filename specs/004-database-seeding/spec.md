@@ -135,7 +135,11 @@ The Makefile must include a standardized `make seed` target that encapsulates th
 - **FR-019a**: System MUST skip Properties with empty, null, or whitespace-only owner names ("Фамилия" column). For each skipped row, log a WARNING message with row number and reason. Include a final summary showing total skipped rows and continue processing remaining rows.
 - **FR-020**: System MUST complete the seeding process in a reasonable time frame for development (target: under 30 seconds for the current data volume).
 - **FR-021**: System MUST document clearly (in Makefile help, quickstart guide, and any user-facing documentation) that the seed command must run when the application is offline. This is appropriate for a development tool and eliminates complex transaction handling.
-- **FR-022**: System MUST process the "Доп" (Additional) column. If this column contains a non-empty value, split it by commas. For each comma-separated value, create an additional Property record with the same owner_id, share_weight, is_ready, is_for_tenant, photo_link, and sale_price as the main property row. The property_name for additional records is the trimmed value from "Доп" column. The type field is determined by the value: if value="26" then type="Малый"; if value="4" then type="Беседка"; if value in [69, 70, 71, 72, 73, 74] then type="Хоздвор"; if value="49" then type="Склад"; otherwise type="Баня".
+- **FR-022**: System MUST process the "Доп" (Additional) column. If this column contains a non-empty value, split it by commas. For each comma-separated value, create an additional Property record with the following attributes:
+  - **Inherited from main row**: owner_id, is_ready, is_for_tenant
+  - **Set to NULL**: share_weight, photo_link, sale_price
+  - **Derived from value**: property_name (trimmed value), type (determined by mapping: 26→Малый, 4→Беседка, 69-74→Хоздвор, 49→Склад, others→Баня)
+  - **Fixed**: is_active=True
 - **FR-023**: System MUST handle empty or whitespace-only values in "Доп" column by treating them as "no additional properties" (no split, no additional records created).
 
 ### Key Entities *(include if feature involves data)*
@@ -154,7 +158,7 @@ The Makefile must include a standardized `make seed` target that encapsulates th
   - Column "Фото" (Photo) → Property.photo_link
   - Column "Цена" (Price) → Property.sale_price
   - Column "Доля в Т" (Share) → User.is_stakeholder (presence of value = True, absence = False)
-  - Column "Доп" (Additional) → **NEW**: If not empty, split by comma and create additional Property records with same owner. Type mapping: 26→Малый, 4→Беседка, 69/70/71/72/73/74→Хоздвор, 49→Склад, all others→Баня. Each additional record inherits owner_id, share_weight, is_ready, is_for_tenant, photo_link, sale_price from main row.
+  - Column "Доп" (Additional) → **NEW**: If not empty, split by comma and create additional Property records. Inherited attributes: owner_id, is_ready, is_for_tenant. Set to NULL: share_weight, photo_link, sale_price. Type mapping: 26→Малый, 4→Беседка, 69/70/71/72/73/74→Хоздвор, 49→Склад, all others→Баня.
 
 ## Success Criteria *(mandatory)*
 
