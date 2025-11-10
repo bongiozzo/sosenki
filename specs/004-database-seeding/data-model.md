@@ -109,7 +109,7 @@ def parse_property_row(row, user_lookup):
     Input: 
       - Dictionary with keys like "Дом", "Фамилия", "Коэффициент", etc.
       - user_lookup: Dict[name] → User for owner resolution
-    Output: Property instance ready for insert
+    Output: List of Property instances ready for insert (main + additional from "Доп")
     
     Rules:
     1. owner_name = row["Фамилия"].strip()
@@ -123,6 +123,24 @@ def parse_property_row(row, user_lookup):
     9. photo_link = row.get("Фото", "").strip() or None
     10. sale_price = parse_russian_decimal(row.get("Цена", "")) or None
     11. is_active = True (new properties are active by default)
+    
+    NEW (Additional properties from "Доп" column):
+    12. dop_value = row.get("Доп", "").strip()
+    13. if dop_value:
+        a. Split dop_value by comma to get list of values
+        b. For each value in list:
+           - value = value.strip()
+           - property_name = value
+           - type = determine_type(value) using mapping:
+             * "26" → "Малый"
+             * "4" → "Беседка"
+             * "69", "70", "71", "72", "73", "74" → "Хоздвор"
+             * "49" → "Склад"
+             * all others → "Баня"
+           - owner_id, share_weight, is_ready, is_for_tenant, photo_link, sale_price = same as main row
+           - is_active = True
+           - Create new Property instance
+    14. Return list containing main Property plus all additional Properties
     """
 ```
 
@@ -226,10 +244,18 @@ UPDATES (via business logic, not in seeding):
         │ - Resolve owner_id via lookup      │
         │ - Map boolean fields               │
         │ - Fail if owner not found          │
+        │ - NEW: Split "Доп" column by comma │
+        │   and create additional records    │
+        │   with type mapping (26→Малый,     │
+        │   4→Беседка, 69-74→Хоздвор,       │
+        │   49→Склад, other→Баня)            │
+        │ - Each additional record inherits  │
+        │   owner_id, share_weight, etc.     │
         └────────────┬───────────────────────┘
                      │
         ┌────────────▼───────────────────────┐
         │ (3d) INSERT all Property entities  │
+        │      (main + additional from "Доп")
         │ (3e) COMMIT transaction            │
         │ (3f) Return seed summary           │
         └────────────┬───────────────────────┘
@@ -238,7 +264,8 @@ UPDATES (via business logic, not in seeding):
         ┌────────────────────────────────────┐
         │ SQLite Database                    │
         │ - users: N unique owner names      │
-        │ - properties: 65 records           │
+        │ - properties: 65+ records          │
+        │   (65 main + additional from "Доп")
         │ - All foreign keys valid           │
         └────────────────────────────────────┘
                      │
@@ -248,8 +275,9 @@ UPDATES (via business logic, not in seeding):
         ┌────────────────────────────────────┐
         │ Seed Summary                       │
         │ - Users created: N                 │
-        │ - Properties created: 65           │
-        │ - Rows skipped: M (with reasons)   │
+        │ - Properties created: 65+M         │
+        │   (M = additional from "Доп")      │
+        │ - Rows skipped: K (with reasons)   │
         │ - Duration: T seconds              │
         │ - Status: SUCCESS or FAIL          │
         └────────────────────────────────────┘
@@ -318,6 +346,48 @@ UPDATES (via business logic, not in seeding):
 - **Action**: Store raw string from sheet
 - **Result**: No skip; all characters preserved in database
 - **Justification**: Sheet is source of truth; preserve exact values
+
+### Edge Case 7: Empty "Доп" Column
+- **Scenario**: "Доп" column is empty, whitespace-only, or missing for a row
+- **Detection**: `row.get("Доп", "").strip()` evaluates to empty string
+- **Action**: No additional properties created; only main property inserted
+- **Result**: Main property row processed normally; count unchanged
+- **Justification** (spec.md FR-023): Empty "Доп" means no additional properties
+
+### Edge Case 8: "Доп" Column with Single Value (No Comma)
+- **Scenario**: "Доп" column contains a single value like "26" (no comma separator)
+- **Detection**: Split by comma results in list with one element
+- **Action**: Create one additional property record with property_name="26", type determined by mapping
+- **Result**: Two properties total for this owner from this row (main + one additional)
+- **Justification**: Same logic as multi-value case; comma-split handles both
+
+### Edge Case 9: "Доп" Column with Multiple Values (With Commas)
+- **Scenario**: "Доп" column contains comma-separated values like "26, 4, 49"
+- **Detection**: Split by comma results in list with multiple elements
+- **Action**: Create one additional property record per value
+- **Result**: Four properties total for this owner from this row (main + three additional)
+- **Justification** (spec.md FR-022): Each comma-separated value creates a new record
+
+### Edge Case 10: "Доп" Column with Unknown Type Code
+- **Scenario**: "Доп" column contains value not in type mapping (e.g., "99", "ABC")
+- **Detection**: Value not in [26, 4, 69-74, 49] set
+- **Action**: Map to default type "Баня"
+- **Result**: Additional property created with type="Баня"
+- **Justification** (spec.md FR-22): Default type for unmapped codes is "Баня"
+
+### Edge Case 11: "Доп" Column with Whitespace-Padded Values
+- **Scenario**: "Доп" column contains " 26 , 4 , 49 " with extra spaces around commas
+- **Detection**: Split by comma, then strip each value
+- **Action**: Strip each value before type mapping; trim and normalize
+- **Result**: Additional properties created correctly with normalized values
+- **Justification**: User data entry may include accidental whitespace; normalize consistently
+
+### Edge Case 12: Additional Property Inherits Main Row Attributes
+- **Scenario**: Additional property created from "Доп" column value
+- **Detection**: Additional property record constructed
+- **Action**: Copy owner_id, share_weight, is_ready, is_for_tenant, photo_link, sale_price from main row
+- **Result**: Additional property has identical attributes except for property_name and type
+- **Justification** (spec.md FR-22): Additional properties share all attributes of main row
 
 ## Database Constraints (Existing Schema)
 
