@@ -37,9 +37,9 @@ class Property(Base, BaseModel):
     )
 
     # Allocation weight for proportional distribution (e.g., 2.5, 1.0)
-    share_weight: Mapped[Decimal] = mapped_column(
+    share_weight: Mapped[Decimal | None] = mapped_column(
         Numeric(10, 2),
-        nullable=False,
+        nullable=True,
     )
 
     # Active status for determining property participation in period
