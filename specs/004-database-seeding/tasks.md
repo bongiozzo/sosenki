@@ -176,10 +176,10 @@ Integrate the CLI seed tool into the Makefile with clear targets and documentati
 
 ---
 
-- [ ] T036 [P] [US5] Add `seed` target to Makefile in `Makefile`
-- [ ] T037 [P] [US5] Add offline requirement documentation in `Makefile` comments
-- [ ] T038 [US5] Test `make seed` execution from CLI in local environment
-- [ ] T039 [US5] Verify `make help` displays seed target documentation
+- [X] T036 [P] [US5] Add `seed` target to Makefile in `Makefile`
+- [X] T037 [P] [US5] Add offline requirement documentation in `Makefile` comments
+- [X] T038 [US5] Test `make seed` execution from CLI in local environment
+- [X] T039 [US5] Verify `make help` displays seed target documentation
 
 ---
 
