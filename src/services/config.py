@@ -4,6 +4,7 @@ Loads settings from .env file and environment variables with sensible defaults.
 Validates required configuration and provides clear error messages.
 """
 
+import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -44,7 +45,7 @@ def load_config() -> SeedConfig:
         SeedConfig with all required settings
 
     Raises:
-        ValueError: If required configuration is missing
+        ValueError: If required configuration is missing or invalid
 
     Example:
         Create .env file:
@@ -69,18 +70,51 @@ def load_config() -> SeedConfig:
     database_url = os.getenv("DATABASE_URL", "sqlite:///./sostenki.db")
     log_file = os.getenv("LOG_FILE", "logs/seed.log")
 
-    # Validate required configuration
+    # Validate GOOGLE_SHEET_ID
     if not google_sheet_id:
         raise ValueError(
             "GOOGLE_SHEET_ID not configured. "
             "Set GOOGLE_SHEET_ID environment variable or in .env file"
         )
 
-    # Check if credentials file exists
-    if not Path(credentials_path).exists():
+    # Validate credentials file exists (T031)
+    credentials_file = Path(credentials_path)
+    if not credentials_file.exists():
         raise ValueError(
             f"Credentials file not found: {credentials_path}. "
             f"Ensure service account JSON is at this path."
+        )
+
+    # Validate credentials file is valid JSON (T031)
+    try:
+        with open(credentials_file, "r") as f:
+            credentials_data = json.load(f)
+    except json.JSONDecodeError as e:
+        raise ValueError(
+            f"Credentials file is not valid JSON: {credentials_path}. "
+            f"Error: {str(e)}"
+        ) from e
+    except OSError as e:
+        raise ValueError(
+            f"Cannot read credentials file: {credentials_path}. "
+            f"Error: {str(e)}"
+        ) from e
+
+    # Validate credentials contain required Google service account fields (T033)
+    required_fields = {"type", "project_id", "private_key", "client_email"}
+    missing_fields = required_fields - set(credentials_data.keys())
+    if missing_fields:
+        raise ValueError(
+            f"Credentials file missing required fields: {', '.join(missing_fields)}. "
+            f"Ensure this is a valid Google service account JSON file."
+        )
+
+    # Validate private key format (T033)
+    private_key = credentials_data.get("private_key", "")
+    if not private_key.startswith("-----BEGIN RSA PRIVATE KEY-----"):
+        raise ValueError(
+            "Credentials file contains invalid private key format. "
+            "Ensure this is a valid Google service account JSON file."
         )
 
     return SeedConfig(
