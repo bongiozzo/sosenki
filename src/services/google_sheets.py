@@ -5,9 +5,8 @@ service account credentials.
 """
 
 import logging
-from typing import Any, Dict, List
+from typing import Any, List
 
-from google.auth.service_account import Credentials
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
