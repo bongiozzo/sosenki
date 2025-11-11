@@ -10,11 +10,17 @@ from pathlib import Path
 class TestMakefileIntegration:
     """Contract tests for Makefile seed target (T036-T039)."""
 
+    @staticmethod
+    def get_project_root():
+        """Get project root directory dynamically."""
+        return Path(__file__).parent.parent.parent
+
     def test_make_help_displays_seed_target(self):
         """Test that `make help` documents the seed target (T039)."""
+        project_root = self.get_project_root()
         result = subprocess.run(
             ["make", "help"],
-            cwd="/Users/serpo/Work/SOSenki",
+            cwd=str(project_root),
             capture_output=True,
             text=True,
         )
@@ -28,9 +34,10 @@ class TestMakefileIntegration:
 
     def test_make_help_mentions_offline_requirement(self):
         """Test that `make help` mentions offline requirement (T037)."""
+        project_root = self.get_project_root()
         result = subprocess.run(
             ["make", "help"],
-            cwd="/Users/serpo/Work/SOSenki",
+            cwd=str(project_root),
             capture_output=True,
             text=True,
         )

@@ -28,7 +28,8 @@ class TestGoogleSheetsClientIntegration:
         """T042: Verify GoogleSheetsClient loads credentials from valid file."""
         from src.services.google_sheets import GoogleSheetsClient
 
-        # Create a mock credentials file
+        # Create a mock credentials file with intentionally fake/invalid private key
+        # This is test data only - NOT a real credential
         creds_file = tmp_path / "credentials.json"
         creds_file.write_text('''{
             "type": "service_account",

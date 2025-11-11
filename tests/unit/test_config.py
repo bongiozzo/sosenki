@@ -39,8 +39,6 @@ class TestLoadConfig:
         """Test that missing credentials file raises ValueError with clear message."""
         monkeypatch.setenv("GOOGLE_SHEET_ID", "test-sheet-id")
         monkeypatch.setenv("CREDENTIALS_PATH", "/nonexistent/path/creds.json")
-        monkeypatch.delenv("GOOGLE_SHEET_ID", raising=False)
-        monkeypatch.setenv("GOOGLE_SHEET_ID", "test-sheet-id")
 
         with pytest.raises(ValueError, match="Credentials file not found"):
             load_config()

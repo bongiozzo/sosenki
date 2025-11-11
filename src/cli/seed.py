@@ -18,9 +18,7 @@ Logging:
 """
 
 import asyncio
-import logging
 import sys
-from pathlib import Path
 
 from src.services.config import load_config
 from src.services.logging import setup_logging
