@@ -8,7 +8,7 @@ import os
 import tempfile
 
 import pytest
-from sqlalchemy import delete
+from sqlalchemy import delete, text
 
 from src.models.access_request import AccessRequest
 from src.models.property import Property
@@ -65,7 +65,7 @@ class TestSeedingErrorScenarios:
         assert db is not None
         try:
             # Verify we can execute a query
-            result = db.execute("SELECT 1")
+            result = db.execute(text("SELECT 1"))
             assert result is not None
         finally:
             db.close()
@@ -75,7 +75,7 @@ class TestSeedingErrorScenarios:
         db = SessionLocal()
         try:
             # Create a test entry and commit
-            user = User(name="Test User", role="owner")
+            user = User(name="Test User", is_active=True)
             db.add(user)
             db.commit()
 
@@ -93,7 +93,7 @@ class TestSeedingErrorScenarios:
         db = SessionLocal()
         try:
             # Create entry but rollback
-            user = User(name="Rollback Test", role="owner")
+            user = User(name="Rollback Test", is_active=True)
             db.add(user)
             db.rollback()
 
@@ -183,7 +183,7 @@ class TestSeedingErrorScenarios:
         try:
             for session in sessions:
                 assert session is not None
-                result = session.execute("SELECT 1")
+                result = session.execute(text("SELECT 1"))
                 assert result is not None
         finally:
             for session in sessions:
@@ -196,12 +196,12 @@ class TestSeedingErrorScenarios:
 
         try:
             # Session 1: Create user
-            user1 = User(name="Concurrent User 1", role="owner")
+            user1 = User(name="Concurrent User 1", is_active=True)
             db1.add(user1)
             db1.commit()
 
             # Session 2: Create another user
-            user2 = User(name="Concurrent User 2", role="tenant")
+            user2 = User(name="Concurrent User 2", is_active=False)
             db2.add(user2)
             db2.commit()
 
@@ -214,3 +214,4 @@ class TestSeedingErrorScenarios:
         finally:
             db1.close()
             db2.close()
+
