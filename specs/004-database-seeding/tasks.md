@@ -155,11 +155,11 @@ Implement secure credential loading from external files (.env, service_account.j
 
 ---
 
-- [ ] T031 [P] [US2] Implement credentials file validation in `src/services/config.py`
-- [ ] T032 [P] [US2] Implement Google Sheet ID resolution from .env in `src/services/config.py`
-- [ ] T033 [P] [US2] Add error handling for missing/invalid credentials in `src/services/errors.py`
-- [ ] T034 [US2] Create unit tests for configuration loading in `tests/unit/test_config.py`
-- [ ] T035 [US2] Create contract test for credentials validation in `tests/contract/test_credentials.py`
+- [X] T031 [P] [US2] Implement credentials file validation in `src/services/config.py`
+- [X] T032 [P] [US2] Implement Google Sheet ID resolution from .env in `src/services/config.py`
+- [X] T033 [P] [US2] Add error handling for missing/invalid credentials in `src/services/errors.py`
+- [X] T034 [US2] Create unit tests for configuration loading in `tests/unit/test_config.py`
+- [X] T035 [US2] Create contract test for credentials validation in `tests/contract/test_credentials.py`
 
 ---
 
