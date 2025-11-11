@@ -2,13 +2,13 @@
 
 <!--
 SYNC IMPACT REPORT:
-- Version: 1.1.0 → 1.1.1 (PATCH bump: Strengthened YAGNI Rule - Database Schema with concrete enforcement guidelines)
-- Principles Modified: YAGNI principle expanded with schema-specific sub-rules
-- YAGNI Rule - Database Schema: Added enforcement checklist, migration/index guidance, and practical examples
-- Frontend: No changes
-- Templates: No updates required (enhanced guidance applies to data-model.md creation workflow)
-- Compliance Review: Schema design reviews MUST now reference YAGNI Rule - Database Schema before approving new tables/fields
-- Last Amended: 2025-11-05
+- Version: 1.1.1 → 1.2.0 (MINOR bump: Added No Hard-Coded Paths requirement to Security section - expanded portability and CI/CD safety guidelines)
+- Principles Modified: None
+- New Requirements: Secret Management section expanded to include No Hard-Coded Paths prohibition
+- Security Enhancements: Added dynamic path resolution guidance and rationale for cross-platform/CI compatibility
+- Templates: No updates required (guidance applies during code review for all test and source files)
+- Compliance Review: Code reviews MUST now flag hard-coded filesystem paths as violations (especially absolute paths)
+- Last Amended: 2025-11-11
 -->
 
 ## Core Principles
@@ -84,9 +84,10 @@ Eliminate code duplication through abstraction and reuse. When logic appears in 
 ### Secret Management (NON-NEGOTIABLE)
 
 - **No Hard-Coded Secrets**: All credentials, API keys, database URLs MUST NOT appear in source code
+- **No Hard-Coded Paths**: All filesystem paths (especially machine-specific absolute paths like `/Users/...`, `C:\...`) MUST NOT appear in source code. Use dynamic path resolution (e.g., `Path(__file__).parent`) or environment variables for path configuration
 - **Environment Variables**: Use only environment variables for secrets in production
 - **Local Development**: `.env` files permitted for local development only (never committed)
-- **Rationale**: Prevents accidental exposure via version control; enables safe CI/CD integration
+- **Rationale**: Prevents accidental exposure via version control; enables safe CI/CD integration. Hard-coded paths break tests across different developer machines and CI environments; dynamic resolution ensures portability
 
 ## Development Workflow
 
@@ -139,5 +140,6 @@ Eliminate code duplication through abstraction and reuse. When logic appears in 
 - No secrets appear in any diff (automated scan recommended)
 - MCP Context7 documentation lookups verified for all new dependencies
 - Schema design reviews reference YAGNI Rule - Database Schema enforcement checklist
+- Hard-coded filesystem paths (especially absolute paths) are flagged and rejected in code review
 
-**Version**: 1.1.1 | **Ratified**: 2025-11-04 | **Last Amended**: 2025-11-05
+**Version**: 1.2.0 | **Ratified**: 2025-11-04 | **Last Amended**: 2025-11-11
