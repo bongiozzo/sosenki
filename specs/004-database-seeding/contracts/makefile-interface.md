@@ -27,7 +27,7 @@ make seed
 Example successful run:
 ```
 [2025-11-10 14:32:01] INFO Starting database seed...
-[2025-11-10 14:32:02] INFO Loaded credentials from sosenkimcp-8b756c9d2720.json
+[2025-11-10 14:32:02] INFO Loaded credentials from .vscode/google_credentials.json
 [2025-11-10 14:32:03] INFO Fetched 65 rows from Google Sheet "Дома"
 [2025-11-10 14:32:04] INFO Parsed 20 unique owners (users)
 [2025-11-10 14:32:04] INFO Truncated existing data (users, properties)
@@ -61,7 +61,7 @@ Example error:
 ```
 [2025-11-10 14:32:01] INFO Starting database seed...
 [2025-11-10 14:32:03] INFO Fetched 65 rows from Google Sheet "Дома"
-[2025-11-10 14:32:03] ERROR Credentials file not found: sosenkimcp-8b756c9d2720.json
+[2025-11-10 14:32:03] ERROR Credentials file not found: .vscode/google_credentials.json
 [2025-11-10 14:32:03] ERROR Seed failed; database state unchanged
 ```
 
@@ -69,8 +69,8 @@ Example error:
 
 | Precondition | Status | Impact if Missing |
 |--------------|--------|-------------------|
-| `.env` file with `GOOGLE_SHEET_ID` configured | ✅ Required | ERROR, exit 1 |
-| Credentials file (default: `sosenkimcp-8b756c9d2720.json`) exists in project root | ✅ Required | ERROR, exit 1 |
+| `.env` file with `GOOGLE_SHEET_ID` and `GOOGLE_CREDENTIALS_PATH` configured | ✅ Required | ERROR, exit 1 |
+| Credentials file at path configured via `GOOGLE_CREDENTIALS_PATH` env var exists | ✅ Required | ERROR, exit 1 |
 | Application is offline (no active database connections) | ✅ Required | (documented; not enforced) |
 | Python 3.11+ environment active | ✅ Required | ERROR, exit 1 |
 | SQLite database initialized (schema exists) | ✅ Required | ERROR, exit 1 |

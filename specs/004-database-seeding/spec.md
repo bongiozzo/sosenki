@@ -195,8 +195,8 @@ The Makefile must include a standardized `make seed` target that encapsulates th
 ## Dependencies & Constraints
 
 - **External Dependencies**: Google Sheets API, google-auth library, sqlalchemy ORM, alembic for migrations.
-- **Data Source**: Single Google Sheet identified by ID `1c-WZhVdCV01QE0cgk7yodDC58rMov-KKp-IWiveTTaE`; Sheet named "Дома" within the workbook.
-- **Credentials**: Service account JSON file (provided as `sosenkimcp-8b756c9d2720.json`).
+- **Data Source**: Single Google Sheet identified by ID (configured via `GOOGLE_SHEET_ID` env var); Sheet named "Дома" within the workbook.
+- **Credentials**: Service account JSON file referenced via `GOOGLE_CREDENTIALS_PATH` environment variable in `.env` file.
 - **Scope**: Initial implementation handles only User and Property entities from the "Дома" sheet; transaction/payment tables (from other sheets like "Траты-25/2") are explicitly out of scope for this phase.
 - **Database Constraint**: Must maintain schema compatibility with existing SQLAlchemy models (User, Property).
 

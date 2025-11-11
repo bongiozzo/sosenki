@@ -21,7 +21,7 @@ This guide walks you through setting up and running the database seeding tool, w
 ## Step 1: Obtain Google Credentials
 
 1. **Option A: Use existing credentials file** (if already set up)
-   - Check if `sosenkimcp-8b756c9d2720.json` exists in project root
+   - Check if credentials file exists at path configured in `GOOGLE_CREDENTIALS_PATH` env var
    - If yes, skip to Step 2
 
 2. **Option B: Create new service account** (first time setup)
@@ -31,7 +31,7 @@ This guide walks you through setting up and running the database seeding tool, w
    - Create a Service Account
    - Generate JSON key
    - Share SOSenkiPrivate Google Sheet with service account email
-   - Download JSON key → save as `sosenkimcp-8b756c9d2720.json` in project root
+   - Download JSON key → save to location specified in `.env` GOOGLE_CREDENTIALS_PATH
 
 **Security**: Never commit credentials file to git (already in .gitignore).
 
@@ -44,7 +44,7 @@ This guide walks you through setting up and running the database seeding tool, w
 
 2. **Add or verify `GOOGLE_SHEET_ID` entry**:
    ```
-   GOOGLE_SHEET_ID=1c-WZhVdCV01QE0cgk7yodDC58rMov-KKp-IWiveTTaE
+   GOOGLE_SHEET_ID=your-google-sheet-id-here
    ```
    
    (The ID is the long alphanumeric string in the Google Sheet URL after `/d/`)
@@ -85,7 +85,7 @@ make seed
 **Expected output** (should complete in ~5 seconds):
 ```
 [2025-11-10 14:32:01] INFO Starting database seed...
-[2025-11-10 14:32:02] INFO Loaded credentials from sosenkimcp-8b756c9d2720.json
+[2025-11-10 14:32:02] INFO Loaded credentials from .vscode/google_credentials.json
 [2025-11-10 14:32:03] INFO Fetched 65 rows from Google Sheet "Дома"
 [2025-11-10 14:32:04] INFO Parsed 20 unique owners (users)
 [2025-11-10 14:32:04] INFO Inserted 20 users
@@ -191,9 +191,10 @@ ERROR Credentials file not found: sosenkimcp-8b756c9d2720.json
 
 **Fix**:
 1. Download JSON key from Google Cloud Console
-2. Place in project root as `sosenkimcp-8b756c9d2720.json`
-3. Verify: `ls -la sosenkimcp-8b756c9d2720.json`
-4. Rerun: `make seed`
+2. Set GOOGLE_CREDENTIALS_PATH in .env to point to the credentials file
+3. Place credentials file at the path specified in .env
+4. Verify: `ls -la $(grep GOOGLE_CREDENTIALS_PATH .env | cut -d= -f2)`
+5. Rerun: `make seed`
 
 ### Error: "Authentication failed"
 
@@ -203,7 +204,7 @@ ERROR Google Sheets API authentication failed: Invalid credentials
 ```
 
 **Fix**:
-1. Verify JSON file is valid: `cat sosenkimcp-8b756c9d2720.json | python -m json.tool`
+1. Verify JSON file is valid: `cat $(grep GOOGLE_CREDENTIALS_PATH .env | cut -d= -f2) | python -m json.tool`
 2. Check service account email is shared on Google Sheet (Sheet → Share → add email)
 3. Verify JSON file has `private_key` and `client_email` fields
 4. Regenerate key if needed (see Step 1)
@@ -218,7 +219,7 @@ ERROR GOOGLE_SHEET_ID not configured in .env
 
 **Fix**:
 1. Open `.env` file
-2. Add: `GOOGLE_SHEET_ID=1c-WZhVdCV01QE0cgk7yodDC58rMov-KKp-IWiveTTaE`
+2. Add: `GOOGLE_SHEET_ID=your-google-sheet-id-here`
 3. Save file
 4. Rerun: `make seed`
 
@@ -309,7 +310,7 @@ DEBUG_GOOGLE_API=1 make seed
 python -c "
 from src.services.google_sheets import GoogleSheetsClient
 client = GoogleSheetsClient()
-rows = client.fetch_sheet('1c-WZhVdCV01QE0cgk7yodDC58rMov-KKp-IWiveTTaE', 'Дома')
+rows = client.fetch_sheet(os.getenv('GOOGLE_SHEET_ID'), 'Дома')
 print(f'Fetched {len(rows)} rows')
 print('First row:', rows[0] if rows else 'No rows')
 "

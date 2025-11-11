@@ -74,11 +74,10 @@ class GoogleSheetsClient:
 
         Example:
             ```python
+            import os
             client = GoogleSheetsClient("credentials.json")
-            data = client.fetch_sheet_data(
-                "1c-WZhVdCV01QE0cgk7yodDC58rMov-KKp-IWiveTTaE",
-                "Дома"
-            )
+            sheet_id = os.getenv("GOOGLE_SHEET_ID")
+            data = client.fetch_sheet_data(sheet_id, "Дома")
             print(f"Fetched {len(data)} rows")
             ```
         """

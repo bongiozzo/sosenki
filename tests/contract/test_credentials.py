@@ -4,6 +4,7 @@ Tests credentials validation behavior end-to-end.
 """
 
 import json
+import os
 
 import pytest
 
@@ -25,7 +26,7 @@ class TestCredentialsValidation:
         - Credentials are never logged or exposed
         """
         monkeypatch.setenv("GOOGLE_SHEET_ID", "test-sheet")
-        monkeypatch.setenv("CREDENTIALS_PATH", "/nonexistent/creds.json")
+        monkeypatch.setenv("GOOGLE_CREDENTIALS_PATH", "/nonexistent/creds.json")
 
         with pytest.raises(ValueError) as exc_info:
             load_config()
@@ -50,7 +51,7 @@ class TestCredentialsValidation:
 
         creds_file = tmp_path / "creds.json"
         creds_file.write_text('{"incomplete": json')  # Invalid JSON
-        monkeypatch.setenv("CREDENTIALS_PATH", str(creds_file))
+        monkeypatch.setenv("GOOGLE_CREDENTIALS_PATH", str(creds_file))
 
         with pytest.raises(ValueError) as exc_info:
             load_config()
@@ -81,7 +82,7 @@ class TestCredentialsValidation:
             # Missing: private_key, client_email
         }
         creds_file.write_text(json.dumps(incomplete_creds))
-        monkeypatch.setenv("CREDENTIALS_PATH", str(creds_file))
+        monkeypatch.setenv("GOOGLE_CREDENTIALS_PATH", str(creds_file))
 
         with pytest.raises(ValueError) as exc_info:
             load_config()
@@ -115,7 +116,7 @@ class TestCredentialsValidation:
             "token_uri": "https://oauth2.googleapis.com/token",
         }
         creds_file.write_text(json.dumps(valid_creds))
-        monkeypatch.setenv("CREDENTIALS_PATH", str(creds_file))
+        monkeypatch.setenv("GOOGLE_CREDENTIALS_PATH", str(creds_file))
 
         config = load_config()
 
@@ -144,7 +145,7 @@ class TestCredentialsValidation:
             "client_email": secret_email,
         }
         creds_file.write_text(json.dumps(invalid_creds))
-        monkeypatch.setenv("CREDENTIALS_PATH", str(creds_file))
+        monkeypatch.setenv("GOOGLE_CREDENTIALS_PATH", str(creds_file))
 
         with pytest.raises(ValueError):
             load_config()
@@ -170,14 +171,20 @@ class TestCredentialsValidation:
             "client_email": "test@test.iam.gserviceaccount.com",
         }
         creds_file.write_text(json.dumps(valid_creds))
-        monkeypatch.setenv("CREDENTIALS_PATH", str(creds_file))
+        monkeypatch.setenv("GOOGLE_CREDENTIALS_PATH", str(creds_file))
 
-        with pytest.raises(ValueError) as exc_info:
-            load_config()
+        # Change to temp directory so project's .env is not found
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmp_path)
+            with pytest.raises(ValueError) as exc_info:
+                load_config()
 
-        error_message = str(exc_info.value)
-        assert "google_sheet_id" in error_message.lower()
-        assert "not configured" in error_message.lower()
+            error_message = str(exc_info.value)
+            assert "google_sheet_id" in error_message.lower()
+            assert "not configured" in error_message.lower()
+        finally:
+            os.chdir(original_cwd)
         assert "environment variable" in error_message.lower() or ".env" in error_message
 
     def test_credentials_file_must_be_readable(self, monkeypatch, tmp_path):
@@ -199,7 +206,7 @@ class TestCredentialsValidation:
         }
         creds_file.write_text(json.dumps(valid_creds))
         creds_file.chmod(0o000)
-        monkeypatch.setenv("CREDENTIALS_PATH", str(creds_file))
+        monkeypatch.setenv("GOOGLE_CREDENTIALS_PATH", str(creds_file))
 
         try:
             with pytest.raises(ValueError) as exc_info:
@@ -229,7 +236,7 @@ class TestCredentialsValidation:
             # Has invalid key format (none at all)
         }
         creds_file.write_text(json.dumps(partially_valid_creds))
-        monkeypatch.setenv("CREDENTIALS_PATH", str(creds_file))
+        monkeypatch.setenv("GOOGLE_CREDENTIALS_PATH", str(creds_file))
 
         with pytest.raises(ValueError) as exc_info:
             load_config()

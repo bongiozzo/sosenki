@@ -50,8 +50,8 @@ def load_config() -> SeedConfig:
     Example:
         Create .env file:
         ```
-        GOOGLE_SHEET_ID=1c-WZhVdCV01QE0cgk7yodDC58rMov-KKp-IWiveTTaE
-        CREDENTIALS_PATH=sosenkimcp-8b756c9d2720.json
+        GOOGLE_SHEET_ID=your-google-sheet-id-here
+        GOOGLE_CREDENTIALS_PATH=.vscode/google_credentials.json
         ```
 
         Then call:
@@ -66,7 +66,7 @@ def load_config() -> SeedConfig:
 
     # Read configuration
     google_sheet_id = os.getenv("GOOGLE_SHEET_ID")
-    credentials_path = os.getenv("CREDENTIALS_PATH", "sosenkimcp-8b756c9d2720.json")
+    credentials_path = os.getenv("GOOGLE_CREDENTIALS_PATH", ".vscode/google_credentials.json")
     database_url = os.getenv("DATABASE_URL", "sqlite:///./sostenki.db")
     log_file = os.getenv("LOG_FILE", "logs/seed.log")
 

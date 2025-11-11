@@ -125,8 +125,8 @@ Command: make seed
 Exit Code: 0 (success) or 1 (failure)
 Output: INFO-level logs to stdout + logs/seed.log
 Preconditions:
-  - .env file with GOOGLE_SHEET_ID configured
-  - credentials file (default: sosenkimcp-8b756c9d2720.json)
+  - .env file with GOOGLE_SHEET_ID and GOOGLE_CREDENTIALS_PATH configured
+  - credentials file (referenced via GOOGLE_CREDENTIALS_PATH env variable)
   - application is offline (no active database connections)
 Postconditions (success):
   - users table contains all owners from sheet (with role defaults)
@@ -264,6 +264,6 @@ logs/ (NEW - directory for seed.log)
 
 - **Specification**: [spec.md](spec.md)
 - **Research**: [research.md](research.md)
-- **Constitution**: [constitution.md](/Users/serpo/Work/SOSenki/.specify/memory/constitution.md)
+- **Constitution**: [constitution.md](/.specify/memory/constitution.md)
 - **Service Models**: [user.py](src/models/user.py), [property.py](src/models/property.py)
 

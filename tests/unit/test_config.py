@@ -18,7 +18,7 @@ class TestLoadConfig:
         """Test that missing GOOGLE_SHEET_ID raises ValueError with clear message."""
         # Clear environment
         monkeypatch.delenv("GOOGLE_SHEET_ID", raising=False)
-        monkeypatch.delenv("CREDENTIALS_PATH", raising=False)
+        monkeypatch.delenv("GOOGLE_CREDENTIALS_PATH", raising=False)
 
         # Create fake credentials file
         creds_file = tmp_path / "creds.json"
@@ -29,16 +29,22 @@ class TestLoadConfig:
             "client_email": "test@test.iam.gserviceaccount.com",
         }
         creds_file.write_text(json.dumps(valid_creds))
-        monkeypatch.setenv("CREDENTIALS_PATH", str(creds_file))
+        monkeypatch.setenv("GOOGLE_CREDENTIALS_PATH", str(creds_file))
 
-        # Should raise ValueError
-        with pytest.raises(ValueError, match="GOOGLE_SHEET_ID not configured"):
-            load_config()
+        # Change to temp directory so project's .env is not found
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmp_path)
+            # Should raise ValueError
+            with pytest.raises(ValueError, match="GOOGLE_SHEET_ID not configured"):
+                load_config()
+        finally:
+            os.chdir(original_cwd)
 
     def test_load_config_missing_credentials_file(self, monkeypatch):
         """Test that missing credentials file raises ValueError with clear message."""
         monkeypatch.setenv("GOOGLE_SHEET_ID", "test-sheet-id")
-        monkeypatch.setenv("CREDENTIALS_PATH", "/nonexistent/path/creds.json")
+        monkeypatch.setenv("GOOGLE_CREDENTIALS_PATH", "/nonexistent/path/creds.json")
 
         with pytest.raises(ValueError, match="Credentials file not found"):
             load_config()
@@ -50,7 +56,7 @@ class TestLoadConfig:
         # Create invalid JSON file
         creds_file = tmp_path / "creds.json"
         creds_file.write_text("{invalid json")
-        monkeypatch.setenv("CREDENTIALS_PATH", str(creds_file))
+        monkeypatch.setenv("GOOGLE_CREDENTIALS_PATH", str(creds_file))
 
         with pytest.raises(ValueError, match="not valid JSON"):
             load_config()
@@ -67,7 +73,7 @@ class TestLoadConfig:
             # Missing: private_key, client_email
         }
         creds_file.write_text(json.dumps(incomplete_creds))
-        monkeypatch.setenv("CREDENTIALS_PATH", str(creds_file))
+        monkeypatch.setenv("GOOGLE_CREDENTIALS_PATH", str(creds_file))
 
         with pytest.raises(ValueError, match="missing required fields"):
             load_config()
@@ -85,7 +91,7 @@ class TestLoadConfig:
             "client_email": "test@test.iam.gserviceaccount.com",
         }
         creds_file.write_text(json.dumps(invalid_key_creds))
-        monkeypatch.setenv("CREDENTIALS_PATH", str(creds_file))
+        monkeypatch.setenv("GOOGLE_CREDENTIALS_PATH", str(creds_file))
 
         with pytest.raises(ValueError, match="invalid private key format"):
             load_config()
@@ -103,7 +109,7 @@ class TestLoadConfig:
             "client_email": "test@test.iam.gserviceaccount.com",
         }
         creds_file.write_text(json.dumps(valid_creds))
-        monkeypatch.setenv("CREDENTIALS_PATH", str(creds_file))
+        monkeypatch.setenv("GOOGLE_CREDENTIALS_PATH", str(creds_file))
 
         # Should load successfully
         config = load_config()
@@ -127,7 +133,7 @@ class TestLoadConfig:
             "client_email": "test@test.iam.gserviceaccount.com",
         }
         creds_file.write_text(json.dumps(valid_creds))
-        monkeypatch.setenv("CREDENTIALS_PATH", str(creds_file))
+        monkeypatch.setenv("GOOGLE_CREDENTIALS_PATH", str(creds_file))
 
         config = load_config()
         assert config.database_url == "postgresql://localhost/sostenki"
@@ -140,7 +146,7 @@ class TestLoadConfig:
         creds_file = tmp_path / "creds.json"
         creds_file.write_text("{}")
         creds_file.chmod(0o000)
-        monkeypatch.setenv("CREDENTIALS_PATH", str(creds_file))
+        monkeypatch.setenv("GOOGLE_CREDENTIALS_PATH", str(creds_file))
 
         try:
             with pytest.raises(ValueError, match="Cannot read credentials file"):
@@ -169,7 +175,7 @@ class TestLoadConfig:
         original_cwd = os.getcwd()
         try:
             os.chdir(tmp_path)
-            monkeypatch.setenv("CREDENTIALS_PATH", str(creds_file))
+            monkeypatch.setenv("GOOGLE_CREDENTIALS_PATH", str(creds_file))
             monkeypatch.delenv("GOOGLE_SHEET_ID", raising=False)  # Clear env var
 
             config = load_config()
@@ -200,7 +206,7 @@ class TestLoadConfig:
         original_cwd = os.getcwd()
         try:
             os.chdir(tmp_path)
-            monkeypatch.setenv("CREDENTIALS_PATH", str(creds_file))
+            monkeypatch.setenv("GOOGLE_CREDENTIALS_PATH", str(creds_file))
 
             config = load_config()
             # Environment variable should take precedence

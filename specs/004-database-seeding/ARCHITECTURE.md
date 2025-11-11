@@ -179,8 +179,8 @@ def parse_property_row(row: Dict, user_lookup: Dict[str, User]) -> Optional[Prop
 
 **Example .env**:
 ```
-GOOGLE_SHEET_ID=1c-WZhVdCV01QE0cgk7yodDC58rMov-KKp-IWiveTTaE
-CREDENTIALS_PATH=sosenkimcp-8b756c9d2720.json
+GOOGLE_SHEET_ID=your-google-sheet-id-here
+GOOGLE_CREDENTIALS_PATH=.vscode/google_credentials.json
 LOG_LEVEL=INFO
 LOG_FILE=logs/seed.log
 ```
@@ -344,8 +344,8 @@ def seed_database():
 
 - **No hardcoding**: Service account JSON stored in external file (not in code)
 - **No secrets in logs**: Credentials not logged; only successes/errors
-- **.gitignore**: Credentials file excluded from git (sosenkimcp-8b756c9d2720.json)
-- **Environment variables**: GOOGLE_SHEET_ID in .env (also .gitignored)
+- **.gitignore**: Credentials file excluded from git (path configured via GOOGLE_CREDENTIALS_PATH env variable)
+- **Environment variables**: GOOGLE_SHEET_ID and GOOGLE_CREDENTIALS_PATH in .env (also .gitignored)
 
 ### Database Access
 

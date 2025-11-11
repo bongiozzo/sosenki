@@ -55,7 +55,7 @@ class TestSeedingErrorScenarios:
         # Should raise ValueError if GOOGLE_SHEET_ID missing
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop("GOOGLE_SHEET_ID", None)
-            os.environ.pop("CREDENTIALS_PATH", None)
+            os.environ.pop("GOOGLE_CREDENTIALS_PATH", None)
             with pytest.raises(ValueError):
                 load_config()
 
@@ -109,7 +109,7 @@ class TestSeedingErrorScenarios:
 
         with patch.dict(
             os.environ,
-            {"GOOGLE_SHEET_ID": "test-id", "CREDENTIALS_PATH": "/nonexistent/creds.json"},
+            {"GOOGLE_SHEET_ID": "test-id", "GOOGLE_CREDENTIALS_PATH": "/nonexistent/creds.json"},
         ):
             with pytest.raises(ValueError, match="Credentials file not found"):
                 load_config()
@@ -125,7 +125,7 @@ class TestSeedingErrorScenarios:
         try:
             with patch.dict(
                 os.environ,
-                {"GOOGLE_SHEET_ID": "test-id", "CREDENTIALS_PATH": temp_path},
+                {"GOOGLE_SHEET_ID": "test-id", "GOOGLE_CREDENTIALS_PATH": temp_path},
             ):
                 with pytest.raises(ValueError, match="not valid JSON"):
                     load_config()
@@ -143,7 +143,7 @@ class TestSeedingErrorScenarios:
         try:
             with patch.dict(
                 os.environ,
-                {"GOOGLE_SHEET_ID": "test-id", "CREDENTIALS_PATH": temp_path},
+                {"GOOGLE_SHEET_ID": "test-id", "GOOGLE_CREDENTIALS_PATH": temp_path},
             ):
                 with pytest.raises(ValueError):
                     load_config()
@@ -168,7 +168,7 @@ class TestSeedingErrorScenarios:
         try:
             with patch.dict(
                 os.environ,
-                {"GOOGLE_SHEET_ID": "test-sheet-id", "CREDENTIALS_PATH": temp_path},
+                {"GOOGLE_SHEET_ID": "test-sheet-id", "GOOGLE_CREDENTIALS_PATH": temp_path},
             ):
                 config = load_config()
                 assert config is not None

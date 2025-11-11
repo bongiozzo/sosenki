@@ -14,7 +14,7 @@
 
 **Rationale**: 
 - Service accounts are designed for server-to-server interactions (no user interaction required)
-- JSON keyfile method aligns with the provided `sosenkimcp-8b756c9d2720.json` credentials
+- JSON keyfile method aligns with environment variable-based credential configuration
 - `google-auth` is the official, well-maintained library from Google
 - Avoids OAuth2 complexity unnecessary for a development tool
 
@@ -186,15 +186,20 @@ help:
 
 **Configuration Resolution**:
 ```python
+- Alternative: ENV vars only, but explicit .env file aids discoverability
+
+**Configuration Resolution**:
+```python
 # 1. Try load from environment variables
 sheet_id = os.getenv("GOOGLE_SHEET_ID")
-creds_file = os.getenv("GOOGLE_CREDS_FILE", "sosenkimcp-8b756c9d2720.json")
+creds_file = os.getenv("GOOGLE_CREDENTIALS_PATH", ".vscode/google_credentials.json")
 
 # 2. Fall back to .env file if not in environment
 if not sheet_id:
     from dotenv import load_dotenv
     load_dotenv(".env")
     sheet_id = os.getenv("GOOGLE_SHEET_ID")
+```
 
 # 3. Fail with clear error if still missing
 if not sheet_id or not os.path.exists(creds_file):
