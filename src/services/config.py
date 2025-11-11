@@ -110,8 +110,10 @@ def load_config() -> SeedConfig:
         )
 
     # Validate private key format (T033)
+    # Accept both RSA format (legacy) and PKCS#8 format (modern)
     private_key = credentials_data.get("private_key", "")
-    if not private_key.startswith("-----BEGIN RSA PRIVATE KEY-----"):
+    valid_key_headers = ("-----BEGIN RSA PRIVATE KEY-----", "-----BEGIN PRIVATE KEY-----")
+    if not any(private_key.startswith(header) for header in valid_key_headers):
         raise ValueError(
             "Credentials file contains invalid private key format. "
             "Ensure this is a valid Google service account JSON file."

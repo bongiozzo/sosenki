@@ -58,8 +58,8 @@ def parse_russian_decimal(value: Optional[str]) -> Optional[Decimal]:
 
     try:
         # Remove spaces (thousand separators)
-        # Replace comma with period (decimal separator)
-        normalized = value.replace(" ", "").replace(",", ".")
+        # Handle both regular spaces and non-breaking spaces (U+00A0)
+        normalized = value.replace(" ", "").replace("\xa0", "").replace(",", ".")
         return Decimal(normalized)
     except (ValueError, InvalidOperation) as e:
         raise ValueError(f"Cannot parse Russian decimal '{value}': {e}") from e

@@ -118,8 +118,9 @@ class SeededService:
                 raise DatabaseError(f"Sheet '{sheet_name}' is empty")
 
             # Step 2: Extract header row
-            header_row = sheet_data[0]
-            data_rows = sheet_data[1:]
+            # The sheet has a blank row at the top, so real headers are in row 1 (index 1)
+            header_row = sheet_data[1]
+            data_rows = sheet_data[2:]
             self.logger.info(
                 f"Found {len(data_rows)} data rows with {len(header_row)} columns"
             )

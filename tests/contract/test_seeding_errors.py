@@ -53,11 +53,17 @@ class TestSeedingErrorScenarios:
         from unittest.mock import patch
 
         # Should raise ValueError if GOOGLE_SHEET_ID missing
-        with patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("GOOGLE_SHEET_ID", None)
-            os.environ.pop("GOOGLE_CREDENTIALS_PATH", None)
-            with pytest.raises(ValueError):
-                load_config()
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmp_dir)
+                with patch.dict(os.environ, {}, clear=False):
+                    os.environ.pop("GOOGLE_SHEET_ID", None)
+                    os.environ.pop("GOOGLE_CREDENTIALS_PATH", None)
+                    with pytest.raises(ValueError):
+                        load_config()
+            finally:
+                os.chdir(original_cwd)
 
     def test_session_can_be_created(self):
         """Test that database session can be created (US1)."""

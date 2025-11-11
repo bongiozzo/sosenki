@@ -47,13 +47,23 @@ async def main() -> int:
         config = load_config()
         logger.info(f"Configuration loaded: Sheet ID={config.google_sheet_id[:10]}...")
 
-        # TODO: Import and execute seeding service
-        # from src.services.seeding import execute_seed
-        # result = await execute_seed(config, logger)
-        # return 0 if result.success else 1
-
-        logger.info("Database seed complete!")
-        return 0
+        # Execute database seeding
+        from src.services.seeding import SeededService
+        from src.services.google_sheets import GoogleSheetsClient
+        from src.services import SessionLocal
+        
+        db = SessionLocal()
+        try:
+            google_sheets_client = GoogleSheetsClient(config.credentials_path)
+            seeding_service = SeededService(db, logger)
+            result = seeding_service.execute_seed(
+                google_sheets_client,
+                config.google_sheet_id,
+                "Дома"  # Sheet name
+            )
+            return 0 if result.success else 1
+        finally:
+            db.close()
 
     except KeyboardInterrupt:
         logger.warning("Seed interrupted by user")
