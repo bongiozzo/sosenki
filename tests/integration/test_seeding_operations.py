@@ -34,7 +34,12 @@ class TestGoogleSheetsClientIntegration:
             "type": "service_account",
             "project_id": "test-project",
             "private_key_id": "test-key",
-            "private_key": "-----BEGIN RSA PRIVATE KEY-----\\nMIIEpAIBAAKCAQEA0Z3VS5JJcds3s+4LXeI2PQQS5vbFv8P/kAIJ3z/YhCFvDg1c\\nq5p8yF/UzVsVE5u+C0P0W4teFHjFQzqCR4B5xWYaKjXj7pV3Q1s0R5q3F5R7Q5zq\\nlEJ6c3HfcPs3vDGsA1jqN7WYCvl8YbH1UW1DvMzL7lYV3L7F3lKZ3lLF3lLF3lLF\\n3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF\\n3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF\\n3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF\\n3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF\\n3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF\\n3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF3lLF\\nAgMBAAECggEAE8t5o+c/P+9dR8K/5WkFu1mDKVbQ0YqBvBJjx3YQIDAQABMA==\\n-----END RSA PRIVATE KEY-----",
+            "private_key": (
+                "-----BEGIN RSA PRIVATE KEY-----\\n"
+                "MIIEpAIBAAKCAQEA0Z3VS5JJcds3s+4LXeI2PQQS5vbFv8P/kAIJ3z/YhCFvDg1c"
+                "\\nAgMBAAECggEAE8t5o+c/P+9dR8K/5WkFu1mDKVbQ0YqBvBJjx3YQIDAQABMA=="
+                "\\n-----END RSA PRIVATE KEY-----"
+            ),
             "client_email": "test@test.iam.gserviceaccount.com",
             "client_id": "123456789",
             "auth_uri": "https://accounts.google.com/o/oauth2/auth",
