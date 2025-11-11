@@ -65,6 +65,9 @@ def client(mock_bot):
                 update.message.from_user.first_name = data["message"]["from"].get(
                     "first_name", "Admin"
                 )
+                update.message.from_user.username = data["message"]["from"].get(
+                    "username", None
+                )
                 # Handle reply_to_message
                 update.message.reply_to_message = None
                 if "reply_to_message" in data["message"]:
@@ -73,6 +76,7 @@ def client(mock_bot):
                     update.message.reply_to_message = rtm
                 update.message.chat = MagicMock()
                 update.message.chat.id = data["message"]["from"]["id"]
+                update.message.chat.type = data["message"].get("chat", {}).get("type", "private")
                 update.message.reply_text = AsyncMock()
                 return update
             return None

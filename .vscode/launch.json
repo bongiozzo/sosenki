@@ -1,0 +1,27 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python: make serve (Bot + Mini App with ngrok)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "src.main",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "stopOnEntry": false,
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}",
+        "DATABASE_URL": "sqlite:///./sosenki.db",
+        "TELEGRAM_SOSENKI_BOT": "SG_SOSenki_Bot"
+      },
+      "args": ["--mode", "webhook"],
+      "presentation": {
+        "hidden": false,
+        "group": "Python",
+        "order": 1
+      },
+      "preLaunchTask": "serve-setup-ngrok-and-launch"
+    }
+  ],
+  "compounds": []
+}

@@ -55,6 +55,9 @@ class NotificationService:
         """
         # Import here to avoid circular import
         from src.bot.config import bot_config
+        from src.services import SessionLocal
+        from src.models.user import User
+        from sqlalchemy import select
         
         # T030: Send notification with [Approve] [Reject] reply keyboard
         # Include clickable link to client's Telegram profile so admin can chat with them
@@ -63,8 +66,23 @@ class NotificationService:
             f"<b>Request #{request_id}</b>\n\n"
             f"<a href='{client_profile_link}'>{client_name or 'User'}</a> (ID: {client_id})\n\n"
             f"<b>Message:</b>\n{request_message or '(no message)'}\n\n"
-            f"Reply with 'Approve' or 'Reject' or use the buttons below"
         )
+        
+        # Get users without telegram_id to help admin identify who is requesting
+        db = SessionLocal()
+        try:
+            users_without_telegram = db.execute(
+                select(User).where(User.telegram_id.is_(None)).order_by(User.name)
+            ).scalars().all()
+            
+            if users_without_telegram:
+                notification_text += "<b>Users without Telegram ID:</b>\n"
+                for user in users_without_telegram:
+                    notification_text += f"{user.id}. {user.name}\n"
+                notification_text += f"\nReply with user ID to approve and assign Telegram ID\n"
+                notification_text += "Or use the buttons below:\n"
+        finally:
+            db.close()
 
         # Note: Reply keyboard implementation requires storing request_id
         # in the message context for admin handlers to parse.

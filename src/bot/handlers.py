@@ -3,9 +3,11 @@
 import logging
 import re
 
-from telegram import Update
+from sqlalchemy import select
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, WebAppInfo
 from telegram.ext import ContextTypes
 
+from src.models.user import User
 from src.services import SessionLocal
 from src.services.admin_service import AdminService
 from src.services.notification_service import NotificationService
@@ -22,41 +24,78 @@ async def handle_request_command(update: Update, context: ContextTypes.DEFAULT_T
     sends confirmation to client and notification to admin.
 
     T031, T034, T035: Implement request handler with logging and error handling
+    
+    /request can be sent with or without a message:
+    - /request                   -> submits request with no message
+    - /request Some message text -> submits request with message text
     """
     try:
         # Extract message parts
         if not update.message or not update.message.text:
             logger.warning("Received /request without message text")
+            return
+
+        # Check if message is from a group chat (group chats don't support WebAppInfo buttons)
+        if update.message.chat.type in ["group", "supergroup"]:
+            logger.info("Received /request from group chat %s, rejecting with private message prompt",
+                       update.message.chat.id)
+            
+            from src.bot.config import bot_config
+            
             await update.message.reply_text(
-                "Please include your request message with /request"
+                f"❌ Requests can only be submitted in private messages.\n\n"
+                f"Please send /request to me in a direct message. "
+                f"Start a private chat with @{bot_config.telegram_sosenki_bot} and try again."
             )
             return
 
-        # Parse: /request <message>
+        # Parse: /request [message] (message is optional)
         text_parts = update.message.text.split(maxsplit=1)
-        if len(text_parts) < 2:
-            logger.warning("Received /request without request message from user %s",
-                          update.message.from_user.id)
-            await update.message.reply_text(
-                "Usage: /request <your message>"
-            )
-            return
+        request_message = text_parts[1] if len(text_parts) > 1 else ""
 
-        request_message = text_parts[1]
         client_id = str(update.message.from_user.id)
         client_name = update.message.from_user.first_name or "User"
+        client_username = update.message.from_user.username or None
 
         # T034: Log request submission attempt
         logger.info("Processing /request from client %s (%s): %s",
-                   client_id, client_name, request_message[:50])
+                   client_id, client_name, request_message[:50] if request_message else "(no message)")
 
         # T028: Use RequestService to create request (validates no duplicate)
         db = SessionLocal()
         try:
+            # Check if user already exists with this telegram_id and is active
+            existing_user = db.execute(
+                select(User).where(User.telegram_id == client_id)
+            ).scalar_one_or_none()
+
+            if existing_user and existing_user.is_active:
+                logger.info("User %s (%s) already has access", client_id, existing_user.name)
+                
+                from src.bot.config import bot_config
+                
+                reply_text = (
+                    "You already have access to SOSenki! 🎉\n\n"
+                    "Open the app using the button below or contact support if you need help."
+                )
+                
+                keyboard = None
+                if bot_config.mini_app_url:
+                    keyboard = InlineKeyboardMarkup([
+                        [InlineKeyboardButton(
+                            text="📱 Open App",
+                            web_app=WebAppInfo(url=bot_config.mini_app_url)
+                        )]
+                    ])
+                
+                await update.message.reply_text(reply_text, reply_markup=keyboard)
+                return
+
             request_service = RequestService(db)
             new_request = await request_service.create_request(
                 user_telegram_id=client_id,
-                request_message=request_message
+                request_message=request_message,
+                user_telegram_username=client_username
             )
 
             if not new_request:
@@ -302,7 +341,7 @@ async def handle_admin_response(update: Update, context: ContextTypes.DEFAULT_TY
             return
 
         admin_id = str(update.message.from_user.id)
-        admin_name = update.message.from_user.first_name or "Admin"
+        admin_name = update.message.from_user.username or "Admin"
 
         # Must be a reply to the original notification
         if not update.message.reply_to_message:
@@ -316,17 +355,30 @@ async def handle_admin_response(update: Update, context: ContextTypes.DEFAULT_TY
         text = (update.message.text or "").strip()
         text_lower = text.lower()
 
-        # Determine action
-        if "approve" in text_lower:
-            action = "approve"
-        elif "reject" in text_lower:
-            action = "reject"
-        else:
-            logger.warning("Received non-action admin message from %s: %s", admin_id, text)
+        # Check if input is a number (user ID selection)
+        selected_user_id = None
+        try:
+            if text.isdigit():
+                selected_user_id = int(text)
+                action = "approve"  # Numeric selection always means approve
+                logger.info("User ID selection detected: %d", selected_user_id)
+            elif "approve" in text_lower:
+                action = "approve"
+            elif "reject" in text_lower:
+                action = "reject"
+            else:
+                logger.warning("Received non-action admin message from %s: %s", admin_id, text)
+                try:
+                    await update.message.reply_text("Please reply with a user ID, 'Approve', or 'Reject' to the request notification")
+                except Exception:
+                    logger.debug("Could not send instruction reply to admin %s", admin_id, exc_info=True)
+                return
+        except ValueError:
+            logger.warning("Could not parse admin response from %s: %s", admin_id, text)
             try:
-                await update.message.reply_text("Please reply with 'Approve' or 'Reject' to the request notification")
+                await update.message.reply_text("Invalid response. Please reply with a user ID, 'Approve', or 'Reject'")
             except Exception:
-                logger.debug("Could not send instruction reply to admin %s", admin_id, exc_info=True)
+                logger.debug("Could not send parse error reply to admin %s", admin_id, exc_info=True)
             return
 
         # Parse request id from the replied-to message
@@ -355,12 +407,17 @@ async def handle_admin_response(update: Update, context: ContextTypes.DEFAULT_TY
             admin_service = AdminService(db)
 
             if action == "approve":
-                logger.info("Calling approve_request for request %d", request_id)
-                request = await admin_service.approve_request(request_id=request_id, admin_telegram_id=admin_id)
+                logger.info("Calling approve_request for request %d (user_id: %s)", request_id, selected_user_id)
+
+                request = await admin_service.approve_request(
+                    request_id=request_id,
+                    admin_telegram_id=admin_id,
+                    selected_user_id=selected_user_id
+                )
                 if not request:
                     logger.warning("Request %d not found for approval", request_id)
                     try:
-                        await update.message.reply_text("Request not found")
+                        await update.message.reply_text("Request not found or invalid user selection")
                     except Exception:
                         logger.debug("Could not send 'not found' reply for approval to admin %s", admin_id, exc_info=True)
                     return
@@ -369,7 +426,10 @@ async def handle_admin_response(update: Update, context: ContextTypes.DEFAULT_TY
                 notification_service = NotificationService(context.application)
                 await notification_service.send_welcome_message(client_id=request.user_telegram_id)
                 try:
-                    await update.message.reply_text("✅ Request approved and client notified")
+                    if selected_user_id:
+                        await update.message.reply_text(f"✅ User {selected_user_id} approved and Telegram ID assigned")
+                    else:
+                        await update.message.reply_text("✅ Request approved and client notified")
                 except Exception:
                     logger.debug("Could not confirm approval to admin %s", admin_id, exc_info=True)
 

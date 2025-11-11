@@ -70,7 +70,7 @@ Headers:
 {
   "isRegistered": false,
   "message": "Access is limited",
-  "instruction": "Send /request to @sosenkibot to request access",
+  "instruction": "Send /request to @SG_SOSenki_Bot to request access",
   "menu": []
 }
 ```

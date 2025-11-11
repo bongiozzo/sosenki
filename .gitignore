@@ -32,15 +32,13 @@ venv.bak/
 .venv/
 
 # IDEs
-.vscode/
-.idea/
 *.swp
 *.swo
 *~
-.DS_Store
-Thumbs.db
 
 # Environment Variables
+.env_google_credentials.json
+mcp.json
 .env
 .env.local
 .env.*.local
@@ -55,7 +53,6 @@ htmlcov/
 *.db
 *.sqlite
 *.sqlite3
-sosenkibot.db
 
 # Alembic
 src/migrations/versions/__pycache__/

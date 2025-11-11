@@ -32,10 +32,14 @@ class AccessRequest(Base, BaseModel):
     # Core request fields
     user_telegram_id: Mapped[str] = mapped_column(
         String(50), 
-        ForeignKey("users.telegram_id"),
         nullable=False, 
         index=True,
-        comment="User making the request"
+        comment="User's Telegram ID (foreign key to users.telegram_id, but nullable during request phase)"
+    )
+    user_telegram_username: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+        comment="User's Telegram username (@username) who created the request"
     )
     request_message: Mapped[str] = mapped_column(
         Text, 
@@ -66,7 +70,7 @@ class AccessRequest(Base, BaseModel):
         comment="Admin who approved/rejected"
     )
     response_message: Mapped[str | None] = mapped_column(
-        Text, 
+        Text,
         nullable=True,
         comment="Admin's response message"
     )

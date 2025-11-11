@@ -15,6 +15,7 @@ from telegram import Update
 
 from src.api import webhook as webhook_module
 from src.models.access_request import AccessRequest, RequestStatus
+from src.models.user import User
 from src.services import SessionLocal
 
 
@@ -26,7 +27,10 @@ class TestAccessRequestFlow:
         """Clean up database before and after each test."""
         db = SessionLocal()
         try:
-            # Delete all requests before test
+            # Delete test users created by this test suite
+            # (Users created with placeholder names starting with "User_")
+            db.execute(delete(User).where(User.name.like("User_%")))
+            # Delete all requests
             db.execute(delete(AccessRequest))
             db.commit()
         except Exception:
@@ -39,6 +43,9 @@ class TestAccessRequestFlow:
         # Cleanup after test
         db = SessionLocal()
         try:
+            # Delete test users created by this test suite
+            db.execute(delete(User).where(User.name.like("User_%")))
+            # Delete all requests
             db.execute(delete(AccessRequest))
             db.commit()
         except Exception:
@@ -70,6 +77,11 @@ class TestAccessRequestFlow:
                     update.message.from_user.first_name = data["message"]["from"].get(
                         "first_name", "TestUser"
                     )
+                    update.message.from_user.username = data["message"]["from"].get(
+                        "username", None
+                    )
+                    update.message.chat = MagicMock()
+                    update.message.chat.type = data["message"]["chat"].get("type", "private")
                     update.message.reply_text = AsyncMock()
                     return update
                 return None
@@ -338,6 +350,47 @@ class TestAccessRequestFlow:
 
             assert stored_request is not None
             assert request_message in stored_request.request_message
+
+        finally:
+            db.close()
+
+    def test_request_without_message(self, client, mock_bot):
+        """Test that /request command works without a message.
+
+        Verifies:
+        1. Client can send /request without any message
+        2. Request is stored in database with empty message
+        3. Client receives confirmation
+        4. Admin receives notification
+        """
+        client_id = 666777888
+        client_name = "TestUser4"
+
+        update_json = {
+            "update_id": 4,
+            "message": {
+                "message_id": 4,
+                "date": int(datetime.now(timezone.utc).timestamp()),
+                "chat": {"id": client_id, "type": "private"},
+                "from": {"id": client_id, "is_bot": False, "first_name": client_name},
+                "text": "/request",  # No message after /request
+            },
+        }
+
+        response = client.post("/webhook/telegram", json=update_json)
+        assert response.status_code == 200
+        response_data = response.json()
+        assert response_data["ok"] is True
+
+        # Verify request is stored in database with empty message
+        db = SessionLocal()
+        try:
+            stored_request = db.query(AccessRequest).filter(
+                AccessRequest.user_telegram_id == str(client_id)
+            ).first()
+
+            assert stored_request is not None
+            assert stored_request.request_message == ""
 
         finally:
             db.close()

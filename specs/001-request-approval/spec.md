@@ -3,7 +3,7 @@
 **Feature Branch**: `001-request-approval`  
 **Created**: 2025-11-04  
 **Status**: Draft  
-**Input**: User description: "Potential client of SOSenki housing and user of Telegram sends a /request with message 'Please give me access to SOSenki' to 'sosenkibot' Telegram bot. Bot sends this request to Administrator of SOSenki with predefined telegram_id. Administrator replies to this request with Approve or Reject. If Reject - bot sends to the user Rejection message. If Approve - bot sends Welcome message to the new client"
+**Input**: User description: "Potential client of SOSenki housing and user of Telegram sends a /request with message 'Please give me access to SOSenki' to 'SG_SOSenki_Bot' Telegram bot. Bot sends this request to Administrator of SOSenki with predefined telegram_id. Administrator replies to this request with Approve or Reject. If Reject - bot sends to the user Rejection message. If Approve - bot sends Welcome message to the new client"
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -17,7 +17,7 @@ A potential client discovers the SOSenki bot and sends a `/request` command with
 
 **Acceptance Scenarios**:
 
-1. **Given** a user has discovered the sosenkibot, **When** the user sends `/request` with message "Please give me access to SOSenki", **Then** the system records the request with the user's Telegram ID, message content, and timestamp, and the user receives a confirmation message.
+1. **Given** a user has discovered the SG_SOSenki_Bot, **When** the user sends `/request` with message "Please give me access to SOSenki", **Then** the system records the request with the user's Telegram ID, message content, and timestamp, and the user receives a confirmation message.
 2. **Given** a user sends a `/request` command, **When** the request is stored, **Then** the request becomes available to administrators for review within seconds.
 3. **Given** a user sends `/request`, **When** the request processing encounters no errors, **Then** the user receives a human-readable confirmation (e.g., "Your request has been received and is pending review").
 

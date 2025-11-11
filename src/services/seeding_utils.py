@@ -47,17 +47,25 @@ def parse_user_row(row_dict: Dict[str, str]) -> Optional[Dict]:
     stakeholder_value = row_dict.get("Доля в Т", "").strip()
     is_stakeholder = bool(stakeholder_value)
 
-    # Determine administrator status (special case for П)
-    is_administrator = owner_name == "П"
-
-    return {
+    # Base user attributes for all users
+    user_dict = {
         "name": owner_name,
         "is_investor": True,  # Default for all seeded users
         "is_owner": True,  # Default for all seeded users
-        "is_administrator": is_administrator,
         "is_stakeholder": is_stakeholder,
         "is_active": True,
     }
+
+    # Assign admin role, telegram_id, and username only for П
+    if owner_name == "П":
+        import os
+        user_dict["is_administrator"] = True
+        user_dict["telegram_id"] = int(os.getenv("ADMIN_TELEGRAM_ID", 0))
+        user_dict["username"] = "Bongiozzo"
+    else:
+        user_dict["is_administrator"] = False
+
+    return user_dict
 
 
 def get_or_create_user(

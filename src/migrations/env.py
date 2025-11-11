@@ -23,10 +23,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # Get database URL from environment
-database_url = os.getenv(
-    "DATABASE_URL",
-    "sqlite:///./sosenkibot.db"
-)
+database_url = os.getenv("DATABASE_URL")
 
 # Set SQLAlchemy URL in config
 config.set_main_option("sqlalchemy.url", database_url)

@@ -11,15 +11,13 @@ from telegram.ext import Application
 
 from src.api.webhook import app, setup_webhook_route
 from src.bot import create_bot_app
+from src.services.logging import setup_server_logging
 
 # Load environment variables
 load_dotenv()
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
+# Configure logging (with file logging)
+setup_server_logging()
 logger = logging.getLogger(__name__)
 
 # Global bot application instance

@@ -11,40 +11,19 @@
         "python -m pytest": true,
         "tail": true,
         "uv run ruff check": true,
+        "uv run pytest": true,
         "/.*uv run pytest.*/": true,
         "/TELEGRAM_BOT_TOKEN=.*uv run pytest.*tail/": true,
         ".specify/scripts/bash/": true,
         ".specify/scripts/powershell/": true
     },
-    "cSpell.words": [
-        "aiogram",
-        "aiohttp",
-        "aiosqlite",
-        "ASGI",
-        "asyncio",
-        "botfather",
-        "conftest",
-        "docstrings",
-        "dotenv",
-        "fastapi",
-        "gatekeeping",
-        "getenv",
-        "mypy",
-        "Parallelizable",
-        "psycopg",
-        "Pydantic",
-        "pyproject",
-        "pytest",
-        "sosenkibot",
-        "speckit",
-        "sqlalchemy",
-        "stdlib",
-        "testpaths",
-        "timedelta",
-        "userinfobot",
-        "utcnow",
-        "uvicorn",
-        "yourbotname"
-    ]
+    "python.testing.pytestEnabled": true,
+    "python.testing.pytestArgs": [
+        "tests"
+    ],
+    "python.linting.enabled": true,
+    "python.linting.pylintEnabled": false,
+    "python.formatting.provider": "none",
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python"
 }
 

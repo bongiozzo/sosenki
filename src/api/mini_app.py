@@ -93,7 +93,7 @@ async def mini_app_init(
                 "isRegistered": False,
                 "userId": telegram_id,
                 "message": "Access is limited",
-                "instruction": "Send /request to @sosenkibot to request access",
+                "instruction": "Send /request to bot to request access",
                 "menu": []
             }
     

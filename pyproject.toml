@@ -1,5 +1,5 @@
 [project]
-name = "sosenkibot"
+name = "sosenki"
 version = "0.1.0"
 description = "SOSenki Client Request Approval Workflow - Telegram Bot"
 readme = "README.md"
@@ -19,7 +19,6 @@ dependencies = [
     "pydantic-settings>=2.0.0",
     "python-dotenv>=1.0.0",
     "aiosqlite>=0.19.0",
-    "uv>=0.9.7",
     "greenlet>=3.2.4",
     "google-auth>=2.27.0",
     "google-api-python-client>=2.187.0",

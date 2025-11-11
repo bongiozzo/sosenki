@@ -68,10 +68,14 @@ class TestApprovalFlow:
                     update.message.from_user.first_name = data["message"]["from"].get(
                         "first_name", "TestUser"
                     )
+                    update.message.from_user.username = data["message"]["from"].get(
+                        "username", None
+                    )
                     update.message.chat = MagicMock()
                     update.message.chat.id = data["message"].get(
                         "chat", {}
                     ).get("id", data["message"]["from"]["id"])
+                    update.message.chat.type = data["message"].get("chat", {}).get("type", "private")
                     update.message.reply_text = AsyncMock()
                     # Handle reply_to_message for admin responses
                     update.message.reply_to_message = None

@@ -15,6 +15,7 @@ from telegram import Update
 
 from src.api import webhook as webhook_module
 from src.models.access_request import AccessRequest, RequestStatus
+from src.models.user import User
 from src.services import SessionLocal
 
 
@@ -26,6 +27,10 @@ class TestRejectionFlow:
         """Clean up database before and after each test."""
         db = SessionLocal()
         try:
+            # Delete test users created by this test suite
+            # (Users created with placeholder names starting with "User_")
+            db.execute(delete(User).where(User.name.like("User_%")))
+            # Delete all requests
             db.execute(delete(AccessRequest))
             db.commit()
         except Exception:
@@ -38,6 +43,9 @@ class TestRejectionFlow:
         # Cleanup after test
         db = SessionLocal()
         try:
+            # Delete test users created by this test suite
+            db.execute(delete(User).where(User.name.like("User_%")))
+            # Delete all requests
             db.execute(delete(AccessRequest))
             db.commit()
         except Exception:
@@ -67,10 +75,14 @@ class TestRejectionFlow:
                     update.message.from_user.first_name = data["message"]["from"].get(
                         "first_name", "TestUser"
                     )
+                    update.message.from_user.username = data["message"]["from"].get(
+                        "username", None
+                    )
                     update.message.chat = MagicMock()
                     update.message.chat.id = data["message"].get(
                         "chat", {}
                     ).get("id", data["message"]["from"]["id"])
+                    update.message.chat.type = data["message"].get("chat", {}).get("type", "private")
                     update.message.reply_text = AsyncMock()
                     # Handle reply_to_message for admin responses
                     update.message.reply_to_message = None

@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from src.models import AccessRequest, RequestStatus, User
+from src.models import AccessRequest, RequestStatus
 
 logger = logging.getLogger(__name__)
 
@@ -18,17 +18,18 @@ class RequestService:
         self.db = db_session
 
     async def create_request(
-        self, user_telegram_id: str, request_message: str
+        self, user_telegram_id: str, request_message: str, user_telegram_username: str | None = None
     ) -> AccessRequest | None:
         """Create a new request from a client.
 
         Validates that no pending request exists for this client,
         then creates a new AccessRequest with status=pending.
-        Also ensures the user exists in the users table (foreign key requirement).
+        User record will be created only upon approval by admin.
 
         Args:
             user_telegram_id: Client's Telegram ID
             request_message: Request message text
+            user_telegram_username: Client's Telegram username (optional)
 
         Returns:
             Created AccessRequest or None if validation fails (duplicate pending request)
@@ -45,27 +46,11 @@ class RequestService:
             # Client already has a pending request
             return None
 
-        # Ensure user exists in users table (required for foreign key)
-        existing_user = self.db.execute(
-            select(User).where(User.telegram_id == user_telegram_id)
-        ).scalar_one_or_none()
-
-        if not existing_user:
-            # Create user with is_active=False (will be activated on approval)
-            # Generate a placeholder name from telegram_id since name is required and unique
-            placeholder_name = f"User_{user_telegram_id}"
-            user = User(
-                telegram_id=user_telegram_id,
-                name=placeholder_name,
-                is_active=False,  # Not active until approved
-            )
-            self.db.add(user)
-            self.db.flush()  # Ensure user is written before creating request
-            logger.info("Created new user %s for request", user_telegram_id)
-
-        # Create new request
+        # Create new request directly without creating user
+        # User will be created upon approval
         new_request = AccessRequest(
             user_telegram_id=user_telegram_id,
+            user_telegram_username=user_telegram_username,
             request_message=request_message,
             status=RequestStatus.PENDING,
             submitted_at=datetime.now(timezone.utc),

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 # Get database URL from environment or use SQLite default
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./sosenkibot.db")
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 # Create engine (SQLite uses StaticPool for simplicity in dev/test)
 if DATABASE_URL.startswith("sqlite"):

@@ -179,3 +179,34 @@ class TestRequestEndpoint:
         # NOTE: Verification that client receives error message is done in
         # integration test (T027) which can assert on bot message queue or
         # mock Telegram API calls
+
+    def test_request_from_group_chat_rejected(self, client, mock_bot):
+        """Test that /request commands in group chats are rejected.
+
+        Group chats cannot use WebAppInfo buttons, so requests must be sent in private messages.
+        """
+        # Ensure mock bot is set
+        webhook_module._bot_app = mock_bot
+
+        # Mock Telegram Update.de_json to return a mock Update object
+        mock_update = MagicMock()
+
+        with patch("telegram.Update.de_json", return_value=mock_update):
+            # Request from a group chat
+            update = create_telegram_update(
+                update_id=1,
+                chat_id=-123456789,  # Negative ID indicates group chat
+                user_id=987654321,
+                first_name="John",
+                text="/request Please give me access",
+            )
+
+            # Override chat type to group
+            update["message"]["chat"]["type"] = "group"
+
+            response = client.post("/webhook/telegram", json=update)
+            assert response.status_code == 200
+            assert response.json().get("ok") is True
+
+            # Verify bot processes the update (the handler will reject it)
+            mock_bot.process_update.assert_called_once()

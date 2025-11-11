@@ -1,0 +1,17 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "serve-setup-ngrok-and-launch",
+      "type": "shell",
+      "command": "${workspaceFolder}/.vscode/setup-ngrok.sh",
+      "isBackground": false,
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "close": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}
