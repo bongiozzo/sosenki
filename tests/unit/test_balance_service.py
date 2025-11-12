@@ -1,7 +1,8 @@
 """Unit tests for balance service."""
 
-import pytest
 from decimal import Decimal
+
+import pytest
 
 from src.services.balance_service import BalanceService
 

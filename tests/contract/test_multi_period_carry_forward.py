@@ -3,21 +3,20 @@
 Tests the API contracts for balance carry-forward functionality.
 """
 
-import pytest
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from decimal import Decimal
-from typing import Dict
 
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from src.models import Base, User, ServicePeriod, ContributionLedger, ServiceCharge
-from src.services.balance_service import BalanceService
-from src.services.payment_service import PaymentService
 from src.api.payment import (
     CarryForwardRequest,
     CarryForwardResponse,
 )
+from src.models import Base, ContributionLedger, User
+from src.services.balance_service import BalanceService
+from src.services.payment_service import PaymentService
 
 
 @pytest.fixture

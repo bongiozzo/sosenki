@@ -24,7 +24,7 @@ async def handle_request_command(update: Update, context: ContextTypes.DEFAULT_T
     sends confirmation to client and notification to admin.
 
     T031, T034, T035: Implement request handler with logging and error handling
-    
+
     /request can be sent with or without a message:
     - /request                   -> submits request with no message
     - /request Some message text -> submits request with message text
@@ -39,13 +39,13 @@ async def handle_request_command(update: Update, context: ContextTypes.DEFAULT_T
         if update.message.chat.type in ["group", "supergroup"]:
             logger.info("Received /request from group chat %s, rejecting with private message prompt",
                        update.message.chat.id)
-            
+
             from src.bot.config import bot_config
-            
+
             await update.message.reply_text(
                 f"❌ Requests can only be submitted in private messages.\n\n"
                 f"Please send /request to me in a direct message. "
-                f"Start a private chat with @{bot_config.telegram_sosenki_bot} and try again."
+                f"Start a private chat with @{bot_config.telegram_bot_name} and try again."
             )
             return
 
@@ -53,72 +53,81 @@ async def handle_request_command(update: Update, context: ContextTypes.DEFAULT_T
         text_parts = update.message.text.split(maxsplit=1)
         request_message = text_parts[1] if len(text_parts) > 1 else ""
 
-        client_id = str(update.message.from_user.id)
-        client_name = update.message.from_user.first_name or "User"
-        client_username = update.message.from_user.username or None
+        requester_id = str(update.message.from_user.id)
+
+        # Build requester identifier: prefer username, then first+last name, then phone, then user_id
+        if update.message.from_user.username:
+            requester_username = update.message.from_user.username
+        elif update.message.from_user.first_name:
+            if update.message.from_user.last_name:
+                requester_username = f"{update.message.from_user.first_name} {update.message.from_user.last_name}"
+            else:
+                requester_username = update.message.from_user.first_name
+        elif update.message.from_user.phone_number:
+            requester_username = update.message.from_user.phone_number
+        else:
+            requester_username = requester_id
 
         # T034: Log request submission attempt
-        logger.info("Processing /request from client %s (%s): %s",
-                   client_id, client_name, request_message[:50] if request_message else "(no message)")
+        logger.info("Processing /request from requester %s: %s",
+                   requester_id, request_message[:50] if request_message else "(no message)")
 
         # T028: Use RequestService to create request (validates no duplicate)
         db = SessionLocal()
         try:
             # Check if user already exists with this telegram_id and is active
             existing_user = db.execute(
-                select(User).where(User.telegram_id == client_id)
+                select(User).where(User.telegram_id == requester_id)
             ).scalar_one_or_none()
 
             if existing_user and existing_user.is_active:
-                logger.info("User %s (%s) already has access", client_id, existing_user.name)
-                
+                logger.info("User %s (%s) already has access", requester_id, existing_user.name)
+
                 from src.bot.config import bot_config
-                
+
                 reply_text = (
                     "You already have access to SOSenki! 🎉\n\n"
                     "Open the app using the button below or contact support if you need help."
                 )
-                
-                keyboard = None
-                if bot_config.mini_app_url:
-                    keyboard = InlineKeyboardMarkup([
-                        [InlineKeyboardButton(
-                            text="📱 Open App",
-                            web_app=WebAppInfo(url=bot_config.mini_app_url)
-                        )]
-                    ])
-                
+
+                keyboard = InlineKeyboardMarkup([
+                    [InlineKeyboardButton(
+                        text="📱 Open App",
+                        web_app=WebAppInfo(url=bot_config.mini_app_url)
+                    )]
+                ])
+
                 await update.message.reply_text(reply_text, reply_markup=keyboard)
                 return
 
             request_service = RequestService(db)
             new_request = await request_service.create_request(
-                user_telegram_id=client_id,
+                user_telegram_id=requester_id,
                 request_message=request_message,
-                user_telegram_username=client_username
+                user_telegram_username=requester_username
             )
 
             if not new_request:
                 # T035: Handle duplicate pending request
-                logger.warning("Duplicate pending request from client %s", client_id)
+                logger.warning("Duplicate pending request from requester %s", requester_id)
                 await update.message.reply_text(
                     "You already have a pending request. Please wait for admin review."
                 )
                 return
 
-            # T029: Send confirmation to client
+            # T029: Send confirmation to requester
             notification_service = NotificationService(context.application)
-            await notification_service.send_confirmation_to_client(
-                client_id=client_id
+            await notification_service.send_confirmation_to_requester(
+                requester_id=requester_id
             )
-            logger.info("Sent confirmation to client %s", client_id)
+            logger.info("Sent confirmation to requester %s", requester_id)
 
             # T030: Send admin notification
             try:
                 await notification_service.send_notification_to_admin(
                     request_id=new_request.id,
-                    client_id=client_id,
-                    client_name=client_name,
+                    requester_id=requester_id,
+                    requester_username=requester_username,
                     request_message=request_message
                 )
                 logger.info("Sent admin notification for request %d", new_request.id)
@@ -205,16 +214,16 @@ async def handle_admin_approve(update: Update, context: ContextTypes.DEFAULT_TYP
                 await update.message.reply_text("Request not found")
                 return
 
-            # T041: Send welcome message to client
+            # T041: Send welcome message to requester
             notification_service = NotificationService(context.application)
             await notification_service.send_welcome_message(
-                client_id=request.user_telegram_id
+                requester_id=request.user_telegram_id
             )
-            logger.info("Sent welcome message to client %s",
+            logger.info("Sent welcome message to requester %s",
                        request.user_telegram_id)
 
             # Send confirmation to admin
-            await update.message.reply_text("✅ Request approved and client notified")
+            await update.message.reply_text("✅ Request approved and requester notified")
             logger.info("Approval confirmed to admin %s for request %d",
                        admin_id, request_id)
 
@@ -294,16 +303,16 @@ async def handle_admin_reject(update: Update, context: ContextTypes.DEFAULT_TYPE
                 await update.message.reply_text("Request not found")
                 return
 
-            # T050: Send rejection message to client
+            # T050: Send rejection message to requester
             notification_service = NotificationService(context.application)
             await notification_service.send_rejection_message(
-                client_id=request.user_telegram_id
+                requester_id=request.user_telegram_id
             )
-            logger.info("Sent rejection message to client %s",
+            logger.info("Sent rejection message to requester %s",
                        request.user_telegram_id)
 
             # Send confirmation to admin
-            await update.message.reply_text("✅ Request rejected and client notified")
+            await update.message.reply_text("✅ Request rejected and requester notified")
             logger.info("Rejection confirmed to admin %s for request %d",
                        admin_id, request_id)
 
@@ -422,14 +431,14 @@ async def handle_admin_response(update: Update, context: ContextTypes.DEFAULT_TY
                         logger.debug("Could not send 'not found' reply for approval to admin %s", admin_id, exc_info=True)
                     return
 
-                logger.info("Approval successful, sending welcome message to client %s", request.user_telegram_id)
+                logger.info("Approval successful, sending welcome message to requester %s", request.user_telegram_id)
                 notification_service = NotificationService(context.application)
-                await notification_service.send_welcome_message(client_id=request.user_telegram_id)
+                await notification_service.send_welcome_message(requester_id=request.user_telegram_id)
                 try:
                     if selected_user_id:
                         await update.message.reply_text(f"✅ User {selected_user_id} approved and Telegram ID assigned")
                     else:
-                        await update.message.reply_text("✅ Request approved and client notified")
+                        await update.message.reply_text("✅ Request approved and requester notified")
                 except Exception:
                     logger.debug("Could not confirm approval to admin %s", admin_id, exc_info=True)
 
@@ -508,7 +517,7 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
                     return
 
                 notification_service = NotificationService(context.application)
-                await notification_service.send_welcome_message(client_id=request.user_telegram_id)
+                await notification_service.send_welcome_message(requester_id=request.user_telegram_id)
                 try:
                     await cq.answer("Request approved")
                     await cq.edit_message_text(f"Request #{request_id} — ✅ Approved by {admin_name}")
@@ -522,7 +531,7 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
                     return
 
                 notification_service = NotificationService(context.application)
-                await notification_service.send_rejection_message(client_id=request.user_telegram_id)
+                await notification_service.send_rejection_message(requester_id=request.user_telegram_id)
                 try:
                     await cq.answer("Request rejected")
                     await cq.edit_message_text(f"Request #{request_id} — ❌ Rejected by {admin_name}")

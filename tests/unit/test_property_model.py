@@ -1,9 +1,10 @@
 """Unit tests for Property model."""
 
 from decimal import Decimal
+
 from sqlalchemy import delete
 
-from src.models import User, Property
+from src.models import Property, User
 from src.services import SessionLocal
 
 

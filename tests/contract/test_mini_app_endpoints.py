@@ -1,7 +1,6 @@
 """Contract tests for Mini App API endpoints."""
 
 import pytest
-from fastapi.testclient import TestClient
 
 # These are placeholder tests - full implementation requires test database
 # and proper async test client setup

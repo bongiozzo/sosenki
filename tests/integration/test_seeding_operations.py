@@ -9,7 +9,6 @@ from sqlalchemy.orm import sessionmaker
 from src.models import Base, Property, User
 from src.services.errors import CredentialsError
 
-
 # ============================================================================
 # TEST FIXTURES & CONSTANTS
 # ============================================================================

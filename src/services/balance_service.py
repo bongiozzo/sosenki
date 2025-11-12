@@ -10,8 +10,8 @@ import logging
 from decimal import Decimal
 from typing import Dict, List, Optional, TypedDict
 
-from sqlalchemy.orm import Session
 from sqlalchemy import func
+from sqlalchemy.orm import Session
 
 from src.models import (
     ContributionLedger,
@@ -38,7 +38,7 @@ class BalanceService:
 
     def __init__(self, db: Optional[Session] = None):
         """Initialize balance service.
-        
+
         Args:
             db: Database session (optional)
         """
@@ -119,7 +119,7 @@ class BalanceService:
             .group_by(ContributionLedger.user_id)
             .all()
         )
-        return {owner_id: total for owner_id, total in results}
+        return dict(results)
 
     def get_owner_expenses(self, period_id: int, owner_id: int) -> Decimal:
         """Get total allocated expenses for owner in period.
@@ -168,7 +168,7 @@ class BalanceService:
             .group_by(ExpenseLedger.paid_by_user_id)
             .all()
         )
-        return {owner_id: total for owner_id, total in results}
+        return dict(results)
 
     def get_owner_service_charges(self, period_id: int, owner_id: int) -> Decimal:
         """Get total service charges for owner in period.
@@ -211,7 +211,7 @@ class BalanceService:
             .group_by(ServiceCharge.user_id)
             .all()
         )
-        return {owner_id: total for owner_id, total in results}
+        return dict(results)
 
     def generate_period_balance_sheet(self, period_id: int) -> List[BalanceSheetEntry]:
         """Generate balance sheet for entire period.
@@ -369,7 +369,7 @@ class BalanceService:
         contrib_count = 0
         charge_count = 0
         total_applied = Decimal(0)
-        
+
         for owner_id, balance in opening_balances.items():
             if balance > Decimal(0):
                 contrib = ContributionLedger(

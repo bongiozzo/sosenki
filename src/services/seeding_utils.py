@@ -9,6 +9,7 @@ from typing import Dict, Optional
 
 from sqlalchemy.orm import Session
 
+from src.config.seeding_config import SeedingConfig
 from src.models.user import User
 from src.services.errors import DataValidationError
 
@@ -16,6 +17,11 @@ from src.services.errors import DataValidationError
 def parse_user_row(row_dict: Dict[str, str]) -> Optional[Dict]:
     """
     Parse a row from "Дома" sheet into User attributes.
+
+    Uses three-phase approach:
+    Phase 1: Extract fields from row using column mappings
+    Phase 2: Apply default attributes
+    Phase 3: Apply transformations (special rules)
 
     Args:
         row_dict: Dictionary mapping column names to cell values
@@ -25,45 +31,36 @@ def parse_user_row(row_dict: Dict[str, str]) -> Optional[Dict]:
 
     Raises:
         DataValidationError: If owner name is empty/whitespace
-
-    Parsing Rules:
-    1. Extract owner name from "Фамилия" column
-    2. If empty/whitespace-only: skip row, log WARNING
-    3. Assign role flags: is_investor=True, is_owner=True
-    4. is_administrator=True only for "Поляков"
-    5. is_stakeholder=True if "Доля в Терра-М" column has value
     """
     logger = logging.getLogger("sostenki.seeding.parsers")
 
-    # Extract owner name from "Фамилия" column
-    owner_name = row_dict.get("Фамилия", "").strip()
+    # Load configuration
+    config = SeedingConfig.load()
+
+    # PHASE 1: Extract fields from row using configured column mappings
+    parsing_rules = config.get_user_parsing_rules()
+    name_column = parsing_rules.get("name_column", "Фамилия")
+    stakeholder_column = parsing_rules.get("stakeholder_column", "Доля в Терра-М")
+
+    owner_name = row_dict.get(name_column, "").strip()
 
     # Validation: empty owner name
     if not owner_name:
-        logger.warning("Skipping row: empty owner name (Фамилия column)")
+        logger.warning("Skipping row: empty owner name (%s column)", name_column)
         raise DataValidationError("Empty owner name")
 
-    # Determine stakeholder status from "Доля в Терра-М" column
-    stakeholder_value = row_dict.get("Доля в Терра-М", "").strip()
-    is_stakeholder = bool(stakeholder_value)
+    stakeholder_value = row_dict.get(stakeholder_column, "").strip()
 
-    # Base user attributes for all users
-    user_dict = {
-        "name": owner_name,
-        "is_investor": True,  # Default for all seeded users
-        "is_owner": True,  # Default for all seeded users
-        "is_stakeholder": is_stakeholder,
-        "is_active": True,
-    }
+    # PHASE 2: Apply default attributes
+    user_dict = config.get_user_defaults().copy()
+    user_dict["name"] = owner_name
+    user_dict["is_stakeholder"] = bool(stakeholder_value)
 
-    # Assign admin role, telegram_id, and username only for Поляков
-    if owner_name == "Поляков":
-        import os
-        user_dict["is_administrator"] = True
-        user_dict["telegram_id"] = int(os.getenv("ADMIN_TELEGRAM_ID", 0))
-        user_dict["username"] = "Bongiozzo"
-    else:
-        user_dict["is_administrator"] = False
+    # PHASE 3: Apply transformations (special rules)
+    special_rules = config.get_user_special_rule(owner_name)
+    if special_rules:
+        logger.info("Applying special rules for user: %s", owner_name)
+        user_dict.update(special_rules)
 
     return user_dict
 
@@ -88,7 +85,7 @@ def get_or_create_user(
     Logic:
     1. Query user by name (case-sensitive, exact match)
     2. If found: return existing user
-    3. If not found: create new user with provided attributes
+    3. If not found: create new user with provided attributes or config defaults
     4. Flush transaction (get ID without full commit)
     """
     logger = logging.getLogger("sostenki.seeding.users")
@@ -101,16 +98,11 @@ def get_or_create_user(
             logger.info(f"Found existing user: {name}")
             return user
 
-        # Create new user
+        # Create new user with provided attributes or config defaults
         if not user_attrs:
-            user_attrs = {
-                "name": name,
-                "is_investor": True,
-                "is_owner": True,
-                "is_administrator": False,
-                "is_stakeholder": False,
-                "is_active": True,
-            }
+            config = SeedingConfig.load()
+            user_attrs = config.get_user_defaults().copy()
+            user_attrs["name"] = name
 
         user = User(**user_attrs)
         session.add(user)

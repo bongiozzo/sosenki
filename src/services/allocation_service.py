@@ -7,8 +7,8 @@ Supports allocation strategies:
 - NONE: No automatic allocation
 """
 
-from decimal import Decimal, ROUND_HALF_UP
-from typing import Dict, List
+from decimal import ROUND_HALF_UP, Decimal
+from typing import Dict
 
 
 class AllocationService:

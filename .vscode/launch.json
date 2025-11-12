@@ -1,8 +1,9 @@
 {
+  "_comment": "Environment loaded: static from .env in main.py, dynamic from /tmp/.sosenki-env via preLaunchTask setup-environment.sh",
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Python: make serve (Bot + Mini App with ngrok)",
+      "name": "Python: serve (Bot + Mini App with ngrok)",
       "type": "debugpy",
       "request": "launch",
       "module": "src.main",
@@ -10,9 +11,7 @@
       "justMyCode": true,
       "stopOnEntry": false,
       "env": {
-        "PYTHONPATH": "${workspaceFolder}",
-        "DATABASE_URL": "sqlite:///./sosenki.db",
-        "TELEGRAM_SOSENKI_BOT": "SG_SOSenki_Bot"
+        "PYTHONPATH": "${workspaceFolder}"
       },
       "args": ["--mode", "webhook"],
       "presentation": {

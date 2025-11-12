@@ -1,19 +1,26 @@
+# TODO Show stakeholders status and link to public info on first page
+# TODO List of payments and debt on first page
+
+# TODO Service periods
+# TODO Electricity readings
+# TODO Balance for accounts
+
+# TODO Invest part
+
+# TODO Photo Gallery
+# TODO Remove /specs when finished and make git-filter-repo to clean history
+
 # ============================================================================
 # Configuration
 # ============================================================================
 
-# Database
-DB_FILE := sosenki.db
-DATABASE_URL := sqlite:///./$(DB_FILE)
+# Source shared environment configuration from .env
+include .env
 
-# Google credentials
-GOOGLE_CREDENTIALS_PATH := .env_google_credentials.json
-
-# Telegram Bot
-TELEGRAM_SOSENKI_BOT := SG_SOSenki_Bot
-
-# Mini App
-TELEGRAM_MINI_APP_ID := sosenki-mini-app-id
+export DATABASE_URL
+export GOOGLE_CREDENTIALS_PATH
+export TELEGRAM_BOT_NAME
+export TELEGRAM_MINI_APP_ID
 
 .PHONY: help seed test lint format install serve db-reset
 
@@ -70,14 +77,13 @@ seed:
 # IMPORTANT: Application MUST be offline when running this command
 # This will delete all data and recreate fresh schema
 db-reset:
-	@echo "Resetting database: $(DB_FILE)"
+	@echo "Resetting database: sosenki.db"
 	@echo "IMPORTANT: Ensure the application is offline before proceeding"
 	@echo ""
-	rm -fv $(DB_FILE) && ls -lah $(DB_FILE) 2>&1 || echo "Database deleted successfully"
+	rm -fv sosenki.db && ls -lah sosenki.db 2>&1 || echo "Database deleted successfully"
 	@echo "Database deleted"
 	@echo ""
 	@echo "Recreating database schema via Alembic..."
-	export DATABASE_URL=$(DATABASE_URL); \
 	uv run alembic upgrade head
 	@echo ""
 	@echo "Database reset complete! Ready for seeding with 'make seed'"
@@ -85,38 +91,11 @@ db-reset:
 # Local Development with Webhook Mode
 
 # Run bot + mini app in webhook mode with ngrok tunnel
-# Automatically starts ngrok if not already running
-# ngrok configuration is already set up in .ngrok.yml
+# Automatically starts ngrok tunnel and loads environment variables (dynamic + static from .env)
 serve:
-	@# Check if ngrok is already running
-	@if ! pgrep -f "ngrok http 8000" > /dev/null; then \
-		echo "ngrok not running. Starting ngrok tunnel on port 8000..."; \
-		ngrok http 8000 > /dev/null 2>&1 & \
-		NGROK_PID=$$!; \
-		echo "ngrok started with PID $$NGROK_PID"; \
-		sleep 2; \
-	else \
-		echo "ngrok is already running"; \
-	fi
-	@# Get ngrok tunnel URL from API
-	@TUNNEL_URL=$$(curl -s http://127.0.0.1:4040/api/tunnels | grep -o '"public_url":"https://[^"]*' | cut -d'"' -f4); \
-	if [ -z "$$TUNNEL_URL" ]; then \
-		echo "ERROR: Could not retrieve ngrok tunnel URL"; \
-		echo "Make sure ngrok is running and accessible at http://127.0.0.1:4040"; \
-		exit 1; \
-	fi; \
-	echo "Tunnel URL: $$TUNNEL_URL"; \
-	export DATABASE_URL=$(DATABASE_URL); \
-	export GOOGLE_CREDENTIALS_PATH=$(GOOGLE_CREDENTIALS_PATH); \
-	export TELEGRAM_MINI_APP_ID=$(TELEGRAM_MINI_APP_ID); \
-	export TELEGRAM_SOSENKI_BOT=$(TELEGRAM_SOSENKI_BOT); \
-	export NGROK_TUNNEL_URL=$$TUNNEL_URL; \
-	export WEBHOOK_URL=$$TUNNEL_URL/webhook/telegram; \
-	export MINI_APP_URL=$$TUNNEL_URL/mini-app; \
-	echo "Starting bot + mini app in webhook mode..."; \
-	echo "Webhook URL: $$WEBHOOK_URL"; \
-	echo "Mini App URL: $$MINI_APP_URL"; \
-	echo "Logs: logs/server.log"; \
-	echo "Press Ctrl+C to stop"; \
-	echo ""; \
+	@source ./setup-environment.sh && \
+	echo "Starting bot + mini app in webhook mode..." && \
+	echo "Logs: logs/server.log" && \
+	echo "Press Ctrl+C to stop" && \
+	echo "" && \
 	uv run python -m src.main --mode webhook

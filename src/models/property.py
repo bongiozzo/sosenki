@@ -2,7 +2,7 @@
 
 from decimal import Decimal
 
-from sqlalchemy import ForeignKey, Index, Numeric, String, Boolean
+from sqlalchemy import Boolean, ForeignKey, Index, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models import Base, BaseModel
@@ -10,10 +10,10 @@ from src.models import Base, BaseModel
 
 class Property(Base, BaseModel):
     """Model representing a physical property/house with owner assignment and allocation weight.
-    
+
     The share_weight field is critical for proportional expense allocations and makes the system
     DRY by storing this coefficient once (instead of hardcoding allocation percentages).
-    
+
     Active properties are used in FIXED_FEE allocations to determine which owners receive equal
     charges during a period. The is_ready flag tracks whether a property is prepared for tenants
     or habitation.

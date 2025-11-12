@@ -11,14 +11,14 @@ from src.models import Base, BaseModel
 class User(Base, BaseModel):
     """
     Unified user model representing any person in the system.
-    
+
     Users can hold multiple roles simultaneously via independent boolean flags:
     - is_active: PRIMARY gate for Mini App access (all users)
     - is_investor: Can access Invest features (requires is_active=True)
     - is_administrator: Can approve/reject access requests
     - is_owner: Can manage system configuration (future)
     - is_staff: Can view analytics and support users (future)
-    
+
     This design supports flexible role assignment without schema changes.
     """
 
@@ -26,19 +26,19 @@ class User(Base, BaseModel):
 
     # Identity fields
     telegram_id: Mapped[str | None] = mapped_column(
-        String(50), 
-        nullable=True, 
+        String(50),
+        nullable=True,
         index=True,
         comment="Primary identifier from Telegram (nullable until user becomes active)"
     )
     username: Mapped[str | None] = mapped_column(
-        String(255), 
-        nullable=True, 
+        String(255),
+        nullable=True,
         index=True,
         comment="Telegram username"
     )
     name: Mapped[str] = mapped_column(
-        String(255), 
+        String(255),
         nullable=False,
         unique=True,
         comment="Full name (first and last name combined) - unique identifier"
@@ -46,43 +46,43 @@ class User(Base, BaseModel):
 
     # Role flags (independent - user can have multiple roles)
     is_investor: Mapped[bool] = mapped_column(
-        Boolean, 
-        default=False, 
+        Boolean,
+        default=False,
         nullable=False,
         comment="Can access Invest features (requires is_active=True)"
     )
     is_administrator: Mapped[bool] = mapped_column(
-        Boolean, 
-        default=False, 
+        Boolean,
+        default=False,
         nullable=False,
         comment="Can approve/reject access requests"
     )
     is_owner: Mapped[bool] = mapped_column(
-        Boolean, 
-        default=False, 
+        Boolean,
+        default=False,
         nullable=False,
         comment="Can manage system configuration (future)"
     )
     is_staff: Mapped[bool] = mapped_column(
-        Boolean, 
-        default=False, 
+        Boolean,
+        default=False,
         nullable=False,
         comment="Can view analytics and support users (future)"
     )
-    
+
     # Stakeholder status
     is_stakeholder: Mapped[bool] = mapped_column(
-        Boolean, 
-        default=False, 
+        Boolean,
+        default=False,
         nullable=False,
         comment="Stakeholder status from Google Sheet 'Доля' column"
     )
-    
+
     # Primary access gate
     is_active: Mapped[bool] = mapped_column(
-        Boolean, 
-        default=True, 
-        nullable=False, 
+        Boolean,
+        default=True,
+        nullable=False,
         index=True,
         comment="PRIMARY Mini App access gate - can access Mini App if True"
     )
@@ -127,7 +127,7 @@ class User(Base, BaseModel):
         if self.is_staff:
             roles.append("staff")
         role_str = ",".join(roles) if roles else "none"
-        
+
         return (
             f"<User(id={self.id}, name={self.name}, telegram_id={self.telegram_id}, "
             f"is_active={self.is_active}, roles=[{role_str}])>"

@@ -9,6 +9,13 @@ from pathlib import Path
 # This ensures the SessionLocal and engine use the test database
 os.environ["DATABASE_URL"] = "sqlite:///./test_sosenki.db"
 
+# Set dummy test token for TELEGRAM_BOT_TOKEN (required by bot config validation)
+# This is only used for unit/contract tests that don't make actual API calls
+os.environ["TELEGRAM_BOT_TOKEN"] = "test_token_1234567890:ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+# Set test mini app URL (required for application startup)
+os.environ["MINI_APP_URL"] = "http://localhost:3000/mini-app/"
+
 # Get the project root directory
 project_root = Path(__file__).parent.parent
 
@@ -22,7 +29,7 @@ try:
         timeout=30,
         env={**os.environ, "DATABASE_URL": "sqlite:///./test_sosenki.db"}
     )
-    
+
     if result.returncode != 0:
         print(f"WARNING: Alembic migration failed with return code {result.returncode}", file=sys.stderr)
         print("STDOUT:", result.stdout, file=sys.stderr)
@@ -33,5 +40,3 @@ except subprocess.TimeoutExpired:
     print("WARNING: Alembic migration timed out", file=sys.stderr)
 except Exception as e:
     print(f"WARNING: Failed to apply migrations: {e}", file=sys.stderr)
-
-import pytest

@@ -10,8 +10,8 @@ class TestNotificationService:
         assert hasattr(NotificationService, 'send_message')
 
     def test_notification_service_has_send_confirmation_to_client(self):
-        """T059: NotificationService has send_confirmation_to_client method"""
-        assert hasattr(NotificationService, 'send_confirmation_to_client')
+        """T059: NotificationService has send_confirmation_to_requester method"""
+        assert hasattr(NotificationService, 'send_confirmation_to_requester')
 
     def test_notification_service_has_send_notification_to_admin(self):
         """T059: NotificationService has send_notification_to_admin method"""

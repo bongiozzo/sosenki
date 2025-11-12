@@ -1,9 +1,8 @@
 """AccessRequest ORM model for tracking client access requests (audit log)."""
 
-from datetime import datetime, timezone
 from enum import Enum as PyEnum
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Index, String, Text
+from sqlalchemy import Enum, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.models import Base, BaseModel
@@ -19,30 +18,32 @@ class RequestStatus(PyEnum):
 
 class AccessRequest(Base, BaseModel):
     """
-    Immutable audit log for all access requests.
-    
+    Audit log for all access requests.
+
     This table serves as the complete history of approval workflows.
     Users are created with is_active=False; upon approval, is_active becomes True.
-    
-    Renamed from ClientRequest for clarity (access request from any user).
+
+    Timestamps:
+    - created_at: When request was created (request submitted)
+    - updated_at: Last modified (when admin responded)
     """
 
     __tablename__ = "access_requests"
 
     # Core request fields
     user_telegram_id: Mapped[str] = mapped_column(
-        String(50), 
-        nullable=False, 
+        String(50),
+        nullable=False,
         index=True,
-        comment="User's Telegram ID (foreign key to users.telegram_id, but nullable during request phase)"
+        comment="User's Telegram ID"
     )
     user_telegram_username: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
-        comment="User's Telegram username (@username) who created the request"
+        comment="User's Telegram username (@username)"
     )
     request_message: Mapped[str] = mapped_column(
-        Text, 
+        Text,
         nullable=False,
         comment="User's request message"
     )
@@ -51,47 +52,37 @@ class AccessRequest(Base, BaseModel):
         default=RequestStatus.PENDING,
         nullable=False,
         index=True,
-        comment="Current status: pending/approved/rejected"
-    )
-    submitted_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        nullable=False,
-        index=True,
-        comment="When request was submitted"
+        comment="Status: pending/approved/rejected"
     )
 
     # Admin response fields (nullable until admin responds)
-    responded_by_admin_id: Mapped[str | None] = mapped_column(
+    admin_telegram_id: Mapped[str | None] = mapped_column(
         String(50),
         ForeignKey("users.telegram_id"),
         nullable=True,
         index=True,
-        comment="Admin who approved/rejected"
+        comment="Admin Telegram ID (who responded)"
     )
-    response_message: Mapped[str | None] = mapped_column(
+    admin_response: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
         comment="Admin's response message"
     )
-    responded_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), 
-        nullable=True,
-        comment="When admin responded"
-    )
+
+    # Standard ORM metadata timestamps (inherited from BaseModel)
+    # created_at: When request was submitted
+    # updated_at: When request was last updated (admin response time)
 
     # Indexes for common queries
     __table_args__ = (
         Index("idx_user_status", "user_telegram_id", "status"),
         Index("idx_status", "status"),
-        Index("idx_submitted_at", "submitted_at"),
-        Index("idx_responded_by", "responded_by_admin_id"),
     )
 
     def __repr__(self) -> str:
         return (
             f"<AccessRequest(id={self.id}, user_telegram_id={self.user_telegram_id}, "
-            f"status={self.status.value}, submitted_at={self.submitted_at})>"
+            f"status={self.status.value}, created_at={self.created_at})>"
         )
 
 

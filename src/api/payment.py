@@ -9,15 +9,14 @@ Handles financial operations:
 
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Optional, List, Dict
+from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
-from src.services.payment_service import PaymentService
 from src.services.balance_service import BalanceService
-from src.models import PeriodStatus
+from src.services.payment_service import PaymentService
 
 router = APIRouter(prefix="/api/payments", tags=["payments"])
 
@@ -37,7 +36,7 @@ class PeriodCreateRequest(BaseModel):
 class PeriodResponse(BaseModel):
     """Response with service period details."""
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: int
     name: str
     start_date: date
@@ -57,7 +56,7 @@ class ContributionCreateRequest(BaseModel):
 class ContributionResponse(BaseModel):
     """Response with contribution details."""
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: int
     service_period_id: int
     user_id: int
@@ -79,7 +78,7 @@ class ExpenseCreateRequest(BaseModel):
 class ExpenseResponse(BaseModel):
     """Response with expense details."""
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: int
     service_period_id: int
     paid_by_user_id: int
@@ -101,7 +100,7 @@ class ServiceChargeCreateRequest(BaseModel):
 class ServiceChargeResponse(BaseModel):
     """Response with service charge details."""
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: int
     service_period_id: int
     user_id: int
@@ -125,7 +124,7 @@ class BudgetItemCreateRequest(BaseModel):
 class BudgetItemResponse(BaseModel):
     """Response with budget item details."""
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: int
     service_period_id: int
     payment_type: str
@@ -147,7 +146,7 @@ class MeterReadingCreateRequest(BaseModel):
 class MeterReadingResponse(BaseModel):
     """Response with meter reading details."""
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: int
     service_period_id: int
     meter_name: str
@@ -175,7 +174,7 @@ class ServiceChargeUpdateRequest(BaseModel):
 class ServiceChargeResponse(BaseModel):
     """Response with service charge details."""
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: int
     service_period_id: int
     user_id: int
@@ -249,7 +248,7 @@ async def create_period(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
-        )
+        ) from e
 
 
 @router.get("/periods/{period_id}", response_model=PeriodResponse)
@@ -318,7 +317,7 @@ async def close_period(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
-        )
+        ) from e
 
 
 @router.patch("/periods/{period_id}/reopen", response_model=PeriodResponse)
@@ -346,7 +345,7 @@ async def reopen_period(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
-        )
+        ) from e
 
 
 # ============================================================================
@@ -386,7 +385,7 @@ async def record_contribution(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
-        )
+        ) from e
 
 
 @router.get("/periods/{period_id}/contributions", response_model=List[ContributionResponse])
@@ -469,7 +468,7 @@ async def record_expense(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
-        )
+        ) from e
 
 
 @router.get("/periods/{period_id}/expenses", response_model=List[ExpenseResponse])
@@ -489,64 +488,6 @@ async def list_expenses(
     service = PaymentService(db=db)
     expenses = service.get_expenses(period_id)
     return [ExpenseResponse.model_validate(e) for e in expenses]
-
-
-# ============================================================================
-# Service Charge Endpoints
-# ============================================================================
-
-@router.post("/periods/{period_id}/charges", response_model=ServiceChargeResponse, status_code=status.HTTP_201_CREATED)
-async def record_service_charge(
-    period_id: int,
-    request: ServiceChargeCreateRequest,
-    db: Session = Depends(lambda: None)  # TODO: Add proper DB dependency
-) -> ServiceChargeResponse:
-    """Record a service charge for an owner.
-
-    Args:
-        period_id: Period ID
-        request: Charge details
-        db: Database session
-
-    Returns:
-        Created charge details
-
-    Raises:
-        HTTPException: If validation fails
-    """
-    try:
-        service = PaymentService(db=db)
-        charge = service.record_service_charge(
-            period_id=period_id,
-            user_id=request.user_id,
-            description=request.description,
-            amount=request.amount
-        )
-        return ServiceChargeResponse.model_validate(charge)
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-
-
-@router.get("/periods/{period_id}/charges", response_model=List[ServiceChargeResponse])
-async def list_service_charges(
-    period_id: int,
-    db: Session = Depends(lambda: None)  # TODO: Add proper DB dependency
-) -> List[ServiceChargeResponse]:
-    """List service charges in a period.
-
-    Args:
-        period_id: Period ID
-        db: Database session
-
-    Returns:
-        List of charges
-    """
-    service = PaymentService(db=db)
-    charges = service.get_service_charges(period_id)
-    return [ServiceChargeResponse.model_validate(c) for c in charges]
 
 
 # ============================================================================
@@ -586,7 +527,7 @@ async def create_budget_item(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
-        )
+        ) from e
 
 
 @router.get("/periods/{period_id}/budget-items", response_model=List[BudgetItemResponse])
@@ -644,7 +585,7 @@ async def record_meter_reading(
         )
         return MeterReadingResponse.model_validate(reading)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
 
 @router.get("/periods/{period_id}/meter-readings", response_model=List[MeterReadingResponse])
@@ -699,7 +640,7 @@ async def record_service_charge(
         )
         return ServiceChargeResponse.model_validate(charge)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
 
 @router.get("/periods/{period_id}/service-charges", response_model=List[ServiceChargeResponse])
@@ -775,7 +716,7 @@ async def update_service_charge(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service charge not found")
         return ServiceChargeResponse.model_validate(charge)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
 
 @router.delete("/service-charges/{charge_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -798,7 +739,7 @@ async def delete_service_charge(
         if not deleted:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service charge not found")
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
 
 # ============================================================================
@@ -825,16 +766,16 @@ async def get_period_balance_sheet(
         HTTPException: If period not found
     """
     service = BalanceService(db=db)
-    
+
     # Verify period exists
     payment_service = PaymentService(db=db)
     period = payment_service.get_period(period_id)
     if not period:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Period not found")
-    
+
     sheet = service.generate_period_balance_sheet(period_id)
     total_balance = service.get_period_total_balance(period_id)
-    
+
     entries = [BalanceSheetEntryResponse(**entry) for entry in sheet]
     return BalanceSheetResponse(
         period_id=period_id,
@@ -863,18 +804,18 @@ async def get_owner_balance(
         HTTPException: If period or owner not found
     """
     service = BalanceService(db=db)
-    
+
     # Verify period exists
     payment_service = PaymentService(db=db)
     period = payment_service.get_period(period_id)
     if not period:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Period not found")
-    
+
     contrib = service.get_owner_contributions(period_id, owner_id)
     expense = service.get_owner_expenses(period_id, owner_id)
     charge = service.get_owner_service_charges(period_id, owner_id)
     balance = service.get_owner_balance(period_id, owner_id)
-    
+
     return {
         "owner_id": owner_id,
         "period_id": period_id,

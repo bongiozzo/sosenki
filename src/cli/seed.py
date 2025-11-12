@@ -48,10 +48,10 @@ async def main() -> int:
         logger.info(f"Configuration loaded: Sheet ID={config.google_sheet_id[:10]}...")
 
         # Execute database seeding
-        from src.services.seeding import SeededService
-        from src.services.google_sheets import GoogleSheetsClient
         from src.services import SessionLocal
-        
+        from src.services.google_sheets import GoogleSheetsClient
+        from src.services.seeding import SeededService
+
         db = SessionLocal()
         try:
             google_sheets_client = GoogleSheetsClient(config.credentials_path)

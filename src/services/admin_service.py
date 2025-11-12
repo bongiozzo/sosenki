@@ -1,7 +1,6 @@
 """Admin service for approval and rejection workflows."""
 
 import logging
-from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -75,9 +74,8 @@ class AdminService:
 
             # Update request status to approved
             request.status = RequestStatus.APPROVED
-            request.responded_by_admin_id = admin_telegram_id
-            request.response_message = "approved"
-            request.responded_at = datetime.now(timezone.utc)
+            request.admin_telegram_id = admin_telegram_id
+            request.admin_response = "approved"
 
             # T042: Activate the user (set is_active=True)
             # If selected_user_id was provided, we already updated that user above
@@ -142,9 +140,8 @@ class AdminService:
 
             # Update request status to rejected
             request.status = RequestStatus.REJECTED
-            request.responded_by_admin_id = admin_telegram_id
-            request.response_message = "rejected"
-            request.responded_at = datetime.now(timezone.utc)
+            request.admin_telegram_id = admin_telegram_id
+            request.admin_response = "rejected"
 
             self.db.commit()
             logger.info("Request %d rejected by admin %s", request_id, admin_telegram_id)

@@ -10,7 +10,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from src.models import Base, User, ServicePeriod, ContributionLedger, ExpenseLedger, ServiceCharge
+from src.models import Base, ContributionLedger, ServiceCharge, ServicePeriod, User
 from src.services.balance_service import BalanceService
 
 

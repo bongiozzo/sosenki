@@ -1,8 +1,7 @@
 """Unit tests for payment service."""
 
+
 import pytest
-from decimal import Decimal
-from datetime import datetime, timezone
 
 from src.services.payment_service import PaymentService
 

@@ -2,7 +2,8 @@
 
 from enum import Enum
 
-from sqlalchemy import ForeignKey, String, Enum as SQLEnum
+from sqlalchemy import Enum as SQLEnum
+from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models import Base, BaseModel

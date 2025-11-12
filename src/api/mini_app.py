@@ -4,7 +4,7 @@ import json
 import logging
 from typing import Any
 
-from fastapi import APIRouter, Header, HTTPException, Depends
+from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.bot.config import bot_config
@@ -24,18 +24,18 @@ async def mini_app_init(
 ) -> dict[str, Any]:
     """
     Initialize Mini App and verify user registration status.
-    
+
     Returns user access status and menu configuration for registered users,
     or access denied message for non-registered users.
-    
+
     Args:
         x_telegram_init_data: Telegram WebApp initData (signature verification)
         session: Database session
-        
+
     Returns:
         For registered users: {"isRegistered": true, "menu": [...], "userName": ...}
         For non-registered: {"isRegistered": false, "message": "Access is limited", ...}
-        
+
     Raises:
         401: Invalid Telegram signature
         500: Server error
@@ -46,30 +46,30 @@ async def mini_app_init(
             init_data=x_telegram_init_data,
             bot_token=bot_config.telegram_bot_token
         )
-        
+
         if not parsed_data:
             logger.warning("Invalid Telegram signature in /api/mini-app/init")
             raise HTTPException(
                 status_code=401,
                 detail="Invalid Telegram signature"
             )
-        
+
         # Extract user info from parsed data
         user_data = json.loads(parsed_data.get('user', '{}'))
         telegram_id = str(user_data.get('id'))
         username = user_data.get('username')
         first_name = user_data.get('first_name')
-        
+
         if not telegram_id:
             raise HTTPException(
                 status_code=401,
                 detail="User ID not found in init data"
             )
-        
+
         # Check user registration status
         user_service = UserService(session)
         user = await user_service.get_by_telegram_id(telegram_id)
-        
+
         # Check if user can access Mini App (is_active=True)
         if user and user.is_active:
             # Registered user - return menu
@@ -78,7 +78,7 @@ async def mini_app_init(
                 {"id": "pay", "label": "Pay", "enabled": True},
                 {"id": "invest", "label": "Invest", "enabled": user.is_investor}
             ]
-            
+
             return {
                 "isRegistered": True,
                 "userId": telegram_id,
@@ -96,7 +96,7 @@ async def mini_app_init(
                 "instruction": "Send /request to bot to request access",
                 "menu": []
             }
-    
+
     except HTTPException:
         raise
     except Exception as e:
@@ -104,7 +104,7 @@ async def mini_app_init(
         raise HTTPException(
             status_code=500,
             detail="Server error"
-        )
+        ) from e
 
 
 @router.get("/verify-registration")
@@ -114,17 +114,17 @@ async def verify_registration(
 ) -> dict[str, Any]:
     """
     Verify user registration status (explicit refresh).
-    
+
     Similar to /init but provides just registration status without menu.
     Useful for explicit refresh after user requests it.
-    
+
     Args:
         x_telegram_init_data: Telegram WebApp initData
         session: Database session
-        
+
     Returns:
         {"isRegistered": bool, "userId": str, ...}
-        
+
     Raises:
         401: Invalid Telegram signature
     """
@@ -134,22 +134,22 @@ async def verify_registration(
             init_data=x_telegram_init_data,
             bot_token=bot_config.telegram_bot_token
         )
-        
+
         if not parsed_data:
             raise HTTPException(status_code=401, detail="Invalid Telegram signature")
-        
+
         # Extract user info
         user_data = json.loads(parsed_data.get('user', '{}'))
         telegram_id = str(user_data.get('id'))
         username = user_data.get('username')
-        
+
         if not telegram_id:
             raise HTTPException(status_code=401, detail="User ID not found")
-        
+
         # Check registration
         user_service = UserService(session)
         user = await user_service.get_by_telegram_id(telegram_id)
-        
+
         if user and user.is_active:
             return {
                 "isRegistered": True,
@@ -164,12 +164,12 @@ async def verify_registration(
                 "userId": telegram_id,
                 "message": "Your access request is pending or was not approved"
             }
-            
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error in /api/mini-app/verify-registration: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Server error")
+        raise HTTPException(status_code=500, detail="Server error") from e
 
 
 @router.post("/menu-action")
@@ -179,14 +179,14 @@ async def menu_action(
 ) -> dict[str, Any]:
     """
     Handle menu action (placeholder for future features).
-    
+
     Args:
         x_telegram_init_data: Telegram WebApp initData
         action_data: Action data (e.g., {"action": "rule", "data": {}})
-        
+
     Returns:
         {"success": bool, "message": str}
-        
+
     Raises:
         401: Invalid signature or not registered
         403: Access denied
@@ -197,22 +197,22 @@ async def menu_action(
             init_data=x_telegram_init_data,
             bot_token=bot_config.telegram_bot_token
         )
-        
+
         if not parsed_data:
             raise HTTPException(status_code=401, detail="Invalid Telegram signature")
-        
+
         # Placeholder response - features not implemented yet
         return {
             "success": True,
             "message": "Feature coming soon!",
             "redirectUrl": None
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error in /api/mini-app/menu-action: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Server error")
+        raise HTTPException(status_code=500, detail="Server error") from e
 
 
 # Endpoints will be implemented in Phase 5 and Polish

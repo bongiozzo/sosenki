@@ -1,7 +1,8 @@
 """Unit tests for allocation service."""
 
-import pytest
 from decimal import Decimal
+
+import pytest
 
 from src.services.allocation_service import AllocationService
 
