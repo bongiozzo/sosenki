@@ -1,11 +1,12 @@
 """Unit tests for PaymentService period management."""
 
-import pytest
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from decimal import Decimal
 
+import pytest
+
+from src.models import PeriodStatus
 from src.services.payment_service import PaymentService
-from src.models import ServicePeriod, PeriodStatus
 
 
 class TestPaymentServicePeriods:

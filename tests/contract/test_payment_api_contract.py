@@ -1,16 +1,13 @@
 """Contract tests for payment API endpoints."""
 
-import pytest
-from datetime import date, datetime
-from decimal import Decimal
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from src.main import app
 from src.models import Base, User
-from src.api.payment import router
 
 
 @pytest.fixture
@@ -29,7 +26,7 @@ def client(db_session):
     """Create test client with database dependency override."""
     def get_db():
         return db_session
-    
+
     # Note: In a real implementation, would override app dependency
     # For now, this is a structural test
     return TestClient(app)
@@ -98,7 +95,7 @@ class TestPeriodEndpointContract:
                 "closed_at": "2025-11-01T12:00:00"
             }
         ]
-        
+
         assert isinstance(response_data, list)
         assert len(response_data) == 2
         for period in response_data:
@@ -117,7 +114,7 @@ class TestPeriodEndpointContract:
             "description": None,
             "closed_at": "2025-12-01T12:00:00"
         }
-        
+
         assert response_data["status"] == "CLOSED"
         assert response_data["closed_at"] is not None
 
@@ -132,7 +129,7 @@ class TestPeriodEndpointContract:
             "description": None,
             "closed_at": None
         }
-        
+
         assert response_data["status"] == "OPEN"
         assert response_data["closed_at"] is None
 
@@ -147,7 +144,7 @@ class TestContributionEndpointContract:
             "amount": "500.00",
             "comment": "November payment"
         }
-        
+
         assert payload["user_id"] == 1
         assert isinstance(payload["amount"], str)
 
@@ -161,7 +158,7 @@ class TestContributionEndpointContract:
             "date": "2025-11-15T10:30:00",
             "comment": "November payment"
         }
-        
+
         assert "id" in response_data
         assert "amount" in response_data
         assert response_data["amount"] == "500.00"
@@ -178,7 +175,7 @@ class TestContributionEndpointContract:
                 "comment": None
             }
         ]
-        
+
         assert isinstance(response_data, list)
 
     def test_owner_contributions_summary_structure(self):
@@ -187,7 +184,7 @@ class TestContributionEndpointContract:
             "owner_id": 1,
             "total_contributed": "500.00"
         }
-        
+
         assert response_data["owner_id"] == 1
         assert "total_contributed" in response_data
 
@@ -205,7 +202,7 @@ class TestExpenseEndpointContract:
             "description": "Q4 water bill",
             "budget_item_id": 1
         }
-        
+
         assert payload["paid_by_user_id"] == 1
         assert payload["payment_type"] == "Water"
 
@@ -222,7 +219,7 @@ class TestExpenseEndpointContract:
             "description": "Q4 water bill",
             "budget_item_id": 1
         }
-        
+
         assert "id" in response_data
         assert "amount" in response_data
         assert "payment_type" in response_data
@@ -242,7 +239,7 @@ class TestExpenseEndpointContract:
                 "budget_item_id": None
             }
         ]
-        
+
         assert isinstance(response_data, list)
 
 
@@ -256,7 +253,7 @@ class TestServiceChargeEndpointContract:
             "description": "Late fee",
             "amount": "50.00"
         }
-        
+
         assert payload["user_id"] == 1
         assert payload["description"] == "Late fee"
 
@@ -269,7 +266,7 @@ class TestServiceChargeEndpointContract:
             "description": "Late fee",
             "amount": "50.00"
         }
-        
+
         assert "id" in response_data
         assert "amount" in response_data
         assert response_data["description"] == "Late fee"
@@ -285,7 +282,7 @@ class TestServiceChargeEndpointContract:
                 "amount": "50.00"
             }
         ]
-        
+
         assert isinstance(response_data, list)
 
 
@@ -296,7 +293,7 @@ class TestEndpointValidation:
         """Test amounts maintain decimal precision."""
         amount = "123.45"
         assert amount == "123.45"
-        
+
         # High precision should work
         amount = "9999.99"
         assert amount == "9999.99"
@@ -305,14 +302,14 @@ class TestEndpointValidation:
         """Test dates use ISO 8601 format."""
         start_date = "2025-11-01"
         end_date = "2025-11-30"
-        
+
         assert start_date == "2025-11-01"
         assert end_date == "2025-11-30"
 
     def test_datetime_format_iso8601(self):
         """Test datetimes use ISO 8601 format."""
         timestamp = "2025-11-15T10:30:00"
-        
+
         # Should be parseable as ISO8601
         assert "T" in timestamp
         assert ":" in timestamp
@@ -320,7 +317,7 @@ class TestEndpointValidation:
     def test_status_enum_values(self):
         """Test status uses correct enum values."""
         valid_statuses = ["OPEN", "CLOSED"]
-        
+
         for status in valid_statuses:
             assert status in ["OPEN", "CLOSED"]
 
@@ -329,6 +326,6 @@ class TestEndpointValidation:
         error_response = {
             "detail": "Period 999 not found"
         }
-        
+
         assert "detail" in error_response
         assert isinstance(error_response["detail"], str)

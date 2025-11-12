@@ -53,6 +53,7 @@ htmlcov/
 *.db
 *.sqlite
 *.sqlite3
+seeding.json
 
 # Alembic
 src/migrations/versions/__pycache__/

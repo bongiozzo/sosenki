@@ -1,9 +1,9 @@
 """Integration test for approval flow to Mini App (US1)."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
-from telegram import Update, Message, User as TelegramUser, InlineKeyboardMarkup
-from telegram.ext import ContextTypes
+
+import pytest
+from telegram import InlineKeyboardMarkup
 
 from src.services.notification_service import NotificationService
 
@@ -13,14 +13,14 @@ async def test_approval_sends_welcome_with_webapp_button():
     """Test that approving a request sends welcome message with Mini App button."""
     # This is a placeholder integration test for US1
     # Full implementation would require test database setup
-    
+
     # Verify that NotificationService.send_welcome_message is called
     # and includes WebApp button when MINI_APP_URL is configured
-    
+
     # For now, this test verifies the notification service has the method
     mock_app = MagicMock()
     notification_service = NotificationService(mock_app)
-    
+
     assert hasattr(notification_service, 'send_welcome_message')
     assert callable(notification_service.send_welcome_message)
 
@@ -30,22 +30,20 @@ async def test_welcome_message_includes_webapp_button():
     """Test that welcome message includes WebApp button with correct URL."""
     # This test would verify the InlineKeyboardMarkup includes WebAppInfo
     # Full implementation requires mocking bot.send_message and inspecting reply_markup
-    
+
     mock_app = MagicMock()
     mock_bot = AsyncMock()
     mock_app.bot = mock_bot
-    
+
     notification_service = NotificationService(mock_app)
-    
+
     # Call send_welcome_message
-    await notification_service.send_welcome_message(client_id="123456789")
-    
-    # Verify bot.send_message was called
+    await notification_service.send_welcome_message(requester_id="123456789")    # Verify bot.send_message was called
     assert mock_bot.send_message.called
-    
+
     # Get the call arguments
     call_args = mock_bot.send_message.call_args
-    
+
     # Verify reply_markup is InlineKeyboardMarkup (or None if MINI_APP_URL not set)
     if call_args and 'reply_markup' in call_args.kwargs:
         reply_markup = call_args.kwargs['reply_markup']

@@ -165,10 +165,10 @@ class TestAccessRequestFlow:
             assert stored_request.user_telegram_id == str(client_id)
             assert stored_request.request_message == request_message
             assert stored_request.status == RequestStatus.PENDING
-            assert stored_request.submitted_at is not None
-            assert stored_request.responded_by_admin_id is None
-            assert stored_request.response_message is None
-            assert stored_request.responded_at is None
+            assert stored_request.created_at is not None
+            assert stored_request.admin_telegram_id is None
+            assert stored_request.admin_response is None
+            assert stored_request.updated_at is not None
 
         finally:
             db.close()

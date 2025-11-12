@@ -26,10 +26,12 @@ if static_path.exists():
 
 # Include Mini App API router
 from src.api.mini_app import router as mini_app_router
+
 app.include_router(mini_app_router)
 
 # Include Payment Management API router (T116)
 from src.api.payment import router as payment_router
+
 app.include_router(payment_router)
 
 # Global bot application reference (will be set via setup_webhook_route or dependency)

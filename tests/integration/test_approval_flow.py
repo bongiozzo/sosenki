@@ -194,9 +194,9 @@ class TestApprovalFlow:
             ).first()
             assert updated_request is not None
             assert updated_request.status == RequestStatus.APPROVED
-            assert updated_request.responded_by_admin_id == str(admin_id)
-            assert updated_request.response_message == "approved"
-            assert updated_request.responded_at is not None
+            assert updated_request.admin_telegram_id == str(admin_id)
+            assert updated_request.admin_response == "approved"
+            assert updated_request.updated_at is not None
         finally:
             db.close()
 
@@ -343,7 +343,6 @@ class TestApprovalFlow:
                 user_telegram_id=str(client_id),
                 request_message=request_message,
                 status=RequestStatus.PENDING,
-                submitted_at=datetime.now(timezone.utc),
             )
             db.add(request)
             db.commit()

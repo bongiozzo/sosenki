@@ -1,7 +1,6 @@
 """Request service for managing client access requests."""
 
 import logging
-from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -53,7 +52,6 @@ class RequestService:
             user_telegram_username=user_telegram_username,
             request_message=request_message,
             status=RequestStatus.PENDING,
-            submitted_at=datetime.now(timezone.utc),
         )
 
         self.db.add(new_request)
@@ -96,16 +94,16 @@ class RequestService:
         self,
         request_id: int,
         new_status: RequestStatus,
-        responded_by_admin_id: str,
-        response_message: str,
+        admin_telegram_id: str,
+        admin_response: str | None = None,
     ) -> bool:
         """Update request status after admin action.
 
         Args:
             request_id: Request ID
             new_status: New status (approved/rejected)
-            responded_by_admin_id: Admin's Telegram ID
-            response_message: Admin's response message
+            admin_telegram_id: Admin's Telegram ID
+            admin_response: Admin's response message (optional)
 
         Returns:
             True if successful, False otherwise
@@ -119,9 +117,9 @@ class RequestService:
             return False
 
         request.status = new_status
-        request.responded_by_admin_id = responded_by_admin_id
-        request.response_message = response_message
-        request.responded_at = datetime.now(timezone.utc)
+        request.admin_telegram_id = admin_telegram_id
+        request.admin_response = admin_response
+        # updated_at is auto-managed by ORM
 
         self.db.commit()
         return True

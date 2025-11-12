@@ -119,7 +119,6 @@ class TestAdminHandlers:
                 user_telegram_id=str(client_id),
                 request_message=message,
                 status=RequestStatus.PENDING,
-                submitted_at=datetime.now(timezone.utc),
             )
             db.add(request)
             db.commit()
@@ -171,7 +170,7 @@ class TestAdminHandlers:
             ).first()
             assert updated_request is not None
             assert updated_request.status == RequestStatus.APPROVED
-            assert updated_request.responded_by_admin_id == str(admin_id)
+            assert updated_request.admin_telegram_id == str(admin_id)
         finally:
             db.close()
 
@@ -258,7 +257,7 @@ class TestAdminHandlers:
             ).first()
             assert updated_request is not None
             assert updated_request.status == RequestStatus.REJECTED
-            assert updated_request.responded_by_admin_id == str(admin_id)
+            assert updated_request.admin_telegram_id == str(admin_id)
         finally:
             db.close()
 

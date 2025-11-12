@@ -1,13 +1,12 @@
 """Telegram bot application factory."""
 
-import logging
-from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters
+from telegram.ext import Application, CallbackQueryHandler, CommandHandler, MessageHandler, filters
 
 from src.bot.config import bot_config
 from src.bot.handlers import (
-    handle_request_command,
-    handle_admin_response,
     handle_admin_callback,
+    handle_admin_response,
+    handle_request_command,
 )
 
 # logger = logging.getLogger(__name__)

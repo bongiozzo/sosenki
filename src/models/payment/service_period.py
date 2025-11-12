@@ -1,9 +1,10 @@
 """Service period model - discrete accounting periods (OPEN/CLOSED state machine)."""
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 from enum import Enum
 
-from sqlalchemy import DateTime, Enum as SQLEnum, String, Table, Column, Integer
+from sqlalchemy import DateTime, String
+from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models import Base, BaseModel
