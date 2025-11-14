@@ -32,6 +32,7 @@ def upgrade() -> None:
         sa.Column('is_owner', sa.Boolean(), nullable=False, server_default='0'),
         sa.Column('is_staff', sa.Boolean(), nullable=False, server_default='0'),
         sa.Column('is_stakeholder', sa.Boolean(), nullable=False, server_default='0'),
+        sa.Column('is_tenant', sa.Boolean(), nullable=False, server_default='0'),
         sa.Column('is_active', sa.Boolean(), nullable=False, server_default='1'),
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.func.current_timestamp()),
         sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.func.current_timestamp()),
@@ -40,6 +41,7 @@ def upgrade() -> None:
         sa.Index('ix_users_is_active', 'is_active'),
         sa.Index('ix_users_telegram_id', 'telegram_id'),
         sa.Index('ix_users_username', 'username'),
+        sa.Index('ix_users_is_tenant', 'is_tenant'),
     )
 
     # Create properties table

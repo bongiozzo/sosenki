@@ -84,7 +84,7 @@ db-reset:
 	@echo "Database deleted"
 	@echo ""
 	@echo "Recreating database schema via Alembic..."
-	uv run alembic upgrade head
+	uv run python -m alembic upgrade head
 	@echo ""
 	@echo "Database reset complete! Ready for seeding with 'make seed'"
 
