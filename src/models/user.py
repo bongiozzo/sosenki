@@ -16,8 +16,10 @@ class User(Base, BaseModel):
     - is_active: PRIMARY gate for Mini App access (all users)
     - is_investor: Can access Invest features (requires is_active=True)
     - is_administrator: Can approve/reject access requests
-    - is_owner: Can manage system configuration (future)
+    - is_owner: User is a property owner
+    - is_stakeholder: Owner's legal contract status (True=signed, False=unsigned; only valid when is_owner=True)
     - is_staff: Can view analytics and support users (future)
+    - is_tenant: User has rental contract with owner for specified period
 
     This design supports flexible role assignment without schema changes.
     """
@@ -61,7 +63,7 @@ class User(Base, BaseModel):
         Boolean,
         default=False,
         nullable=False,
-        comment="Can manage system configuration (future)"
+        comment="User is a property owner"
     )
     is_staff: Mapped[bool] = mapped_column(
         Boolean,
@@ -70,12 +72,20 @@ class User(Base, BaseModel):
         comment="Can view analytics and support users (future)"
     )
 
-    # Stakeholder status
+    # Stakeholder status (only meaningful when is_owner=True)
     is_stakeholder: Mapped[bool] = mapped_column(
         Boolean,
         default=False,
         nullable=False,
-        comment="Stakeholder status from Google Sheet 'Доля' column"
+        comment="Owner's contract status: True=signed legal contract, False=not yet signed. Only valid when is_owner=True"
+    )
+
+    # Tenant status
+    is_tenant: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+        comment="User has rental contract with property owner for specified period"
     )
 
     # Primary access gate
@@ -124,8 +134,12 @@ class User(Base, BaseModel):
             roles.append("admin")
         if self.is_owner:
             roles.append("owner")
+        if self.is_stakeholder and self.is_owner:
+            roles.append("stakeholder")
         if self.is_staff:
             roles.append("staff")
+        if self.is_tenant:
+            roles.append("tenant")
         role_str = ",".join(roles) if roles else "none"
 
         return (
