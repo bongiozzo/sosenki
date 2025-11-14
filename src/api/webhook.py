@@ -10,7 +10,6 @@ from telegram import Update
 from telegram.ext import Application
 
 from src.api.mini_app import router as mini_app_router
-from src.api.payment import router as payment_router
 
 logger = logging.getLogger(__name__)
 
@@ -29,9 +28,6 @@ if static_path.exists():
 
 # Include Mini App API router
 app.include_router(mini_app_router)
-
-# Include Payment Management API router (T116)
-app.include_router(payment_router)
 
 # Global bot application reference (will be set via setup_webhook_route or dependency)
 _bot_app: Optional[Application] = None

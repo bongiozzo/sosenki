@@ -29,14 +29,6 @@ class BaseModel:
 # Import models to register them with Base (after Base is defined)
 # This must be after Base declaration to avoid circular imports
 from src.models.access_request import AccessRequest, RequestStatus  # noqa: E402
-from src.models.payment.budget_item import AllocationStrategy, BudgetItem  # noqa: E402
-from src.models.payment.contribution_ledger import ContributionLedger  # noqa: E402
-from src.models.payment.expense_ledger import ExpenseLedger  # noqa: E402
-from src.models.payment.service_charge import ServiceCharge  # noqa: E402
-
-# Financial/Payment models
-from src.models.payment.service_period import PeriodStatus, ServicePeriod  # noqa: E402
-from src.models.payment.utility_reading import UtilityReading  # noqa: E402
 from src.models.property import Property  # noqa: E402
 from src.models.user import User  # noqa: E402
 
@@ -47,13 +39,5 @@ __all__ = [
     "AccessRequest",
     "RequestStatus",
     "Property",
-    "ServicePeriod",
-    "PeriodStatus",
-    "ContributionLedger",
-    "ExpenseLedger",
-    "BudgetItem",
-    "AllocationStrategy",
-    "UtilityReading",
-    "ServiceCharge",
 ]
 
