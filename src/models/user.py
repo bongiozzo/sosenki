@@ -125,8 +125,6 @@ class User(Base, BaseModel):
             roles.append("admin")
         if self.is_owner:
             roles.append("owner")
-        if self.is_stakeholder and self.is_owner:
-            roles.append("stakeholder")
         if self.is_staff:
             roles.append("staff")
         if self.is_tenant:

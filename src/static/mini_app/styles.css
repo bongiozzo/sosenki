@@ -317,9 +317,31 @@ body {
 .stakeholder-link-container {
     display: flex;
     justify-content: center;
+    align-items: center;
     padding: var(--spacing-md);
     background: var(--color-white);
     border-top: 1px solid #E5E5E7;
+}
+
+.stakeholder-section {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.stakeholder-status {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--color-text);
+    white-space: nowrap;
+}
+
+.stakeholder-status.signed {
+    color: #2e7d32;
+}
+
+.stakeholder-status.not-signed {
+    color: #e65100;
 }
 
 .stakeholder-link {
@@ -332,6 +354,7 @@ body {
     font-size: 14px;
     font-weight: 500;
     transition: all 0.2s ease;
+    white-space: nowrap;
 }
 
 .stakeholder-link:hover {

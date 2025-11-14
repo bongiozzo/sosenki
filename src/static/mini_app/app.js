@@ -121,9 +121,8 @@ function renderError(message, error = null) {
 /**
  * Render user status badges from roles array
  * @param {Array<string>} roles - Array of role strings (e.g., ["investor", "owner"])
- * @param {number|null} sharePercentage - Share percentage (1 for signed owner, 0 for unsigned owner, null for non-owner)
  */
-function renderUserStatuses(roles, sharePercentage = null) {
+function renderUserStatuses(roles) {
     const container = document.getElementById('statuses-container');
     if (!container) {
         console.warn('Status container not found');
@@ -136,24 +135,6 @@ function renderUserStatuses(roles, sharePercentage = null) {
     // Skip rendering if no roles (should not happen - always minimum ["member"])
     if (!roles || roles.length === 0) {
         return;
-    }
-    
-    // Render Stakeholder badge first if user is owner (share_percentage is 1 or 0, not null)
-    if (sharePercentage !== null) {
-        const stakeholderBadge = document.createElement('span');
-        stakeholderBadge.className = 'badge';
-        
-        if (sharePercentage === 1) {
-            // Signed owner
-            stakeholderBadge.classList.add('badge-signed');
-            stakeholderBadge.textContent = 'Stakeholder (Signed)';
-        } else if (sharePercentage === 0) {
-            // Unsigned owner
-            stakeholderBadge.classList.add('badge-unsigned');
-            stakeholderBadge.textContent = 'Stakeholder (Unsigned)';
-        }
-        
-        container.appendChild(stakeholderBadge);
     }
     
     // Filter out "member" role - never show it as badge (all users have at least one role)
@@ -199,12 +180,12 @@ async function loadUserStatus() {
         
         // Render user roles as badges
         if (data.roles && Array.isArray(data.roles)) {
-            renderUserStatuses(data.roles, data.share_percentage);
+            renderUserStatuses(data.roles);
         }
         
         // Render stakeholder link for owners only
         const isOwner = data.share_percentage !== null; // Owner if share_percentage is 1 or 0 (not null)
-        renderStakeholderLink(data.stakeholder_url || null, isOwner);
+        renderStakeholderLink(data.stakeholder_url || null, isOwner, data.share_percentage);
         
     } catch (error) {
         console.error('Error loading user status:', error);
@@ -215,8 +196,9 @@ async function loadUserStatus() {
  * Render stakeholder link for owners only
  * @param {string|null} url - Stakeholder shares URL from backend (null if not owner or not configured)
  * @param {boolean} isOwner - Whether the user is an owner
+ * @param {number|null} sharePercentage - Share percentage (1 for signed owner, 0 for unsigned owner, null for non-owner)
  */
-function renderStakeholderLink(url, isOwner = false) {
+function renderStakeholderLink(url, isOwner = false, sharePercentage = null) {
     const container = document.getElementById('stakeholder-link-container');
     if (!container) {
         console.warn('Stakeholder link container not found');
@@ -226,20 +208,43 @@ function renderStakeholderLink(url, isOwner = false) {
     // Clear existing content
     container.innerHTML = '';
     
-    // Only render if user is owner AND url is provided and not empty
-    if (!isOwner || !url || url.trim() === '') {
+    // Only render if user is owner
+    if (!isOwner) {
         return;
     }
     
-    // Create link element
-    const link = document.createElement('a');
-    link.href = url;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    link.className = 'stakeholder-link';
-    link.textContent = 'View Stakeholder Shares';
+    // Create section for stakeholder status and link
+    const section = document.createElement('div');
+    section.className = 'stakeholder-section';
     
-    container.appendChild(link);
+    // Create status element showing Signed or Not Signed
+    const statusDiv = document.createElement('div');
+    statusDiv.className = 'stakeholder-status';
+    
+    if (sharePercentage === 1) {
+        // Signed owner
+        statusDiv.classList.add('signed');
+        statusDiv.textContent = 'Signed';
+    } else if (sharePercentage === 0) {
+        // Unsigned owner
+        statusDiv.classList.add('not-signed');
+        statusDiv.textContent = 'Not Signed';
+    }
+    
+    section.appendChild(statusDiv);
+    
+    // Create link element if URL is provided
+    if (url && url.trim() !== '') {
+        const link = document.createElement('a');
+        link.href = url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.className = 'stakeholder-link';
+        link.textContent = 'View Stakeholder Shares';
+        section.appendChild(link);
+    }
+    
+    container.appendChild(section);
 }
 
 /**
