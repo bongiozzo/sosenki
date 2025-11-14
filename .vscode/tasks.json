@@ -1,19 +1,28 @@
 {
-  "version": "2.0.0",
-  "tasks": [
-    {
-      "label": "serve-setup-ngrok-and-launch",
-      "type": "shell",
-      "command": "bash",
-      "args": [
-        "-c",
-        "source ./setup-environment.sh && echo '✓ Environment setup complete'"
-      ],
-      "isBackground": false,
-      "presentation": {
-        "reveal": "always",
-        "panel": "shared"
-      }
-    }
-  ]
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "serve-setup-ngrok-and-launch",
+			"type": "shell",
+			"command": "bash",
+			"args": [
+				"-c",
+				"source ./setup-environment.sh && echo '✓ Environment setup complete'"
+			],
+			"isBackground": false,
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared"
+			}
+		},
+		{
+			"label": "Run Mini App Tests",
+			"type": "shell",
+			"command": "uv run pytest tests/contract/test_mini_app_endpoints.py::test_user_status_response_schema_valid -v --tb=short",
+			"problemMatcher": [
+				"$pytest"
+			],
+			"group": "test"
+		}
+	]
 }

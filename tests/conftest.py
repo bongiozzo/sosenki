@@ -27,11 +27,14 @@ try:
         capture_output=True,
         text=True,
         timeout=30,
-        env={**os.environ, "DATABASE_URL": "sqlite:///./test_sosenki.db"}
+        env={**os.environ, "DATABASE_URL": "sqlite:///./test_sosenki.db"},
     )
 
     if result.returncode != 0:
-        print(f"WARNING: Alembic migration failed with return code {result.returncode}", file=sys.stderr)
+        print(
+            f"WARNING: Alembic migration failed with return code {result.returncode}",
+            file=sys.stderr,
+        )
         print("STDOUT:", result.stdout, file=sys.stderr)
         print("STDERR:", result.stderr, file=sys.stderr)
     else:

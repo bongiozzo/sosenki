@@ -28,9 +28,9 @@ def get_admin_telegram_id(db: Session) -> Optional[str]:
         None - returns None gracefully if admin not found
     """
     try:
-        admin_user = db.execute(
-            select(User).where(User.is_administrator.is_(True))
-        ).scalars().first()
+        admin_user = (
+            db.execute(select(User).where(User.is_administrator.is_(True))).scalars().first()
+        )
 
         if admin_user and admin_user.telegram_id:
             logger.debug("Retrieved admin telegram ID: %s", admin_user.telegram_id)
@@ -60,9 +60,9 @@ def get_admin_user(db: Session) -> Optional[User]:
         None - returns None gracefully if admin not found
     """
     try:
-        admin_user = db.execute(
-            select(User).where(User.is_administrator.is_(True))
-        ).scalars().first()
+        admin_user = (
+            db.execute(select(User).where(User.is_administrator.is_(True))).scalars().first()
+        )
 
         if admin_user:
             logger.debug("Retrieved admin user: %s", admin_user.name)

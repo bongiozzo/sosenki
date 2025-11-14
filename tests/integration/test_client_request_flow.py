@@ -65,6 +65,7 @@ class TestAccessRequestFlow:
         """Create a test client with mocked bot."""
         # Mock the telegram Update.de_json to return proper Update objects
         with patch("telegram.Update.de_json") as mock_de_json:
+
             def de_json_side_effect(data, bot_instance):
                 """Convert dict to Update object."""
                 if data and "message" in data:
@@ -154,9 +155,11 @@ class TestAccessRequestFlow:
         # Step 2: Verify request is stored in database
         db = SessionLocal()
         try:
-            stored_requests = db.query(AccessRequest).filter(
-                AccessRequest.user_telegram_id == str(client_id)
-            ).all()
+            stored_requests = (
+                db.query(AccessRequest)
+                .filter(AccessRequest.user_telegram_id == str(client_id))
+                .all()
+            )
 
             assert len(stored_requests) == 1, "Request should be stored in database"
             stored_request = stored_requests[0]
@@ -177,8 +180,7 @@ class TestAccessRequestFlow:
         # The handler should call bot.send_message for the client confirmation
         assert mock_bot.send_message.called
         confirmation_calls = [
-            call for call in mock_bot.send_message.call_args_list
-            if str(client_id) in str(call)
+            call for call in mock_bot.send_message.call_args_list if str(client_id) in str(call)
         ]
         assert len(confirmation_calls) > 0, "Client should receive confirmation"
 
@@ -215,26 +217,28 @@ class TestAccessRequestFlow:
             }
 
         # Step 1: Send first /request
-        response1 = client.post("/webhook/telegram", json=create_update(
-            f"/request {request_message_1}"
-        ))
+        response1 = client.post(
+            "/webhook/telegram", json=create_update(f"/request {request_message_1}")
+        )
         assert response1.status_code == 200
 
         # Reset mock to track second call separately
         mock_bot.reset_mock()
 
         # Step 2: Send second /request from same client
-        response2 = client.post("/webhook/telegram", json=create_update(
-            f"/request {request_message_2}"
-        ))
+        response2 = client.post(
+            "/webhook/telegram", json=create_update(f"/request {request_message_2}")
+        )
         assert response2.status_code == 200
 
         # Step 3: Verify only one request in database
         db = SessionLocal()
         try:
-            stored_requests = db.query(AccessRequest).filter(
-                AccessRequest.user_telegram_id == str(client_id)
-            ).all()
+            stored_requests = (
+                db.query(AccessRequest)
+                .filter(AccessRequest.user_telegram_id == str(client_id))
+                .all()
+            )
 
             assert len(stored_requests) == 1, "Only one request should be stored"
             assert stored_requests[0].request_message == request_message_1
@@ -277,9 +281,11 @@ class TestAccessRequestFlow:
         # Verify request was stored
         db = SessionLocal()
         try:
-            stored_request = db.query(AccessRequest).filter(
-                AccessRequest.user_telegram_id == str(client_id)
-            ).first()
+            stored_request = (
+                db.query(AccessRequest)
+                .filter(AccessRequest.user_telegram_id == str(client_id))
+                .first()
+            )
             assert stored_request is not None
         finally:
             db.close()
@@ -311,9 +317,11 @@ class TestAccessRequestFlow:
         # Verify request is stored correctly with special characters preserved
         db = SessionLocal()
         try:
-            stored_request = db.query(AccessRequest).filter(
-                AccessRequest.user_telegram_id == str(client_id)
-            ).first()
+            stored_request = (
+                db.query(AccessRequest)
+                .filter(AccessRequest.user_telegram_id == str(client_id))
+                .first()
+            )
 
             assert stored_request is not None
             assert stored_request.request_message == request_message
@@ -344,9 +352,11 @@ class TestAccessRequestFlow:
 
         db = SessionLocal()
         try:
-            stored_request = db.query(AccessRequest).filter(
-                AccessRequest.user_telegram_id == str(client_id)
-            ).first()
+            stored_request = (
+                db.query(AccessRequest)
+                .filter(AccessRequest.user_telegram_id == str(client_id))
+                .first()
+            )
 
             assert stored_request is not None
             assert request_message in stored_request.request_message
@@ -385,9 +395,11 @@ class TestAccessRequestFlow:
         # Verify request is stored in database with empty message
         db = SessionLocal()
         try:
-            stored_request = db.query(AccessRequest).filter(
-                AccessRequest.user_telegram_id == str(client_id)
-            ).first()
+            stored_request = (
+                db.query(AccessRequest)
+                .filter(AccessRequest.user_telegram_id == str(client_id))
+                .first()
+            )
 
             assert stored_request is not None
             assert stored_request.request_message == ""

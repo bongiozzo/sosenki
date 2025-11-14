@@ -1,0 +1,145 @@
+openapi: 3.0.3
+info:
+  title: SOSenki Mini App API
+  version: 1.0.0
+  description: Mini App endpoints for dashboard and user status
+
+servers:
+  - url: https://sosenki.example.com/api
+    description: Production
+  - url: http://localhost:8000/api
+    description: Local development
+
+paths:
+  /mini-app/init:
+    get:
+      summary: Initialize Mini App session
+      operationId: initMiniApp
+      tags:
+        - Mini App
+      description: |-
+        Get initial user data for Mini App. Authenticates user and provides
+        basic identity information.
+      responses:
+        '200':
+          description: Successful initialization
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MiniAppInitResponse'
+        '401':
+          description: User not authenticated
+        '500':
+          description: Server error
+
+  /mini-app/user-status:
+    get:
+      summary: Get user roles and status information
+      operationId: getUserStatus
+      tags:
+        - Mini App
+      description: |-
+        Retrieve user's active roles and stakeholder information for dashboard display.
+        Authentication required (user must be logged in to Mini App).
+      responses:
+        '200':
+          description: User status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserStatusResponse'
+        '401':
+          description: User not authenticated
+        '404':
+          description: User not found
+        '500':
+          description: Server error
+
+components:
+  schemas:
+    MiniAppInitResponse:
+      type: object
+      description: Response from /api/mini-app/init endpoint (existing)
+      required:
+        - user_id
+        - username
+        - first_name
+        - is_active
+      properties:
+        user_id:
+          type: integer
+          description: User's database ID
+          example: 123
+        username:
+          type: string
+          description: User's Telegram username
+          example: john_doe
+        first_name:
+          type: string
+          description: User's first name from Telegram
+          example: John
+        is_active:
+          type: boolean
+          description: Whether user has access to Mini App
+          example: true
+        telegram_id:
+          type: string
+          description: User's Telegram user ID
+          example: "123456789"
+
+    UserStatusResponse:
+      type: object
+      description: User roles and stakeholder information for dashboard
+      required:
+        - user_id
+        - roles
+        - stakeholder_url
+      properties:
+        user_id:
+          type: integer
+          description: User's database ID (matches /init response)
+          example: 123
+        roles:
+          type: array
+          items:
+            type: string
+            enum:
+              - investor
+              - administrator
+              - owner
+              - staff
+              - stakeholder
+              - tenant
+              - member
+          description: |
+            List of user's active roles. Includes "member" if no specific roles assigned.
+            Semantics:
+            - "owner": User is property owner (contract status independent)
+            - "stakeholder": Owner with signed legal contract (is_owner=True AND is_stakeholder=True)
+            - "tenant": Renter with rental contract for specified period
+            - "investor", "administrator", "staff": Other role flags
+            - "member": Default if no roles assigned
+          example:
+            - investor
+            - owner
+        stakeholder_url:
+          type: string
+          format: uri
+          nullable: true
+          description: |
+            URL to stakeholder shares document. Null if not configured in environment.
+            Frontend should show link only if this value is not null.
+          example: https://docs.example.com/stakeholder-shares
+
+  securitySchemes:
+    telegramWebApp:
+      type: http
+      scheme: bearer
+      description: Bearer token from Telegram WebApp authentication
+
+security:
+  - telegramWebApp: []
+
+tags:
+  - name: Mini App
+    description: Endpoints for Telegram Mini App interface

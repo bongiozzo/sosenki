@@ -65,9 +65,7 @@ def parse_user_row(row_dict: Dict[str, str]) -> Optional[Dict]:
     return user_dict
 
 
-def get_or_create_user(
-    session: Session, name: str, user_attrs: Optional[Dict] = None
-) -> User:
+def get_or_create_user(session: Session, name: str, user_attrs: Optional[Dict] = None) -> User:
     """
     Get existing user by name or create new user.
 
@@ -115,14 +113,10 @@ def get_or_create_user(
         return user
 
     except Exception as e:
-        raise DataValidationError(
-            f"Failed to get or create user '{name}': {e}"
-        ) from e
+        raise DataValidationError(f"Failed to get or create user '{name}': {e}") from e
 
 
-def sheet_row_to_dict(
-    row_values: list, header_names: list
-) -> Dict[str, str]:
+def sheet_row_to_dict(row_values: list, header_names: list) -> Dict[str, str]:
     """
     Convert sheet row (list of values) to dictionary using header names.
 

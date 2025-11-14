@@ -22,20 +22,38 @@
             
             <main class="main-menu">
                 <nav class="menu-grid">
-                    <button class="menu-item" data-action="rule">
-                        <span class="menu-icon">📋</span>
-                        <span class="menu-label">Rule</span>
-                    </button>
-                    <button class="menu-item" data-action="pay">
-                        <span class="menu-icon">💰</span>
-                        <span class="menu-label">Pay</span>
-                    </button>
                     <button class="menu-item" data-action="invest" id="invest-item">
                         <span class="menu-icon">📈</span>
                         <span class="menu-label">Invest</span>
                     </button>
+                    <button class="menu-item" data-action="rule">
+                        <span class="menu-icon">📋</span>
+                        <span class="menu-label">Rule</span>
+                    </button>
+                    <button class="menu-item" data-action="enjoy">
+                        <span class="menu-icon">🧘</span>
+                        <span class="menu-label">Enjoy</span>
+                    </button>
                 </nav>
             </main>
+            
+            <!-- User Status Badges -->
+            <section id="statuses-container" class="status-badges"></section>
+            
+            <!-- Stakeholder Link (owners only) -->
+            <div id="stakeholder-link-container" class="stakeholder-link-container"></div>
+            
+            <!-- Existing Debt Section (Future Feature) -->
+            <section id="existing-debt-container" class="placeholder-section">
+                <h2>Existing Debt</h2>
+                <p>Coming soon...</p>
+            </section>
+            
+            <!-- Transaction List Section (Future Feature) -->
+            <section id="transaction-list-container" class="placeholder-section">
+                <h2>Transaction List</h2>
+                <p>Coming soon...</p>
+            </section>
         </div>
     </template>
     
@@ -62,6 +80,10 @@
                 <div class="icon-large">⚠️</div>
                 <h2>Something went wrong</h2>
                 <p class="error-message" id="error-message">Please try again later.</p>
+                <details style="margin-top: 16px; text-align: left; background: #f5f5f5; padding: 8px; border-radius: 4px; font-size: 12px;">
+                    <summary style="cursor: pointer; font-weight: 600;">Debug Info</summary>
+                    <pre id="debug-info" style="overflow-x: auto; margin-top: 8px; white-space: pre-wrap; word-wrap: break-word; font-size: 11px;"></pre>
+                </details>
                 <button class="retry-button" onclick="location.reload()">
                     Retry
                 </button>

@@ -80,8 +80,7 @@ class TestAllocationService:
     def test_allocate_proportional(self, service):
         """Test proportional allocation."""
         result = service.allocate_proportional(
-            Decimal("100.00"),
-            {1: Decimal("1"), 2: Decimal("2"), 3: Decimal("1")}
+            Decimal("100.00"), {1: Decimal("1"), 2: Decimal("2"), 3: Decimal("1")}
         )
 
         # 100 * (1/4) = 25, (2/4) = 50, (1/4) = 25
@@ -123,20 +122,14 @@ class TestAllocationService:
 
     def test_calculate_consumption(self, service):
         """Test consumption calculation."""
-        consumption = service.calculate_consumption(
-            Decimal("1000.5"),
-            Decimal("1500.3")
-        )
+        consumption = service.calculate_consumption(Decimal("1000.5"), Decimal("1500.3"))
 
         assert consumption == Decimal("499.8")
 
     def test_calculate_consumption_negative(self, service):
         """Test consumption with meter rollover (negative delta)."""
         # Meter rollover scenario (end < start)
-        consumption = service.calculate_consumption(
-            Decimal("9999.9"),
-            Decimal("100.5")
-        )
+        consumption = service.calculate_consumption(Decimal("9999.9"), Decimal("100.5"))
 
         # Result should be negative (error condition to handle)
         assert consumption == Decimal("-9899.4")

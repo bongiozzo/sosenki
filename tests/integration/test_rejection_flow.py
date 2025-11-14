@@ -64,6 +64,7 @@ class TestRejectionFlow:
     def client(self, mock_bot):
         """Create a test client with mocked bot."""
         with patch("telegram.Update.de_json") as mock_de_json:
+
             def de_json_side_effect(data, bot_instance):
                 """Convert dict to Update object."""
                 if data and "message" in data:
@@ -79,10 +80,12 @@ class TestRejectionFlow:
                         "username", None
                     )
                     update.message.chat = MagicMock()
-                    update.message.chat.id = data["message"].get(
-                        "chat", {}
-                    ).get("id", data["message"]["from"]["id"])
-                    update.message.chat.type = data["message"].get("chat", {}).get("type", "private")
+                    update.message.chat.id = (
+                        data["message"].get("chat", {}).get("id", data["message"]["from"]["id"])
+                    )
+                    update.message.chat.type = (
+                        data["message"].get("chat", {}).get("type", "private")
+                    )
                     update.message.reply_text = AsyncMock()
                     # Handle reply_to_message for admin responses
                     update.message.reply_to_message = None
@@ -158,9 +161,11 @@ class TestRejectionFlow:
         # Verify request stored in database
         db = SessionLocal()
         try:
-            stored_request = db.query(AccessRequest).filter(
-                AccessRequest.user_telegram_id == str(client_id)
-            ).first()
+            stored_request = (
+                db.query(AccessRequest)
+                .filter(AccessRequest.user_telegram_id == str(client_id))
+                .first()
+            )
             assert stored_request is not None
             assert stored_request.status == RequestStatus.PENDING
             assert stored_request.request_message == request_message
@@ -196,9 +201,7 @@ class TestRejectionFlow:
         # Step 3: Verify request status updated to REJECTED
         db = SessionLocal()
         try:
-            updated_request = db.query(AccessRequest).filter(
-                AccessRequest.id == request_id
-            ).first()
+            updated_request = db.query(AccessRequest).filter(AccessRequest.id == request_id).first()
             assert updated_request is not None
             assert updated_request.status == RequestStatus.REJECTED
             assert updated_request.admin_telegram_id == str(admin_id)
@@ -213,14 +216,21 @@ class TestRejectionFlow:
         send_calls = mock_bot.send_message.call_args_list
         rejection_sent = False
         for call in send_calls:
-            if (len(call.args) >= 1 and str(client_id) in str(call.args[0])) or \
-               (call.kwargs.get("chat_id") and str(client_id) in str(call.kwargs.get("chat_id"))):
+            if (len(call.args) >= 1 and str(client_id) in str(call.args[0])) or (
+                call.kwargs.get("chat_id") and str(client_id) in str(call.kwargs.get("chat_id"))
+            ):
                 rejection_sent = True
                 # Verify rejection message text
                 if len(call.args) >= 2 and call.args[1]:
-                    assert "not been approved" in call.args[1].lower() or "rejected" in call.args[1].lower()
+                    assert (
+                        "not been approved" in call.args[1].lower()
+                        or "rejected" in call.args[1].lower()
+                    )
                 elif call.kwargs.get("text"):
-                    assert "not been approved" in call.kwargs.get("text").lower() or "rejected" in call.kwargs.get("text").lower()
+                    assert (
+                        "not been approved" in call.kwargs.get("text").lower()
+                        or "rejected" in call.kwargs.get("text").lower()
+                    )
 
         assert rejection_sent, "Rejection message should be sent to client"
 
@@ -297,9 +307,11 @@ class TestRejectionFlow:
         # Get request ID
         db = SessionLocal()
         try:
-            stored_request = db.query(AccessRequest).filter(
-                AccessRequest.user_telegram_id == str(client_id)
-            ).first()
+            stored_request = (
+                db.query(AccessRequest)
+                .filter(AccessRequest.user_telegram_id == str(client_id))
+                .first()
+            )
             request_id = stored_request.id
         finally:
             db.close()

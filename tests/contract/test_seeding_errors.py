@@ -220,4 +220,3 @@ class TestSeedingErrorScenarios:
         finally:
             db1.close()
             db2.close()
-

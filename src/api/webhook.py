@@ -9,6 +9,8 @@ from fastapi.staticfiles import StaticFiles
 from telegram import Update
 from telegram.ext import Application
 
+from src.api.mini_app import router as mini_app_router
+
 logger = logging.getLogger(__name__)
 
 # FastAPI instance (will be initialized in main.py)
@@ -25,14 +27,7 @@ if static_path.exists():
     logger.info(f"Mounted Mini App static files from {static_path}")
 
 # Include Mini App API router
-from src.api.mini_app import router as mini_app_router
-
 app.include_router(mini_app_router)
-
-# Include Payment Management API router (T116)
-from src.api.payment import router as payment_router
-
-app.include_router(payment_router)
 
 # Global bot application reference (will be set via setup_webhook_route or dependency)
 _bot_app: Optional[Application] = None
@@ -113,8 +108,7 @@ async def telegram_webhook_handler(update: dict) -> dict:
                 logger.info(
                     "Processing message from user %s: %s",
                     telegram_update.message.from_user.id,
-                    (telegram_update.message.text[:50]
-                     if telegram_update.message.text else "")
+                    (telegram_update.message.text[:50] if telegram_update.message.text else ""),
                 )
             # T033: Process update through bot application (dispatches to handlers)
             await _bot_app.process_update(telegram_update)
@@ -125,6 +119,3 @@ async def telegram_webhook_handler(update: dict) -> dict:
 
 
 __all__ = ["app", "setup_webhook_route"]
-
-
-
