@@ -54,6 +54,7 @@ def mock_bot():
 def client(mock_bot):
     """FastAPI test client with mocked bot."""
     with patch("telegram.Update.de_json") as mock_de_json:
+
         def de_json_side_effect(data, bot_instance):
             """Convert dict to Update object."""
             if data and "message" in data:
@@ -65,9 +66,7 @@ def client(mock_bot):
                 update.message.from_user.first_name = data["message"]["from"].get(
                     "first_name", "Admin"
                 )
-                update.message.from_user.username = data["message"]["from"].get(
-                    "username", None
-                )
+                update.message.from_user.username = data["message"]["from"].get("username", None)
                 # Handle reply_to_message
                 update.message.reply_to_message = None
                 if "reply_to_message" in data["message"]:
@@ -165,9 +164,7 @@ class TestAdminHandlers:
         # Verify request status updated in database
         db = SessionLocal()
         try:
-            updated_request = db.query(AccessRequest).filter(
-                AccessRequest.id == request.id
-            ).first()
+            updated_request = db.query(AccessRequest).filter(AccessRequest.id == request.id).first()
             assert updated_request is not None
             assert updated_request.status == RequestStatus.APPROVED
             assert updated_request.admin_telegram_id == str(admin_id)
@@ -252,9 +249,7 @@ class TestAdminHandlers:
         # Verify request status updated in database
         db = SessionLocal()
         try:
-            updated_request = db.query(AccessRequest).filter(
-                AccessRequest.id == request.id
-            ).first()
+            updated_request = db.query(AccessRequest).filter(AccessRequest.id == request.id).first()
             assert updated_request is not None
             assert updated_request.status == RequestStatus.REJECTED
             assert updated_request.admin_telegram_id == str(admin_id)

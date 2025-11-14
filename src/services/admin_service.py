@@ -40,9 +40,7 @@ class AdminService:
         """
         try:
             # Find the request
-            request = self.db.query(AccessRequest).filter(
-                AccessRequest.id == request_id
-            ).first()
+            request = self.db.query(AccessRequest).filter(AccessRequest.id == request_id).first()
 
             if not request:
                 logger.warning("Request %d not found for approval", request_id)
@@ -53,9 +51,7 @@ class AdminService:
 
             # If user ID provided, link request creator to that user
             if selected_user_id is not None and selected_user_id > 0:
-                selected_user = self.db.query(User).filter(
-                    User.id == selected_user_id
-                ).first()
+                selected_user = self.db.query(User).filter(User.id == selected_user_id).first()
 
                 if selected_user:
                     # Assign the request creator's Telegram credentials to the selected user
@@ -66,7 +62,7 @@ class AdminService:
                         request.user_telegram_id,
                         requester_username,
                         selected_user.name,
-                        selected_user.id
+                        selected_user.id,
                     )
                 else:
                     logger.warning("User ID %d not found for Telegram assignment", selected_user_id)
@@ -96,9 +92,7 @@ class AdminService:
                     # Create user if it doesn't exist (user should be created on first approval)
                     placeholder_name = f"User_{request.user_telegram_id}"
                     user = User(
-                        telegram_id=request.user_telegram_id,
-                        name=placeholder_name,
-                        is_active=True
+                        telegram_id=request.user_telegram_id, name=placeholder_name, is_active=True
                     )
                     self.db.add(user)
                     logger.info("Created new user %s on approval", request.user_telegram_id)
@@ -130,9 +124,7 @@ class AdminService:
         """
         try:
             # Find the request
-            request = self.db.query(AccessRequest).filter(
-                AccessRequest.id == request_id
-            ).first()
+            request = self.db.query(AccessRequest).filter(AccessRequest.id == request_id).first()
 
             if not request:
                 logger.warning("Request %d not found for rejection", request_id)

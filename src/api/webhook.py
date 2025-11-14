@@ -108,8 +108,7 @@ async def telegram_webhook_handler(update: dict) -> dict:
                 logger.info(
                     "Processing message from user %s: %s",
                     telegram_update.message.from_user.id,
-                    (telegram_update.message.text[:50]
-                     if telegram_update.message.text else "")
+                    (telegram_update.message.text[:50] if telegram_update.message.text else ""),
                 )
             # T033: Process update through bot application (dispatches to handlers)
             await _bot_app.process_update(telegram_update)
@@ -120,6 +119,3 @@ async def telegram_webhook_handler(update: dict) -> dict:
 
 
 __all__ = ["app", "setup_webhook_route"]
-
-
-

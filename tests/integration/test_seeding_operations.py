@@ -1,4 +1,5 @@
 """Phase 3b-c: Integration tests for Google Sheets API and seeding operations."""
+
 import time
 from decimal import Decimal
 
@@ -122,7 +123,7 @@ class TestDatabaseTransactionIntegrity:
             property_name="Test Property",
             type="Дом",
             share_weight=Decimal("25.0"),
-            is_active=True
+            is_active=True,
         )
         db_session.add(prop)
         db_session.commit()
@@ -172,11 +173,7 @@ class TestRussianNumberParsingIntegration:
     def test_parsed_values_stored_correctly_in_database(self, db_session):
         """T044: Verify parsed values are stored correctly in database."""
         # Create user with basic data
-        user = User(
-            name="Test User",
-            telegram_id=11111,
-            is_active=True
-        )
+        user = User(name="Test User", telegram_id=11111, is_active=True)
         db_session.add(user)
         db_session.commit()
 
@@ -186,7 +183,7 @@ class TestRussianNumberParsingIntegration:
             property_name="Test Property",
             type="Дом",
             share_weight=Decimal("10.5"),
-            is_active=True
+            is_active=True,
         )
         db_session.add(prop)
         db_session.commit()
@@ -209,7 +206,7 @@ class TestIdempotencyVerification:
 
         state_after_first = {
             "user_count": db_session.query(User).count(),
-            "users": [(u.name, u.telegram_id) for u in db_session.query(User).all()]
+            "users": [(u.name, u.telegram_id) for u in db_session.query(User).all()],
         }
 
         # Simulate second seed (truncate and recreate)
@@ -222,7 +219,7 @@ class TestIdempotencyVerification:
 
         state_after_second = {
             "user_count": db_session.query(User).count(),
-            "users": [(u.name, u.telegram_id) for u in db_session.query(User).all()]
+            "users": [(u.name, u.telegram_id) for u in db_session.query(User).all()],
         }
 
         # Verify states are identical
@@ -241,7 +238,7 @@ class TestIdempotencyVerification:
             property_name="Owned Property",
             type="Дом",
             share_weight=Decimal("50.0"),
-            is_active=True
+            is_active=True,
         )
         db_session.add(prop)
         db_session.commit()
@@ -252,7 +249,7 @@ class TestIdempotencyVerification:
             "relationships": [
                 (u.name, [p.property_name for p in u.properties])
                 for u in db_session.query(User).all()
-            ]
+            ],
         }
 
         # Second seed (truncate and recreate)
@@ -269,7 +266,7 @@ class TestIdempotencyVerification:
             property_name="Owned Property",
             type="Дом",
             share_weight=Decimal("50.0"),
-            is_active=True
+            is_active=True,
         )
         db_session.add(prop2)
         db_session.commit()
@@ -280,7 +277,7 @@ class TestIdempotencyVerification:
             "relationships": [
                 (u.name, [p.property_name for p in u.properties])
                 for u in db_session.query(User).all()
-            ]
+            ],
         }
 
         # Verify states match
@@ -296,11 +293,7 @@ class TestPerformanceRequirements:
 
         # Create 65 users
         for i in range(65):
-            user = User(
-                name=f"User {i}",
-                telegram_id=100000 + i,
-                is_active=True
-            )
+            user = User(name=f"User {i}", telegram_id=100000 + i, is_active=True)
             db_session.add(user)
 
         db_session.commit()
@@ -313,7 +306,7 @@ class TestPerformanceRequirements:
                 property_name=f"Property {i}",
                 type="Дом",
                 share_weight=Decimal(f"{((i * 2) % 100)}.5"),
-                is_active=True
+                is_active=True,
             )
             db_session.add(prop)
 

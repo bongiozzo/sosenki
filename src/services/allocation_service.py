@@ -46,9 +46,7 @@ class AllocationService:
 
         # Convert all to Decimal for precision
         total = Decimal(str(total_amount))
-        share_dict = {
-            k: Decimal(str(v)) for k, v in shares.items()
-        }
+        share_dict = {k: Decimal(str(v)) for k, v in shares.items()}
 
         total_shares = sum(share_dict.values())
         if total_shares == 0:
@@ -63,9 +61,7 @@ class AllocationService:
 
         for owner_id, share_weight in share_dict.items():
             # Calculate allocation (truncate to 2 decimals)
-            allocated = (per_unit * share_weight).quantize(
-                Decimal("0.01"), rounding=ROUND_HALF_UP
-            )
+            allocated = (per_unit * share_weight).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
             allocations[owner_id] = allocated
             allocated_total += allocated
 
@@ -77,9 +73,7 @@ class AllocationService:
             remainder_cents = int(round(remainder * 100))
 
             # Sort by share weight descending (largest shares get remainder first)
-            sorted_owners = sorted(
-                share_dict.items(), key=lambda x: x[1], reverse=True
-            )
+            sorted_owners = sorted(share_dict.items(), key=lambda x: x[1], reverse=True)
 
             for i in range(min(remainder_cents, len(sorted_owners))):
                 owner_id = sorted_owners[i][0]
@@ -225,4 +219,3 @@ class AllocationService:
 
         else:
             raise ValueError(f"Unknown allocation strategy: {allocation_strategy}")
-

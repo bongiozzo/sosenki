@@ -32,27 +32,20 @@ class AccessRequest(Base, BaseModel):
 
     # Core request fields
     user_telegram_id: Mapped[str] = mapped_column(
-        String(50),
-        nullable=False,
-        index=True,
-        comment="User's Telegram ID"
+        String(50), nullable=False, index=True, comment="User's Telegram ID"
     )
     user_telegram_username: Mapped[str | None] = mapped_column(
-        String(255),
-        nullable=True,
-        comment="User's Telegram username (@username)"
+        String(255), nullable=True, comment="User's Telegram username (@username)"
     )
     request_message: Mapped[str] = mapped_column(
-        Text,
-        nullable=False,
-        comment="User's request message"
+        Text, nullable=False, comment="User's request message"
     )
     status: Mapped[RequestStatus] = mapped_column(
         Enum(RequestStatus, native_enum=False),
         default=RequestStatus.PENDING,
         nullable=False,
         index=True,
-        comment="Status: pending/approved/rejected"
+        comment="Status: pending/approved/rejected",
     )
 
     # Admin response fields (nullable until admin responds)
@@ -61,12 +54,10 @@ class AccessRequest(Base, BaseModel):
         ForeignKey("users.telegram_id"),
         nullable=True,
         index=True,
-        comment="Admin Telegram ID (who responded)"
+        comment="Admin Telegram ID (who responded)",
     )
     admin_response: Mapped[str | None] = mapped_column(
-        Text,
-        nullable=True,
-        comment="Admin's response message"
+        Text, nullable=True, comment="Admin's response message"
     )
 
     # Standard ORM metadata timestamps (inherited from BaseModel)

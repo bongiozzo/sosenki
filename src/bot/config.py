@@ -69,7 +69,6 @@ class _BotConfigProxy:
         return getattr(get_bot_config(), name)
 
 
-
 bot_config = _BotConfigProxy()
 
 __all__ = ["BotConfig", "bot_config", "get_bot_config"]

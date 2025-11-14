@@ -37,26 +37,22 @@ class UserService:
             parsed_data = dict(parse_qsl(init_data))
 
             # Extract hash
-            received_hash = parsed_data.pop('hash', None)
+            received_hash = parsed_data.pop("hash", None)
             if not received_hash:
                 return None
 
             # Create data-check-string (sorted alphabetically by key)
             data_check_arr = [f"{k}={v}" for k, v in sorted(parsed_data.items())]
-            data_check_string = '\n'.join(data_check_arr)
+            data_check_string = "\n".join(data_check_arr)
 
             # Calculate secret key
             secret_key = hmac.new(
-                key=b"WebAppData",
-                msg=bot_token.encode(),
-                digestmod=hashlib.sha256
+                key=b"WebAppData", msg=bot_token.encode(), digestmod=hashlib.sha256
             ).digest()
 
             # Calculate hash
             calculated_hash = hmac.new(
-                key=secret_key,
-                msg=data_check_string.encode(),
-                digestmod=hashlib.sha256
+                key=secret_key, msg=data_check_string.encode(), digestmod=hashlib.sha256
             ).hexdigest()
 
             # Compare hashes
@@ -81,9 +77,7 @@ class UserService:
         Returns:
             User if found, None otherwise
         """
-        result = await self.session.execute(
-            select(User).where(User.telegram_id == telegram_id)
-        )
+        result = await self.session.execute(select(User).where(User.telegram_id == telegram_id))
         return result.scalar_one_or_none()
 
     async def can_access_mini_app(self, telegram_id: str) -> bool:

@@ -43,20 +43,16 @@ async def get_config() -> dict[str, Any]:
     """
     try:
         photo_gallery_url = os.getenv("PHOTO_GALLERY_URL")
-        return {
-            "photoGalleryUrl": photo_gallery_url
-        }
+        return {"photoGalleryUrl": photo_gallery_url}
     except Exception as e:
         logger.error(f"Error in /api/mini-app/config: {e}", exc_info=True)
-        return {
-            "photoGalleryUrl": None
-        }
+        return {"photoGalleryUrl": None}
 
 
 @router.get("/init")
 async def mini_app_init(
     x_telegram_init_data: str = Header(..., alias="X-Telegram-Init-Data"),
-    session: AsyncSession = Depends(get_async_session)
+    session: AsyncSession = Depends(get_async_session),  # noqa: B008
 ) -> dict[str, Any]:
     """
     Initialize Mini App and verify user registration status.
@@ -79,28 +75,21 @@ async def mini_app_init(
     try:
         # Verify Telegram signature
         parsed_data = UserService.verify_telegram_webapp_signature(
-            init_data=x_telegram_init_data,
-            bot_token=bot_config.telegram_bot_token
+            init_data=x_telegram_init_data, bot_token=bot_config.telegram_bot_token
         )
 
         if not parsed_data:
             logger.warning("Invalid Telegram signature in /api/mini-app/init")
-            raise HTTPException(
-                status_code=401,
-                detail="Invalid Telegram signature"
-            )
+            raise HTTPException(status_code=401, detail="Invalid Telegram signature")
 
         # Extract user info from parsed data
-        user_data = json.loads(parsed_data.get('user', '{}'))
-        telegram_id = str(user_data.get('id'))
-        username = user_data.get('username')
-        first_name = user_data.get('first_name')
+        user_data = json.loads(parsed_data.get("user", "{}"))
+        telegram_id = str(user_data.get("id"))
+        username = user_data.get("username")
+        first_name = user_data.get("first_name")
 
         if not telegram_id:
-            raise HTTPException(
-                status_code=401,
-                detail="User ID not found in init data"
-            )
+            raise HTTPException(status_code=401, detail="User ID not found in init data")
 
         # Check user registration status
         user_service = UserService(session)
@@ -112,7 +101,7 @@ async def mini_app_init(
             menu = [
                 {"id": "rule", "label": "Rule", "enabled": True},
                 {"id": "pay", "label": "Pay", "enabled": True},
-                {"id": "invest", "label": "Invest", "enabled": user.is_investor}
+                {"id": "invest", "label": "Invest", "enabled": user.is_investor},
             ]
 
             return {
@@ -121,7 +110,7 @@ async def mini_app_init(
                 "userName": username or first_name or "User",
                 "firstName": first_name,
                 "isInvestor": user.is_investor,
-                "menu": menu
+                "menu": menu,
             }
         else:
             # Non-registered user - return access denied
@@ -130,23 +119,20 @@ async def mini_app_init(
                 "userId": telegram_id,
                 "message": "Access is limited",
                 "instruction": "Send /request to bot to request access",
-                "menu": []
+                "menu": [],
             }
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error in /api/mini-app/init: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail="Server error"
-        ) from e
+        raise HTTPException(status_code=500, detail="Server error") from e
 
 
 @router.get("/verify-registration")
 async def verify_registration(
     x_telegram_init_data: str = Header(..., alias="X-Telegram-Init-Data"),
-    session: AsyncSession = Depends(get_async_session)
+    session: AsyncSession = Depends(get_async_session),  # noqa: B008
 ) -> dict[str, Any]:
     """
     Verify user registration status (explicit refresh).
@@ -167,17 +153,16 @@ async def verify_registration(
     try:
         # Verify signature
         parsed_data = UserService.verify_telegram_webapp_signature(
-            init_data=x_telegram_init_data,
-            bot_token=bot_config.telegram_bot_token
+            init_data=x_telegram_init_data, bot_token=bot_config.telegram_bot_token
         )
 
         if not parsed_data:
             raise HTTPException(status_code=401, detail="Invalid Telegram signature")
 
         # Extract user info
-        user_data = json.loads(parsed_data.get('user', '{}'))
-        telegram_id = str(user_data.get('id'))
-        username = user_data.get('username')
+        user_data = json.loads(parsed_data.get("user", "{}"))
+        telegram_id = str(user_data.get("id"))
+        username = user_data.get("username")
 
         if not telegram_id:
             raise HTTPException(status_code=401, detail="User ID not found")
@@ -192,13 +177,13 @@ async def verify_registration(
                 "userId": telegram_id,
                 "userName": username,
                 "isActive": user.is_active,
-                "isInvestor": user.is_investor
+                "isInvestor": user.is_investor,
             }
         else:
             return {
                 "isRegistered": False,
                 "userId": telegram_id,
-                "message": "Your access request is pending or was not approved"
+                "message": "Your access request is pending or was not approved",
             }
 
     except HTTPException:
@@ -211,7 +196,7 @@ async def verify_registration(
 @router.post("/menu-action")
 async def menu_action(
     x_telegram_init_data: str = Header(..., alias="X-Telegram-Init-Data"),
-    action_data: dict[str, Any] = None
+    action_data: dict[str, Any] = None,
 ) -> dict[str, Any]:
     """
     Handle menu action (placeholder for future features).
@@ -230,19 +215,14 @@ async def menu_action(
     try:
         # Verify signature
         parsed_data = UserService.verify_telegram_webapp_signature(
-            init_data=x_telegram_init_data,
-            bot_token=bot_config.telegram_bot_token
+            init_data=x_telegram_init_data, bot_token=bot_config.telegram_bot_token
         )
 
         if not parsed_data:
             raise HTTPException(status_code=401, detail="Invalid Telegram signature")
 
         # Placeholder response - features not implemented yet
-        return {
-            "success": True,
-            "message": "Feature coming soon!",
-            "redirectUrl": None
-        }
+        return {"success": True, "message": "Feature coming soon!", "redirectUrl": None}
 
     except HTTPException:
         raise
@@ -254,7 +234,7 @@ async def menu_action(
 @router.get("/user-status", response_model=UserStatusResponse)
 async def get_user_status(
     x_telegram_init_data: str = Header(..., alias="X-Telegram-Init-Data"),
-    session: AsyncSession = Depends(get_async_session)
+    session: AsyncSession = Depends(get_async_session),  # noqa: B008
 ) -> UserStatusResponse:
     """
     Get current user's status information for dashboard display.
@@ -277,8 +257,7 @@ async def get_user_status(
     try:
         # Verify Telegram signature
         parsed_data = UserService.verify_telegram_webapp_signature(
-            init_data=x_telegram_init_data,
-            bot_token=bot_config.telegram_bot_token
+            init_data=x_telegram_init_data, bot_token=bot_config.telegram_bot_token
         )
 
         if not parsed_data:
@@ -286,8 +265,8 @@ async def get_user_status(
             raise HTTPException(status_code=401, detail="Invalid Telegram signature")
 
         # Extract telegram_id from parsed data
-        user_data = json.loads(parsed_data.get('user', '{}'))
-        telegram_id = str(user_data.get('id'))
+        user_data = json.loads(parsed_data.get("user", "{}"))
+        telegram_id = str(user_data.get("id"))
 
         if not telegram_id:
             raise HTTPException(status_code=401, detail="No user ID in init data")
@@ -305,6 +284,7 @@ async def get_user_status(
 
         # Get stakeholder URL from environment (for owners only)
         import os
+
         stakeholder_url = None
         if user.is_owner:
             stakeholder_url = os.getenv("STAKEHOLDER_SHARES_URL")
@@ -316,7 +296,7 @@ async def get_user_status(
             user_id=user.id,
             roles=roles,
             stakeholder_url=stakeholder_url,
-            share_percentage=share_percentage
+            share_percentage=share_percentage,
         )
 
     except HTTPException:

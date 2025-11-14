@@ -81,7 +81,9 @@ class SeedingConfig:
 
     def get_property_type_mapping(self) -> Dict[str, str]:
         """Get code-to-type mapping for additional properties (Доп column)."""
-        return self._config["schemas"]["properties"]["additional"]["transformations"]["code_to_type"]
+        return self._config["schemas"]["properties"]["additional"]["transformations"][
+            "code_to_type"
+        ]
 
     def get_property_default_type(self) -> str:
         """Get default type for additional properties not in mapping."""

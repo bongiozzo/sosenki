@@ -31,19 +31,16 @@ class User(Base, BaseModel):
         String(50),
         nullable=True,
         index=True,
-        comment="Primary identifier from Telegram (nullable until user becomes active)"
+        comment="Primary identifier from Telegram (nullable until user becomes active)",
     )
     username: Mapped[str | None] = mapped_column(
-        String(255),
-        nullable=True,
-        index=True,
-        comment="Telegram username"
+        String(255), nullable=True, index=True, comment="Telegram username"
     )
     name: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
         unique=True,
-        comment="Full name (first and last name combined) - unique identifier"
+        comment="Full name (first and last name combined) - unique identifier",
     )
 
     # Role flags (independent - user can have multiple roles)
@@ -51,25 +48,19 @@ class User(Base, BaseModel):
         Boolean,
         default=False,
         nullable=False,
-        comment="Can access Invest features (requires is_active=True)"
+        comment="Can access Invest features (requires is_active=True)",
     )
     is_administrator: Mapped[bool] = mapped_column(
-        Boolean,
-        default=False,
-        nullable=False,
-        comment="Can approve/reject access requests"
+        Boolean, default=False, nullable=False, comment="Can approve/reject access requests"
     )
     is_owner: Mapped[bool] = mapped_column(
-        Boolean,
-        default=False,
-        nullable=False,
-        comment="User is a property owner"
+        Boolean, default=False, nullable=False, comment="User is a property owner"
     )
     is_staff: Mapped[bool] = mapped_column(
         Boolean,
         default=False,
         nullable=False,
-        comment="Can view analytics and support users (future)"
+        comment="Can view analytics and support users (future)",
     )
 
     # Stakeholder status (only meaningful when is_owner=True)
@@ -77,7 +68,7 @@ class User(Base, BaseModel):
         Boolean,
         default=False,
         nullable=False,
-        comment="Owner's contract status: True=signed legal contract, False=not yet signed. Only valid when is_owner=True"
+        comment="Owner's contract status: True=signed legal contract, False=not yet signed. Only valid when is_owner=True",
     )
 
     # Tenant status
@@ -85,7 +76,7 @@ class User(Base, BaseModel):
         Boolean,
         default=False,
         nullable=False,
-        comment="User has rental contract with property owner for specified period"
+        comment="User has rental contract with property owner for specified period",
     )
 
     # Primary access gate
@@ -94,7 +85,7 @@ class User(Base, BaseModel):
         default=True,
         nullable=False,
         index=True,
-        comment="PRIMARY Mini App access gate - can access Mini App if True"
+        comment="PRIMARY Mini App access gate - can access Mini App if True",
     )
 
     # Timestamps

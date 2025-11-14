@@ -50,7 +50,7 @@ def test_user_status_response_schema_valid():
         "user_id": 123,
         "roles": ["investor", "owner", "stakeholder"],
         "stakeholder_url": "https://example.com/stakeholders",
-        "share_percentage": 1
+        "share_percentage": 1,
     }
     response = UserStatusResponse(**response_data)
     assert response.user_id == 123
@@ -65,7 +65,7 @@ def test_user_status_response_schema_share_percentage_null_non_owner():
         "user_id": 456,
         "roles": ["member"],
         "stakeholder_url": None,
-        "share_percentage": None
+        "share_percentage": None,
     }
     response = UserStatusResponse(**response_data)
     assert response.user_id == 456
@@ -79,7 +79,7 @@ def test_user_status_response_schema_share_percentage_zero():
         "user_id": 789,
         "roles": ["owner"],
         "stakeholder_url": "https://example.com/stakeholders",
-        "share_percentage": 0
+        "share_percentage": 0,
     }
     response = UserStatusResponse(**response_data)
     assert response.share_percentage == 0
@@ -91,7 +91,7 @@ def test_user_status_response_schema_roles_always_non_empty():
         "user_id": 111,
         "roles": [],  # Empty should be rejected or default to ["member"]
         "stakeholder_url": None,
-        "share_percentage": None
+        "share_percentage": None,
     }
     # Pydantic allows empty list by default; backend should enforce non-empty
     response = UserStatusResponse(**response_data)
@@ -102,7 +102,7 @@ def test_user_status_response_schema_missing_required_field():
     """Verify ValidationError for missing required field."""
     response_data = {
         "user_id": 222,
-        "roles": ["member"]
+        "roles": ["member"],
         # Missing stakeholder_url and share_percentage
     }
     with pytest.raises(ValidationError):
@@ -115,11 +115,10 @@ def test_user_status_response_schema_invalid_share_percentage_type():
         "user_id": 333,
         "roles": ["owner"],
         "stakeholder_url": None,
-        "share_percentage": 2  # Invalid: should be 0, 1, or None
+        "share_percentage": 2,  # Invalid: should be 0, 1, or None
     }
     # Pydantic coerces valid-ish types, so test that creation succeeds but value is unexpected
     response = UserStatusResponse(**response_data)
     # In real-world, API should validate share_percentage is 0, 1, or None
     # This test verifies the model structure is correct
     assert response.share_percentage == 2  # Pydantic accepts it, but backend should not send it
-

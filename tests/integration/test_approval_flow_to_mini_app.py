@@ -21,7 +21,7 @@ async def test_approval_sends_welcome_with_webapp_button():
     mock_app = MagicMock()
     notification_service = NotificationService(mock_app)
 
-    assert hasattr(notification_service, 'send_welcome_message')
+    assert hasattr(notification_service, "send_welcome_message")
     assert callable(notification_service.send_welcome_message)
 
 
@@ -38,15 +38,17 @@ async def test_welcome_message_includes_webapp_button():
     notification_service = NotificationService(mock_app)
 
     # Call send_welcome_message
-    await notification_service.send_welcome_message(requester_id="123456789")    # Verify bot.send_message was called
+    await notification_service.send_welcome_message(
+        requester_id="123456789"
+    )  # Verify bot.send_message was called
     assert mock_bot.send_message.called
 
     # Get the call arguments
     call_args = mock_bot.send_message.call_args
 
     # Verify reply_markup is InlineKeyboardMarkup (or None if MINI_APP_URL not set)
-    if call_args and 'reply_markup' in call_args.kwargs:
-        reply_markup = call_args.kwargs['reply_markup']
+    if call_args and "reply_markup" in call_args.kwargs:
+        reply_markup = call_args.kwargs["reply_markup"]
         # If reply_markup exists, it should be InlineKeyboardMarkup with WebApp button
         if reply_markup:
             assert isinstance(reply_markup, InlineKeyboardMarkup)
