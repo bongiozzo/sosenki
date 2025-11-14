@@ -200,8 +200,27 @@ function renderStakeholderLink(url, isOwner = false) {
 /**
  * Handle menu item click
  */
-function handleMenuAction(action) {
-    // Show Telegram alert (placeholder for future implementation)
+async function handleMenuAction(action) {
+    if (action === 'enjoy') {
+        try {
+            // Fetch photo gallery URL from backend config
+            const response = await fetch('/api/mini-app/config');
+            const data = await response.json();
+            
+            if (data.photoGalleryUrl) {
+                // Open external browser with photo gallery URL
+                tg.openLink(data.photoGalleryUrl);
+            } else {
+                tg.showAlert('Photo gallery URL not configured');
+            }
+        } catch (error) {
+            console.error('Error fetching config:', error);
+            tg.showAlert('Error opening photo gallery');
+        }
+        return;
+    }
+    
+    // Show Telegram alert for other features (placeholder)
     tg.showAlert(`Feature "${action}" coming soon!`);
     
     // In future: POST to /api/mini-app/menu-action

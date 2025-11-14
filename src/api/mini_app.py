@@ -2,10 +2,11 @@
 
 import json
 import logging
+import os
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.bot.config import bot_config
@@ -27,9 +28,29 @@ class UserStatusResponse(BaseModel):
     stakeholder_url: str | None  # URL from environment, may be null
     share_percentage: int | None  # 1 (signed), 0 (unsigned owner), None (non-owner)
 
-    class Config:
-        """Pydantic config."""
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+
+
+@router.get("/config")
+async def get_config() -> dict[str, Any]:
+    """
+    Get Mini App configuration from environment variables.
+
+    Returns public configuration values like photo gallery URL.
+
+    Returns:
+        {"photoGalleryUrl": str | null}
+    """
+    try:
+        photo_gallery_url = os.getenv("PHOTO_GALLERY_URL")
+        return {
+            "photoGalleryUrl": photo_gallery_url
+        }
+    except Exception as e:
+        logger.error(f"Error in /api/mini-app/config: {e}", exc_info=True)
+        return {
+            "photoGalleryUrl": None
+        }
 
 
 @router.get("/init")

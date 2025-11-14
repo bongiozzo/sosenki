@@ -1,4 +1,3 @@
-# TODO Show stakeholders status and link to public info on first page
 # TODO List of payments and debt on first page
 
 # TODO Service periods
@@ -7,7 +6,6 @@
 
 # TODO Invest part
 
-# TODO Photo Gallery
 # TODO Remove /specs when finished and make git-filter-repo to clean history
 
 # ============================================================================
