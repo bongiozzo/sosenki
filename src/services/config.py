@@ -91,13 +91,11 @@ def load_config() -> SeedConfig:
             credentials_data = json.load(f)
     except json.JSONDecodeError as e:
         raise ValueError(
-            f"Credentials file is not valid JSON: {credentials_path}. "
-            f"Error: {str(e)}"
+            f"Credentials file is not valid JSON: {credentials_path}. Error: {str(e)}"
         ) from e
     except OSError as e:
         raise ValueError(
-            f"Cannot read credentials file: {credentials_path}. "
-            f"Error: {str(e)}"
+            f"Cannot read credentials file: {credentials_path}. Error: {str(e)}"
         ) from e
 
     # Validate credentials contain required Google service account fields (T033)

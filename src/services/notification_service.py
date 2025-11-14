@@ -11,7 +11,9 @@ class NotificationService:
         self.app = app
         self.bot = app.bot
 
-    async def send_message(self, chat_id: str, text: str, reply_markup=None, parse_mode="HTML") -> None:
+    async def send_message(
+        self, chat_id: str, text: str, reply_markup=None, parse_mode="HTML"
+    ) -> None:
         """Send message to a Telegram chat.
 
         Args:
@@ -22,14 +24,14 @@ class NotificationService:
         """
         # T029: Send message via bot
         try:
-            await self.bot.send_message(chat_id=int(chat_id), text=text, reply_markup=reply_markup, parse_mode=parse_mode)
+            await self.bot.send_message(
+                chat_id=int(chat_id), text=text, reply_markup=reply_markup, parse_mode=parse_mode
+            )
         except Exception as e:
             print(f"Error sending message to {chat_id}: {e}")
             raise
 
-    async def send_confirmation_to_requester(
-        self, requester_id: str, message: str = None
-    ) -> None:
+    async def send_confirmation_to_requester(self, requester_id: str, message: str = None) -> None:
         """Send confirmation message to requester after request submission.
 
         Args:
@@ -37,13 +39,15 @@ class NotificationService:
             message: Optional custom message (not used in MVP, using standard message)
         """
         # T029: Send standard confirmation message
-        confirmation_text = (
-            "Your request has been received and is pending review."
-        )
+        confirmation_text = "Your request has been received and is pending review."
         await self.send_message(requester_id, confirmation_text)
 
     async def send_notification_to_admin(
-        self, request_id: int, requester_id: str, requester_username: str = None, request_message: str = None
+        self,
+        request_id: int,
+        requester_id: str,
+        requester_username: str = None,
+        request_message: str = None,
     ) -> None:
         """Send notification to admin about new request.
 
@@ -74,12 +78,16 @@ class NotificationService:
                 f"<b>Request #{request_id}</b>\n\n"
                 f"<a href='{requester_profile_link}'>{requester_username}</a> (ID: {requester_id})\n\n"
                 f"<b>Message:</b>\n{request_message or '(no message)'}\n\n"
-            )            # Get users without telegram_id or inactive to help admin identify who is requesting
-            users_without_telegram = db.execute(
-                select(User).where(
-                    (User.telegram_id.is_(None)) | (~User.is_active)
-                ).order_by(User.name)
-            ).scalars().all()
+            )  # Get users without telegram_id or inactive to help admin identify who is requesting
+            users_without_telegram = (
+                db.execute(
+                    select(User)
+                    .where((User.telegram_id.is_(None)) | (~User.is_active))
+                    .order_by(User.name)
+                )
+                .scalars()
+                .all()
+            )
 
             if users_without_telegram:
                 notification_text += "<b>Users without Telegram ID or inactive:</b>\n"
@@ -97,8 +105,12 @@ class NotificationService:
             keyboard = InlineKeyboardMarkup(
                 [
                     [
-                        InlineKeyboardButton(text="✅ Approve", callback_data=f"approve:{request_id}"),
-                        InlineKeyboardButton(text="❌ Reject", callback_data=f"reject:{request_id}"),
+                        InlineKeyboardButton(
+                            text="✅ Approve", callback_data=f"approve:{request_id}"
+                        ),
+                        InlineKeyboardButton(
+                            text="❌ Reject", callback_data=f"reject:{request_id}"
+                        ),
                     ]
                 ]
             )
@@ -126,12 +138,15 @@ class NotificationService:
         # Add Mini App button if MINI_APP_URL is configured
         keyboard = None
         if bot_config.mini_app_url:
-            keyboard = InlineKeyboardMarkup([
-                [InlineKeyboardButton(
-                    text="📱 Open App",
-                    web_app=WebAppInfo(url=bot_config.mini_app_url)
-                )]
-            ])
+            keyboard = InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            text="📱 Open App", web_app=WebAppInfo(url=bot_config.mini_app_url)
+                        )
+                    ]
+                ]
+            )
 
         await self.send_message(requester_id, welcome_text, reply_markup=keyboard)
 

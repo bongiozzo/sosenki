@@ -39,13 +39,9 @@ class GoogleSheetsClient:
             )
             self.logger.info(f"Loaded credentials from {credentials_path}")
         except FileNotFoundError as e:
-            raise CredentialsError(
-                f"Credentials file not found: {credentials_path}"
-            ) from e
+            raise CredentialsError(f"Credentials file not found: {credentials_path}") from e
         except ValueError as e:
-            raise CredentialsError(
-                f"Invalid credentials file format: {credentials_path}"
-            ) from e
+            raise CredentialsError(f"Invalid credentials file format: {credentials_path}") from e
 
         # Build Sheets API service
         try:
@@ -91,10 +87,14 @@ class GoogleSheetsClient:
             self.logger.info(f"Fetching data from {sheet_name} sheet...")
 
             # Call Sheets API
-            request = self.service.spreadsheets().values().get(
-                spreadsheetId=spreadsheet_id,
-                range=range_notation,
-                valueRenderOption="FORMATTED_VALUE",  # Get formatted values (e.g., "Да", "3,85%")
+            request = (
+                self.service.spreadsheets()
+                .values()
+                .get(
+                    spreadsheetId=spreadsheet_id,
+                    range=range_notation,
+                    valueRenderOption="FORMATTED_VALUE",  # Get formatted values (e.g., "Да", "3,85%")
+                )
             )
             result = request.execute()
 
@@ -106,22 +106,17 @@ class GoogleSheetsClient:
 
         except HttpError as e:
             if e.resp.status == 404:
-                raise APIError(
-                    f"Sheet not found: {spreadsheet_id} or sheet '{sheet_name}'"
-                ) from e
+                raise APIError(f"Sheet not found: {spreadsheet_id} or sheet '{sheet_name}'") from e
             elif e.resp.status == 403:
                 raise APIError(
-                    f"Access denied to sheet {spreadsheet_id}. "
-                    f"Check service account permissions."
+                    f"Access denied to sheet {spreadsheet_id}. Check service account permissions."
                 ) from e
             else:
                 raise APIError(f"Google Sheets API error: {e}") from e
         except Exception as e:
             raise APIError(f"Failed to fetch sheet data: {e}") from e
 
-    def fetch_header_row(
-        self, spreadsheet_id: str, sheet_name: str
-    ) -> List[str]:
+    def fetch_header_row(self, spreadsheet_id: str, sheet_name: str) -> List[str]:
         """
         Fetch header row from a sheet (first row).
 
@@ -135,9 +130,7 @@ class GoogleSheetsClient:
         Raises:
             APIError: If API call fails
         """
-        rows = self.fetch_sheet_data(
-            spreadsheet_id, sheet_name, range_spec="1:1"
-        )
+        rows = self.fetch_sheet_data(spreadsheet_id, sheet_name, range_spec="1:1")
         return rows[0] if rows else []
 
     def fetch_data_rows(

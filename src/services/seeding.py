@@ -73,7 +73,7 @@ class SeededService:
         self.session = session
         self.logger = logger or logging.getLogger("sostenki.seeding.main")
 
-    def execute_seed(
+    def execute_seed(  # noqa: C901
         self,
         google_sheets_client: GoogleSheetsClient,
         spreadsheet_id: str,
@@ -107,12 +107,8 @@ class SeededService:
             self.logger.info("Starting database seeding...")
 
             # Step 1: Fetch data from Google Sheets
-            self.logger.info(
-                f"Fetching data from sheet '{sheet_name}'..."
-            )
-            sheet_data = google_sheets_client.fetch_sheet_data(
-                spreadsheet_id, sheet_name
-            )
+            self.logger.info(f"Fetching data from sheet '{sheet_name}'...")
+            sheet_data = google_sheets_client.fetch_sheet_data(spreadsheet_id, sheet_name)
 
             if not sheet_data:
                 raise DatabaseError(f"Sheet '{sheet_name}' is empty")
@@ -121,9 +117,7 @@ class SeededService:
             # The sheet has a blank row at the top, so real headers are in row 1 (index 1)
             header_row = sheet_data[1]
             data_rows = sheet_data[2:]
-            self.logger.info(
-                f"Found {len(data_rows)} data rows with {len(header_row)} columns"
-            )
+            self.logger.info(f"Found {len(data_rows)} data rows with {len(header_row)} columns")
 
             # Step 3: Parse all rows into users and properties
             self.logger.info("Parsing users and properties...")
@@ -150,9 +144,7 @@ class SeededService:
                     property_rows.append((owner_name, row_dict))
 
                 except Exception as e:
-                    self.logger.warning(
-                        f"Row {row_idx}: Failed to parse row: {e}"
-                    )
+                    self.logger.warning(f"Row {row_idx}: Failed to parse row: {e}")
                     rows_skipped += 1
 
             self.logger.info(
@@ -175,9 +167,7 @@ class SeededService:
                 created_users: Dict[str, User] = {}
 
                 for user_name, user_attrs in users_dict.items():
-                    user = get_or_create_user(
-                        self.session, user_name, user_attrs
-                    )
+                    user = get_or_create_user(self.session, user_name, user_attrs)
                     created_users[user_name] = user
 
                 self.logger.info(f"Created {len(created_users)} users")
@@ -192,23 +182,18 @@ class SeededService:
                 for owner_name, row_dict in property_rows:
                     owner = created_users.get(owner_name)
                     if not owner:
-                        self.logger.warning(
-                            f"Owner not found: {owner_name}, skipping property"
-                        )
+                        self.logger.warning(f"Owner not found: {owner_name}, skipping property")
                         continue
 
                     # Parse property row (may create multiple properties from "Доп" column)
                     try:
                         property_dicts = parse_property_row(row_dict, owner)
                         if property_dicts:
-                            create_properties(
-                                self.session, property_dicts, owner
-                            )
+                            create_properties(self.session, property_dicts, owner)
                             total_properties += len(property_dicts)
                     except Exception as e:
                         self.logger.warning(
-                            f"Failed to parse property for owner "
-                            f"'{owner_name}': {e}"
+                            f"Failed to parse property for owner '{owner_name}': {e}"
                         )
                         rows_skipped += 1
 
@@ -233,13 +218,9 @@ class SeededService:
             # Rollback on any error
             try:
                 self.session.rollback()
-                self.logger.error(
-                    f"Seeding failed; changes rolled back: {e}"
-                )
+                self.logger.error(f"Seeding failed; changes rolled back: {e}")
             except Exception as rollback_error:
-                self.logger.error(
-                    f"Rollback failed: {rollback_error}"
-                )
+                self.logger.error(f"Rollback failed: {rollback_error}")
 
             return SeedResult(
                 success=False,

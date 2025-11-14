@@ -38,6 +38,7 @@ AsyncSessionLocal = async_sessionmaker(
     expire_on_commit=False,
 )
 
+
 def get_db() -> Generator[Session, None, None]:
     """Get database session."""
     db = SessionLocal()
@@ -53,4 +54,11 @@ async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
         yield session
 
 
-__all__ = ["engine", "SessionLocal", "AsyncSessionLocal", "get_db", "get_async_session", "async_engine"]
+__all__ = [
+    "engine",
+    "SessionLocal",
+    "AsyncSessionLocal",
+    "get_db",
+    "get_async_session",
+    "async_engine",
+]

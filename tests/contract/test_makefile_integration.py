@@ -110,8 +110,7 @@ class TestMakefileIntegration:
         # Extract phony targets
         phony_line = [line for line in makefile_content.split("\n") if ".PHONY:" in line][0]
         assert "seed" in phony_line, (
-            "seed target not declared in .PHONY. "
-            "This ensures make seed works correctly."
+            "seed target not declared in .PHONY. This ensures make seed works correctly."
         )
 
     def test_make_seed_uses_uv_and_python_cli(self):
@@ -125,9 +124,7 @@ class TestMakefileIntegration:
         seed_section = makefile_content[seed_start : seed_start + 500]
 
         # Should use uv to run the CLI
-        assert "uv run" in seed_section, (
-            "seed target should use `uv run` for consistency"
-        )
+        assert "uv run" in seed_section, "seed target should use `uv run` for consistency"
         assert "python -m src.cli.seed" in seed_section, (
             "seed target should invoke `python -m src.cli.seed`"
         )
@@ -143,9 +140,7 @@ class TestMakefileIntegration:
         seed_section = makefile_content[seed_start : seed_start + 300]
 
         # Should have echo statements for user feedback
-        assert "@echo" in seed_section, (
-            "seed target should have @echo statements for user feedback"
-        )
+        assert "@echo" in seed_section, "seed target should have @echo statements for user feedback"
 
     def test_help_target_includes_seed_section(self):
         """Test that help target includes dedicated section for seeding (T039)."""
@@ -189,6 +184,4 @@ class TestMakefileIntegration:
 
         required_targets = ["help", "install", "test", "lint", "format", "seed"]
         for target in required_targets:
-            assert f"{target}:" in makefile_content, (
-                f"Makefile missing standard target: {target}"
-            )
+            assert f"{target}:" in makefile_content, f"Makefile missing standard target: {target}"

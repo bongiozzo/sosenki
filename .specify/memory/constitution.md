@@ -1,14 +1,19 @@
+```markdown
 # SOSenki Project Constitution
 
 <!--
 SYNC IMPACT REPORT:
-- Version: 1.1.1 → 1.2.0 (MINOR bump: Added No Hard-Coded Paths requirement to Security section - expanded portability and CI/CD safety guidelines)
-- Principles Modified: None
-- New Requirements: Secret Management section expanded to include No Hard-Coded Paths prohibition
-- Security Enhancements: Added dynamic path resolution guidance and rationale for cross-platform/CI compatibility
-- Templates: No updates required (guidance applies during code review for all test and source files)
-- Compliance Review: Code reviews MUST now flag hard-coded filesystem paths as violations (especially absolute paths)
-- Last Amended: 2025-11-11
+- Version: 1.2.0 → 1.3.0 (MINOR bump: Added "Database Schema Management (Pre-MVP Approach)" section with explicit non-negotiable rules for single-file schema strategy)
+- Principles Modified: YAGNI Rule - Database Schema (added sub-rule 6 referencing pre-MVP approach, expanded enforcement checklist)
+- New Sections: "Database Schema Management (Pre-MVP Approach)" under Technology Stack (detailed rules, rationale, constraints, enforcement)
+- Security/Workflow: No security changes; Development Workflow section already requires Constitution compliance review
+- Compliance Review: Enhanced with pre-MVP schema approach verification checklist
+- Templates Affected: 
+  - plan-template.md: No changes required (already documents Alembic, but pre-MVP approach is implementation detail)
+  - spec-template.md: No changes required (schema design still follows YAGNI rule)
+  - tasks-template.md: No changes required (schema tasks now simply modify 001_initial_schema.py, no migration sequencing needed)
+- Implementation Notes: Single migration file approach already in use (001_initial_schema.py); constitution now formally codifies this pre-MVP pattern
+- Last Amended: 2025-11-14
 -->
 
 ## Core Principles
@@ -33,9 +38,12 @@ Sub-rules:
 
 5. **No data migration for hypotheticals**: Data migrations MUST NOT preserve/transform old records for features not yet implemented. Start fresh per MVP principle.
 
-6. **Test before adding any index**: Every index MUST map to a documented query pattern in performance considerations or code. Do not add "just in case" indexes.
+6. **Pre-MVP schema approach**: Maintain single `001_initial_schema.py` migration reflecting complete current MVP schema. Do NOT create separate migration files (e.g., `002_add_is_tenant.py`). Instead, modify `001_initial_schema.py` directly when schema changes. After updates, verify with `make db-reset && make seed`. (See "Database Schema Management (Pre-MVP Approach)" section for full details.)
+
+7. **Test before adding any index**: Every index MUST map to a documented query pattern in performance considerations or code. Do not add "just in case" indexes.
 
 **Enforcement Checklist** (apply during code review for data-model.md):
+
 - [ ] Every table in schema maps to a section in spec.md user stories
 - [ ] Every column has explicit rationale referencing a query or validation rule
 - [ ] No "future" columns or "TBD" tables remain
@@ -43,6 +51,8 @@ Sub-rules:
 - [ ] All indexes correspond to documented query patterns
 - [ ] Data migration logic (if any) only handles current feature scope
 - [ ] Role/permission logic uses boolean flags, not separate tables
+- [ ] No separate migration files created (modifications to 001_initial_schema.py only, per pre-MVP approach)
+- [ ] Schema changes verified with `make db-reset && make seed` before PR submission
 
 **Rationale**: Schema bloat accumulates technical debt rapidly—every extra table/field increases migration complexity, storage overhead, query planning surface, and maintenance burden. Simplified schemas are faster to migrate, easier to reason about, and scale predictably.
 
@@ -65,6 +75,30 @@ Eliminate code duplication through abstraction and reuse. When logic appears in 
 - **Task & Dependency Management**: `uv` (package manager and task runner)
 - **Telegram Integration**: `python-telegram-bot` library (bot logic and webhook handling)
 - **Library Documentation**: MCP Context7 (real-time documentation retrieval for newly added dependencies)
+
+### Database Schema Management (Pre-MVP Approach)
+
+**Critical Rule (NON-NEGOTIABLE)**: During pre-MVP development, the project maintains a **single monolithic migration file** (`src/migrations/versions/001_initial_schema.py`) that represents the **complete current schema** for the entire MVP. This approach:
+
+1. **No Separate Migrations**: Each feature does NOT create its own migration file (e.g., no `002_add_is_tenant.py`). Instead, modify `001_initial_schema.py` directly to include all current schema elements.
+
+2. **Fresh Schema Reset**: Database initialization uses `make db-reset`, which deletes `sosenki.db` and re-runs `alembic upgrade head`. This applies the entire current schema from `001_initial_schema.py` in one operation.
+
+3. **Rationale**:
+   - **Simplicity**: Avoids managing multiple migration sequences before production launch
+   - **Clarity**: Single source of truth for current schema (no migration archaeology needed)
+   - **Safety**: `make db-reset` is cheap pre-MVP; no production data loss concerns
+   - **Efficiency**: Feature branches can modify `001_initial_schema.py` without coordination
+
+4. **Constraints**:
+   - **No downgrade path**: `001_initial_schema.py` downgrade is intentionally `pass` (not implemented)
+   - **Development-only**: This approach is valid only pre-MVP; post-MVP transitions to multi-migration approach for production safety
+   - **Team coordination**: All developers reset their local database after schema changes (`make db-reset && make seed`)
+
+5. **Enforcement**:
+   - Code reviews MUST flag creation of separate migration files (e.g., `002_*.py`) as violations
+   - Schema modifications MUST update `001_initial_schema.py` upgrade() function directly
+   - After schema changes, developer MUST run `make db-reset && make seed` and commit verification (schema validates successfully)
 
 ### Frontend
 
@@ -141,5 +175,10 @@ Eliminate code duplication through abstraction and reuse. When logic appears in 
 - MCP Context7 documentation lookups verified for all new dependencies
 - Schema design reviews reference YAGNI Rule - Database Schema enforcement checklist
 - Hard-coded filesystem paths (especially absolute paths) are flagged and rejected in code review
+- **Pre-MVP schema approach**: Code reviews MUST verify:
+  - No separate migration files created (e.g., `002_*.py`, `003_*.py`)
+  - Schema changes implemented in `001_initial_schema.py` directly
+  - Developer ran `make db-reset && make seed` and verified migration succeeds
+  - Data seeding from Google Sheets completes without errors
 
-**Version**: 1.2.0 | **Ratified**: 2025-11-04 | **Last Amended**: 2025-11-11
+**Version**: 1.3.0 | **Ratified**: 2025-11-04 | **Last Amended**: 2025-11-14

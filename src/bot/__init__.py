@@ -17,11 +17,7 @@ async def create_bot_app() -> Application:
 
     T032, T044, T052: Register command handlers with the bot application.
     """
-    app = (
-        Application.builder()
-        .token(bot_config.telegram_bot_token)
-        .build()
-    )
+    app = Application.builder().token(bot_config.telegram_bot_token).build()
 
     # T031/T032: Register /request command handler
     app.add_handler(CommandHandler("request", handle_request_command))

@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "UserStatusResponse",
+  "description": "Response from GET /api/mini-app/user-status endpoint",
+  "type": "object",
+  "required": ["user_id", "roles", "stakeholder_url"],
+  "properties": {
+    "user_id": {
+      "type": "integer",
+      "description": "User's database ID",
+      "example": 123,
+      "minimum": 1
+    },
+    "roles": {
+      "type": "array",
+      "description": "User's active roles. Always non-empty. Includes 'member' if no specific roles.",
+      "items": {
+        "type": "string",
+        "enum": [
+          "investor",
+          "administrator",
+          "owner",
+          "staff",
+          "stakeholder",
+          "tenant",
+          "member"
+        ]
+      },
+      "minItems": 1,
+      "example": ["investor", "owner"]
+    },
+    "stakeholder_url": {
+      "type": ["string", "null"],
+      "format": "uri",
+      "description": "URL to stakeholder shares document. Null if not configured in environment.",
+      "example": "https://docs.example.com/stakeholder-shares"
+    }
+  },
+  "additionalProperties": false,
+  "examples": [
+    {
+      "user_id": 123,
+      "roles": ["investor", "owner"],
+      "stakeholder_url": "https://docs.example.com/stakeholder-shares"
+    },
+    {
+      "user_id": 456,
+      "roles": ["member"],
+      "stakeholder_url": null
+    },
+    {
+      "user_id": 789,
+      "roles": ["administrator", "owner", "stakeholder"],
+      "stakeholder_url": "https://docs.example.com/stakeholder-shares"
+    }
+  ]
+}

@@ -15,8 +15,7 @@ async def test_verify_telegram_signature_valid():
     # For now, testing the method exists and has correct signature
 
     result = UserService.verify_telegram_webapp_signature(
-        init_data="hash=test&user={\"id\":123}",
-        bot_token="test_token"
+        init_data='hash=test&user={"id":123}', bot_token="test_token"
     )
 
     # With invalid hash, should return None
@@ -35,7 +34,7 @@ async def test_can_access_mini_app_active_user():
         is_investor=False,
         is_administrator=False,
         is_owner=False,
-        is_staff=False
+        is_staff=False,
     )
 
     # Mock the database query
@@ -61,7 +60,7 @@ async def test_can_access_mini_app_inactive_user():
         is_investor=False,
         is_administrator=False,
         is_owner=False,
-        is_staff=False
+        is_staff=False,
     )
 
     mock_result = MagicMock()
@@ -86,7 +85,7 @@ async def test_can_access_invest_investor_only():
         is_investor=True,
         is_administrator=False,
         is_owner=False,
-        is_staff=False
+        is_staff=False,
     )
 
     mock_result = MagicMock()

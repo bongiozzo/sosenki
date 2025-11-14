@@ -59,7 +59,7 @@ async def main() -> int:
             result = seeding_service.execute_seed(
                 google_sheets_client,
                 config.google_sheet_id,
-                "Дома"  # Sheet name
+                "Дома",  # Sheet name
             )
             return 0 if result.success else 1
         finally:

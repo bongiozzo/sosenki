@@ -14,9 +14,7 @@ from src.services.config import load_config
 class TestCredentialsValidation:
     """Contract tests for credentials validation (T035)."""
 
-    def test_missing_credentials_file_provides_actionable_error(
-        self, monkeypatch, tmp_path
-    ):
+    def test_missing_credentials_file_provides_actionable_error(self, monkeypatch, tmp_path):
         """
         Test that missing credentials file provides clear, actionable error message.
 
@@ -36,9 +34,7 @@ class TestCredentialsValidation:
         assert "not found" in error_message.lower()
         assert "ensure service account" in error_message.lower()
 
-    def test_invalid_credentials_json_provides_actionable_error(
-        self, monkeypatch, tmp_path
-    ):
+    def test_invalid_credentials_json_provides_actionable_error(self, monkeypatch, tmp_path):
         """
         Test that invalid JSON in credentials file provides clear error with specifics.
 
@@ -62,9 +58,7 @@ class TestCredentialsValidation:
         # Credentials content should not be exposed
         assert "incomplete" not in error_message
 
-    def test_incomplete_credentials_provides_actionable_error(
-        self, monkeypatch, tmp_path
-    ):
+    def test_incomplete_credentials_provides_actionable_error(self, monkeypatch, tmp_path):
         """
         Test that credentials missing required fields provides clear error.
 
@@ -217,9 +211,7 @@ class TestCredentialsValidation:
         finally:
             creds_file.chmod(0o644)  # Restore for cleanup
 
-    def test_all_credential_validations_run_before_returning(
-        self, monkeypatch, tmp_path
-    ):
+    def test_all_credential_validations_run_before_returning(self, monkeypatch, tmp_path):
         """
         Test that all credential validations are performed before returning config.
 

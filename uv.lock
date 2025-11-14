@@ -1337,6 +1337,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "alembic" },
     { name = "black" },
     { name = "mypy" },
     { name = "pytest" },
@@ -1364,6 +1365,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "alembic", specifier = ">=1.17.1" },
     { name = "black", specifier = ">=23.0.0" },
     { name = "mypy", specifier = ">=1.5.0" },
     { name = "pytest", specifier = ">=7.4.0" },

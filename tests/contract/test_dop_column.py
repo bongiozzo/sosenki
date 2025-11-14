@@ -141,9 +141,7 @@ class TestDopColumnHandling:
             db.commit()
 
             # Verify attributes
-            saved_prop = db.query(Property).filter_by(
-                property_name="Detailed Property"
-            ).first()
+            saved_prop = db.query(Property).filter_by(property_name="Detailed Property").first()
             assert saved_prop.is_ready is True
             assert saved_prop.is_for_tenant is False
             assert saved_prop.share_weight == 300
@@ -169,9 +167,7 @@ class TestDopColumnHandling:
             db.commit()
 
             # Verify nulls are preserved
-            saved_prop = db.query(Property).filter_by(
-                property_name="Sparse Property"
-            ).first()
+            saved_prop = db.query(Property).filter_by(property_name="Sparse Property").first()
             assert saved_prop.photo_link is None
         finally:
             db.close()
@@ -198,9 +194,7 @@ class TestDopColumnHandling:
 
             # Verify all types were saved
             for i, expected_type in enumerate(types):
-                saved_prop = db.query(Property).filter_by(
-                    property_name=f"Property {i}"
-                ).first()
+                saved_prop = db.query(Property).filter_by(property_name=f"Property {i}").first()
                 assert saved_prop.type == expected_type
         finally:
             db.close()
@@ -270,4 +264,3 @@ class TestDopColumnHandling:
             assert deleted_prop is None
         finally:
             db.close()
-

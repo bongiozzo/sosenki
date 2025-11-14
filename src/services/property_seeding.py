@@ -20,9 +20,7 @@ from src.services.parsers import (
 )
 
 
-def parse_property_row(
-    row_dict: Dict[str, str], owner: User
-) -> List[Dict]:
+def parse_property_row(row_dict: Dict[str, str], owner: User) -> List[Dict]:
     """
     Parse a row from "Дома" sheet into one or more Property records.
 
@@ -63,18 +61,14 @@ def parse_property_row(
         # Parse numeric fields
         try:
             share_weight_column = main_field_mappings.get("share_weight_column", "Коэффициент")
-            share_weight = parse_russian_decimal(
-                row_dict.get(share_weight_column, "")
-            )
+            share_weight = parse_russian_decimal(row_dict.get(share_weight_column, ""))
         except ValueError as e:
             logger.warning(f"Invalid share_weight format: {e}, skipping row")
             return []
 
         try:
             sale_price_column = main_field_mappings.get("sale_price_column", "Цена")
-            sale_price = parse_russian_currency(
-                row_dict.get(sale_price_column, "")
-            )
+            sale_price = parse_russian_currency(row_dict.get(sale_price_column, ""))
         except ValueError as e:
             logger.warning(f"Invalid sale_price format: {e}, skipping row")
             return []
@@ -141,9 +135,7 @@ def parse_property_row(
         raise DataValidationError(f"Failed to parse property row: {e}") from e
 
 
-def create_properties(
-    session: Session, property_dicts: List[Dict], owner: User
-) -> List[Property]:
+def create_properties(session: Session, property_dicts: List[Dict], owner: User) -> List[Property]:
     """
     Create Property records in database.
 
