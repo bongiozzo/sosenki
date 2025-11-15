@@ -66,7 +66,7 @@ class SeedingConfig:
 
     def get_property_defaults(self) -> Dict[str, Any]:
         """Get default attributes for main properties."""
-        return self._config["schemas"]["properties"]["main"]["defaults"].copy()
+        return self._config["schemas"]["properties"]["defaults"].copy()
 
     def get_property_field_mappings(self, variant: str = "main") -> Dict[str, str]:
         """Get field→column mappings for properties.
@@ -77,7 +77,10 @@ class SeedingConfig:
         Returns:
             Dictionary mapping field names to column names
         """
-        return self._config["schemas"]["properties"][variant]["fields"]["parsing"]
+        if variant == "main":
+            return self._config["schemas"]["properties"]["fields"]["parsing"]
+        else:
+            return self._config["schemas"]["properties"][variant]["fields"]["parsing"]
 
     def get_property_type_mapping(self) -> Dict[str, str]:
         """Get code-to-type mapping for additional properties (Доп column)."""
@@ -104,3 +107,56 @@ class SeedingConfig:
     def get_null_fields(self) -> list:
         """Get list of fields that should be null for additional properties."""
         return self._config["schemas"]["properties"]["additional"]["fields"]["null_fields"]
+
+    def get_payment_parsing_rules(self) -> Dict[str, str]:
+        """Get column names for payment parsing."""
+        return self._config["schemas"]["payments"]["fields"]["parsing"]
+
+    def get_payment_account_name(self) -> str:
+        """Get the default account name for payments."""
+        additional = self._config["schemas"]["payments"].get("additional", {})
+        accounts = additional.get("accounts", {})
+        defaults = accounts.get("defaults", {})
+        return defaults.get("account_name", "Взносы")
+
+    def get_payment_range_names(self) -> list:
+        """Get the range names for payments (list of named ranges in Google Sheets).
+
+        Returns:
+            List of range name strings to process sequentially
+        """
+        range_names = self._config["schemas"]["payments"]["range_name"]
+        # Handle both single string and array of strings
+        if isinstance(range_names, list):
+            return range_names
+        elif isinstance(range_names, str):
+            return [range_names]
+        else:
+            return []
+
+    def get_payment_account_column(self) -> str:
+        """Get the column name for account names in payment rows.
+
+        Returns:
+            Column name (e.g., 'Счет') or None if using default
+        """
+        additional = self._config["schemas"]["payments"].get("additional", {})
+        accounts = additional.get("accounts", {})
+        fields = accounts.get("fields", {})
+        return fields.get("name_column")
+
+    def get_user_range_name(self) -> str:
+        """Get the named range name for users.
+
+        Returns:
+            Named range name (e.g., 'PropertiesOwners')
+        """
+        return self._config["schemas"]["users"].get("range_name")
+
+    def get_property_range_name(self) -> str:
+        """Get the named range name for properties.
+
+        Returns:
+            Named range name (e.g., 'PropertiesOwners')
+        """
+        return self._config["schemas"]["properties"].get("range_name")

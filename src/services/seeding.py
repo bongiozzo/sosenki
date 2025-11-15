@@ -15,10 +15,17 @@ from typing import Dict, List
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
+from src.config.seeding_config import SeedingConfig
+from src.models.account import Account
+from src.models.payment import Payment
 from src.models.property import Property
 from src.models.user import User
 from src.services.errors import DatabaseError, TransactionError
 from src.services.google_sheets import GoogleSheetsClient
+from src.services.payment_seeding import (
+    create_payments,
+    parse_payment_row,
+)
 from src.services.property_seeding import create_properties, parse_property_row
 from src.services.seeding_utils import (
     get_or_create_user,
@@ -40,6 +47,9 @@ class SeedResult:
     properties_created: int
     """Number of properties created"""
 
+    payments_created: int
+    """Number of payments created"""
+
     rows_skipped: int
     """Number of rows skipped due to validation errors"""
 
@@ -53,6 +63,7 @@ class SeedResult:
                 f"✓ Seed successful\n"
                 f"  Users: {self.users_created}\n"
                 f"  Properties: {self.properties_created}\n"
+                f"  Payments: {self.payments_created}\n"
                 f"  Skipped: {self.rows_skipped}"
             )
         else:
@@ -77,13 +88,12 @@ class SeededService:
         self,
         google_sheets_client: GoogleSheetsClient,
         spreadsheet_id: str,
-        sheet_name: str,
     ) -> SeedResult:
         """
         Execute the complete seeding process.
 
         Orchestration steps:
-        1. Fetch data from Google Sheets
+        1. Fetch data from Google Sheets (using named ranges from config)
         2. Parse header row to get column names
         3. Parse each data row into users and properties
         4. Truncate existing users and properties tables
@@ -93,7 +103,6 @@ class SeededService:
         Args:
             google_sheets_client: GoogleSheetsClient instance
             spreadsheet_id: Google Sheet ID
-            sheet_name: Sheet name (e.g., "Дома")
 
         Returns:
             SeedResult with counts and status
@@ -106,17 +115,23 @@ class SeededService:
         try:
             self.logger.info("Starting database seeding...")
 
-            # Step 1: Fetch data from Google Sheets
-            self.logger.info(f"Fetching data from sheet '{sheet_name}'...")
-            sheet_data = google_sheets_client.fetch_sheet_data(spreadsheet_id, sheet_name)
+            # Load configuration
+            config = SeedingConfig.load()
+
+            # Step 1: Fetch data from Google Sheets using named range
+            user_range_name = config.get_user_range_name()
+            self.logger.info(f"Fetching data from named range '{user_range_name}'...")
+            sheet_data = google_sheets_client.fetch_sheet_data(
+                spreadsheet_id, range_spec=user_range_name
+            )
 
             if not sheet_data:
-                raise DatabaseError(f"Sheet '{sheet_name}' is empty")
+                raise DatabaseError(f"Range '{user_range_name}' is empty")
 
             # Step 2: Extract header row
-            # The sheet has a blank row at the top, so real headers are in row 1 (index 1)
-            header_row = sheet_data[1]
-            data_rows = sheet_data[2:]
+            # Named ranges: header at [0], data from [1:]
+            header_row = sheet_data[0]
+            data_rows = sheet_data[1:]
             self.logger.info(f"Found {len(data_rows)} data rows with {len(header_row)} columns")
 
             # Step 3: Parse all rows into users and properties
@@ -155,6 +170,8 @@ class SeededService:
             # Step 4: Truncate existing data (atomic with inserts)
             try:
                 self.logger.info("Truncating existing data...")
+                self.session.execute(delete(Payment))
+                self.session.execute(delete(Account))
                 self.session.execute(delete(Property))
                 self.session.execute(delete(User))
                 self.logger.info("Tables truncated")
@@ -201,7 +218,73 @@ class SeededService:
             except Exception as e:
                 raise TransactionError(f"Failed to create properties: {e}") from e
 
-            # Step 7: Commit transaction
+            # Step 7: Insert payments
+            total_payments = 0
+            try:
+                config = SeedingConfig.load()
+                payment_range_names = config.get_payment_range_names()
+                account_column = config.get_payment_account_column()
+                default_account_name = config.get_payment_account_name()
+
+                self.logger.info(f"Processing {len(payment_range_names)} payment range(s)")
+
+                for payment_range_name in payment_range_names:
+                    self.logger.info(f"Fetching payments from range '{payment_range_name}'...")
+
+                    # Fetch payment data using named range (only exact payment data columns)
+                    payment_sheet_data = google_sheets_client.fetch_sheet_data(
+                        spreadsheet_id, range_spec=payment_range_name
+                    )
+
+                    if payment_sheet_data:
+                        # Named ranges: header at [0], data from [1:]
+                        if len(payment_sheet_data) < 2:
+                            self.logger.warning(
+                                f"Payment range '{payment_range_name}' has insufficient data"
+                            )
+                            continue
+
+                        payment_header_row = payment_sheet_data[0]
+                        payment_data_rows = payment_sheet_data[1:]
+
+                        if payment_data_rows:
+                            # Parse payment rows
+                            payment_dicts: List[Dict] = []
+                            for row_idx, row_values in enumerate(payment_data_rows, start=1):
+                                try:
+                                    row_dict = sheet_row_to_dict(row_values, payment_header_row)
+                                    payment_dict = parse_payment_row(row_dict, account_column)
+                                    if payment_dict:
+                                        payment_dicts.append(payment_dict)
+                                except Exception as e:
+                                    self.logger.debug(f"Payment row {row_idx}: Skipped ({e})")
+                                    rows_skipped += 1
+
+                            self.logger.info(
+                                f"Parsed {len(payment_dicts)} payment records from '{payment_range_name}'"
+                            )
+
+                            # Create payments with per-row account extraction
+                            if payment_dicts:
+                                range_payments = create_payments(
+                                    self.session,
+                                    payment_dicts,
+                                    account=None,
+                                    owner_map=created_users,
+                                    default_account_name=default_account_name,
+                                )
+                                total_payments += range_payments
+                    else:
+                        self.logger.warning(
+                            f"Payment range '{payment_range_name}' is empty or not found"
+                        )
+
+            except Exception as e:
+                self.logger.error(f"Failed to create payments: {e}")
+                # Don't fail entire seeding if payments fail - just log and continue
+                total_payments = 0
+
+            # Step 8: Commit transaction
             try:
                 self.session.commit()
                 self.logger.info("✓ Seed committed successfully")
@@ -209,6 +292,7 @@ class SeededService:
                     success=True,
                     users_created=len(created_users),
                     properties_created=total_properties,
+                    payments_created=total_payments,
                     rows_skipped=rows_skipped,
                 )
             except Exception as e:
@@ -226,6 +310,7 @@ class SeededService:
                 success=False,
                 users_created=0,
                 properties_created=0,
+                payments_created=0,
                 rows_skipped=0,
                 error_message=str(e),
             )

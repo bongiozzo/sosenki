@@ -20,6 +20,25 @@
         "order": 1
       },
       "preLaunchTask": "serve-setup-ngrok-and-launch"
+    },
+    {
+      "name": "Python: seed (Database seeding from Google Sheets)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "src.cli.seed",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "stopOnEntry": false,
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}",
+        "DATABASE_URL": "sqlite:///./sosenki.db",
+        "GOOGLE_CREDENTIALS_PATH": ".env_google_credentials.json"
+      },
+      "presentation": {
+        "hidden": false,
+        "group": "Python",
+        "order": 2
+      }
     }
   ],
   "compounds": []

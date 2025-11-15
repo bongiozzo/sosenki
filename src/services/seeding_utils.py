@@ -16,10 +16,10 @@ from src.services.errors import DataValidationError
 
 def parse_user_row(row_dict: Dict[str, str]) -> Optional[Dict]:
     """
-    Parse a row from "Дома" sheet into User attributes.
+    Parse a row from named range into User attributes.
 
     Uses three-phase approach:
-    Phase 1: Extract fields from row using column mappings
+    Phase 1: Extract fields from row using column mappings from config
     Phase 2: Apply default attributes
     Phase 3: Apply transformations (special rules)
 
@@ -39,8 +39,8 @@ def parse_user_row(row_dict: Dict[str, str]) -> Optional[Dict]:
 
     # PHASE 1: Extract fields from row using configured column mappings
     parsing_rules = config.get_user_parsing_rules()
-    name_column = parsing_rules.get("name_column", "Фамилия")
-    stakeholder_column = parsing_rules.get("stakeholder_column", "Доля в Т")
+    name_column = parsing_rules.get("name_column")
+    stakeholder_column = parsing_rules.get("stakeholder_column")
 
     owner_name = row_dict.get(name_column, "").strip()
 
@@ -118,7 +118,7 @@ def get_or_create_user(session: Session, name: str, user_attrs: Optional[Dict] =
 
 def sheet_row_to_dict(row_values: list, header_names: list) -> Dict[str, str]:
     """
-    Convert sheet row (list of values) to dictionary using header names.
+    Convert row values to dictionary using header names.
 
     Args:
         row_values: List of cell values in the row
@@ -128,10 +128,10 @@ def sheet_row_to_dict(row_values: list, header_names: list) -> Dict[str, str]:
         Dictionary mapping header name to cell value
 
     Example:
-        >>> row = ["1", "И/Р", "Большой"]
-        >>> headers = ["Дом", "Фамилия", "Размер"]
+        >>> row = ["1", "John", "Large"]
+        >>> headers = ["ID", "Owner", "Size"]
         >>> sheet_row_to_dict(row, headers)
-        {"Дом": "1", "Фамилия": "И/Р", "Размер": "Большой"}
+        {"ID": "1", "Owner": "John", "Size": "Large"}
     """
     result = {}
     for idx, header_name in enumerate(header_names):

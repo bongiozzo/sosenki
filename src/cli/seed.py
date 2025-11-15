@@ -1,8 +1,7 @@
 """CLI entry point for database seeding from Google Sheets.
 
 This module provides the `make seed` command interface for developers to
-synchronize the local SQLite database with canonical data from SOSenkiPrivate
-Google Sheet ("Дома" sheet).
+synchronize the local SQLite database with canonical data from Google Sheets.
 
 Usage:
     python -m src.cli.seed
@@ -59,7 +58,6 @@ async def main() -> int:
             result = seeding_service.execute_seed(
                 google_sheets_client,
                 config.google_sheet_id,
-                "Дома",  # Sheet name
             )
             return 0 if result.success else 1
         finally:

@@ -24,6 +24,14 @@
     "python.linting.enabled": true,
     "python.linting.pylintEnabled": false,
     "python.formatting.provider": "none",
-    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python"
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+    "sqltools.connections": [
+        {
+            "previewLimit": 50,
+            "driver": "SQLite",
+            "database": "sosenki.db",
+            "name": "sosenki"
+        }
+    ]
 }
 

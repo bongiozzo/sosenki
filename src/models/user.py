@@ -116,6 +116,11 @@ class User(Base, BaseModel):
         back_populates="owner",
         foreign_keys="Property.owner_id",
     )
+    payments: Mapped[list["Payment"]] = relationship(  # noqa: F821
+        "Payment",
+        back_populates="owner",
+        foreign_keys="Payment.owner_id",
+    )
 
     def __repr__(self) -> str:
         roles = []

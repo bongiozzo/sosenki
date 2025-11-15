@@ -125,6 +125,60 @@ def upgrade() -> None:
         sa.Index("idx_status", "status"),
     )
 
+    # Create accounts table
+    op.create_table(
+        "accounts",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("name", sa.String(length=100), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.current_timestamp(),
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.current_timestamp(),
+        ),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("name"),
+        sa.Index("ix_accounts_name", "name", unique=True),
+    )
+
+    # Create payments table
+    op.create_table(
+        "payments",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("owner_id", sa.Integer(), nullable=False),
+        sa.Column("account_id", sa.Integer(), nullable=False),
+        sa.Column("amount", sa.Numeric(precision=10, scale=2), nullable=False),
+        sa.Column("payment_date", sa.Date(), nullable=False),
+        sa.Column("comment", sa.Text(), nullable=True),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.current_timestamp(),
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.current_timestamp(),
+        ),
+        sa.ForeignKeyConstraint(["account_id"], ["accounts.id"]),
+        sa.ForeignKeyConstraint(["owner_id"], ["users.id"]),
+        sa.PrimaryKeyConstraint("id"),
+        sa.Index("ix_payments_owner_id", "owner_id"),
+        sa.Index("ix_payments_account_id", "account_id"),
+        sa.Index("ix_payments_payment_date", "payment_date"),
+        sa.Index("ix_payments_owner_account", "owner_id", "account_id"),
+        sa.Index("ix_payments_owner_date", "owner_id", "payment_date"),
+        sa.Index("ix_payments_account_date", "account_id", "payment_date"),
+    )
+
 
 def downgrade() -> None:
     # For MVP with no backward compatibility requirement, downgrade is not implemented.

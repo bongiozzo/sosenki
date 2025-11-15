@@ -29,6 +29,8 @@ class BaseModel:
 # Import models to register them with Base (after Base is defined)
 # This must be after Base declaration to avoid circular imports
 from src.models.access_request import AccessRequest, RequestStatus  # noqa: E402
+from src.models.account import Account  # noqa: E402
+from src.models.payment import Payment  # noqa: E402
 from src.models.property import Property  # noqa: E402
 from src.models.user import User  # noqa: E402
 
@@ -36,6 +38,8 @@ __all__ = [
     "Base",
     "BaseModel",
     "User",
+    "Account",
+    "Payment",
     "AccessRequest",
     "RequestStatus",
     "Property",

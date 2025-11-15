@@ -50,41 +50,37 @@ class GoogleSheetsClient:
         except Exception as e:
             raise APIError(f"Failed to initialize Google Sheets API: {e}") from e
 
-    def fetch_sheet_data(
-        self, spreadsheet_id: str, sheet_name: str, range_spec: str = None
-    ) -> List[List[Any]]:
+    def fetch_sheet_data(self, spreadsheet_id: str, range_spec: str = None) -> List[List[Any]]:
         """
-        Fetch data from a Google Sheet.
+        Fetch data from a named range in Google Sheets.
 
         Args:
             spreadsheet_id: Google Sheet ID
-            sheet_name: Sheet name (e.g., "Дома")
-            range_spec: Optional range in A1 notation (e.g., "A1:Z100")
-                       If None, fetches entire sheet
+            range_spec: Named range name (e.g., "PropertiesOwners")
+                       If None, raises error (sheet_name no longer supported)
 
         Returns:
             List of rows, each row is a list of cell values
 
         Raises:
             APIError: If API call fails
+            ValueError: If range_spec not provided
 
         Example:
             ```python
             import os
             client = GoogleSheetsClient("credentials.json")
             sheet_id = os.getenv("GOOGLE_SHEET_ID")
-            data = client.fetch_sheet_data(sheet_id, "Дома")
+            # Fetch named range
+            data = client.fetch_sheet_data(sheet_id, range_spec="MyRange")
             print(f"Fetched {len(data)} rows")
             ```
         """
         try:
-            # Construct range: "Sheet Name" or "Sheet Name!A1:Z100"
-            if range_spec:
-                range_notation = f"'{sheet_name}'!{range_spec}"
-            else:
-                range_notation = f"'{sheet_name}'"
+            if not range_spec:
+                raise ValueError("range_spec (named range name) is required")
 
-            self.logger.info(f"Fetching data from {sheet_name} sheet...")
+            self.logger.info(f"Fetching data from named range: {range_spec}...")
 
             # Call Sheets API
             request = (
@@ -92,7 +88,7 @@ class GoogleSheetsClient:
                 .values()
                 .get(
                     spreadsheetId=spreadsheet_id,
-                    range=range_notation,
+                    range=range_spec,
                     valueRenderOption="FORMATTED_VALUE",  # Get formatted values (e.g., "Да", "3,85%")
                 )
             )
@@ -100,13 +96,13 @@ class GoogleSheetsClient:
 
             # Extract values
             values = result.get("values", [])
-            self.logger.info(f"Fetched {len(values)} rows from {sheet_name}")
+            self.logger.info(f"Fetched {len(values)} rows from range {range_spec}")
 
             return values
 
         except HttpError as e:
             if e.resp.status == 404:
-                raise APIError(f"Sheet not found: {spreadsheet_id} or sheet '{sheet_name}'") from e
+                raise APIError(f"Sheet not found: {spreadsheet_id} or range '{range_spec}'") from e
             elif e.resp.status == 403:
                 raise APIError(
                     f"Access denied to sheet {spreadsheet_id}. Check service account permissions."
@@ -115,44 +111,3 @@ class GoogleSheetsClient:
                 raise APIError(f"Google Sheets API error: {e}") from e
         except Exception as e:
             raise APIError(f"Failed to fetch sheet data: {e}") from e
-
-    def fetch_header_row(self, spreadsheet_id: str, sheet_name: str) -> List[str]:
-        """
-        Fetch header row from a sheet (first row).
-
-        Args:
-            spreadsheet_id: Google Sheet ID
-            sheet_name: Sheet name
-
-        Returns:
-            List of header names
-
-        Raises:
-            APIError: If API call fails
-        """
-        rows = self.fetch_sheet_data(spreadsheet_id, sheet_name, range_spec="1:1")
-        return rows[0] if rows else []
-
-    def fetch_data_rows(
-        self, spreadsheet_id: str, sheet_name: str, skip_header: bool = True
-    ) -> List[List[Any]]:
-        """
-        Fetch data rows from a sheet (excluding header).
-
-        Args:
-            spreadsheet_id: Google Sheet ID
-            sheet_name: Sheet name
-            skip_header: If True, skip first row (header)
-
-        Returns:
-            List of data rows (excluding header if skip_header=True)
-
-        Raises:
-            APIError: If API call fails
-        """
-        rows = self.fetch_sheet_data(spreadsheet_id, sheet_name)
-
-        if skip_header and rows:
-            return rows[1:]  # Skip header row
-
-        return rows
