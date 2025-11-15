@@ -3,7 +3,11 @@
 import pytest
 from pydantic import ValidationError
 
-from src.api.mini_app import UserStatusResponse
+from src.api.mini_app import (
+    PaymentListResponse,
+    PaymentTransactionResponse,
+    UserStatusResponse,
+)
 
 
 def test_mini_app_init_endpoint_exists():
@@ -122,3 +126,258 @@ def test_user_status_response_schema_invalid_share_percentage_type():
     # In real-world, API should validate share_percentage is 0, 1, or None
     # This test verifies the model structure is correct
     assert response.share_percentage == 2  # Pydantic accepts it, but backend should not send it
+
+
+# Payment Transaction Response Tests
+
+
+def test_payment_transaction_response_schema_valid():
+    """Verify PaymentTransactionResponse schema with valid data."""
+    response_data = {
+        "payment_id": 1,
+        "amount": "150.50",
+        "payment_date": "15.11.2025",
+        "account_name": "Взносы",
+        "comment": "Monthly contribution",
+    }
+    response = PaymentTransactionResponse(**response_data)
+    assert response.payment_id == 1
+    assert response.amount == "150.50"
+    assert response.payment_date == "15.11.2025"
+    assert response.account_name == "Взносы"
+    assert response.comment == "Monthly contribution"
+
+
+def test_payment_transaction_response_schema_no_comment():
+    """Verify PaymentTransactionResponse with null comment."""
+    response_data = {
+        "payment_id": 2,
+        "amount": "75.00",
+        "payment_date": "10.11.2025",
+        "account_name": "Траты",
+        "comment": None,
+    }
+    response = PaymentTransactionResponse(**response_data)
+    assert response.payment_id == 2
+    assert response.comment is None
+
+
+def test_payment_transaction_response_schema_zero_amount():
+    """Verify PaymentTransactionResponse with zero amount (edge case)."""
+    response_data = {
+        "payment_id": 3,
+        "amount": "0.00",
+        "payment_date": "01.01.2025",
+        "account_name": "Test",
+        "comment": None,
+    }
+    response = PaymentTransactionResponse(**response_data)
+    assert response.amount == "0.00"
+
+
+def test_payment_transaction_response_schema_missing_required_field():
+    """Verify ValidationError for missing required field."""
+    response_data = {
+        "payment_id": 4,
+        "amount": "100.00",
+        "payment_date": "15.11.2025",
+        # Missing account_name (required)
+    }
+    with pytest.raises(ValidationError):
+        PaymentTransactionResponse(**response_data)
+
+
+def test_payment_transaction_response_schema_invalid_amount_type():
+    """Verify ValidationError for numeric amount (should be string)."""
+    response_data = {
+        "payment_id": 5,
+        "amount": 150.50,  # Should be string
+        "payment_date": "15.11.2025",
+        "account_name": "Взносы",
+        "comment": None,
+    }
+    # Pydantic strictly requires string for amount field
+    with pytest.raises(ValidationError):
+        PaymentTransactionResponse(**response_data)
+
+
+def test_payment_transaction_response_schema_date_format():
+    """Verify PaymentTransactionResponse preserves DD.MM.YYYY date format."""
+    response_data = {
+        "payment_id": 6,
+        "amount": "100.00",
+        "payment_date": "01.01.2025",
+        "account_name": "Account",
+        "comment": None,
+    }
+    response = PaymentTransactionResponse(**response_data)
+    # Verify format is preserved
+    assert response.payment_date == "01.01.2025"
+    parts = response.payment_date.split(".")
+    assert len(parts) == 3
+    assert len(parts[0]) == 2  # DD
+    assert len(parts[1]) == 2  # MM
+    assert len(parts[2]) == 4  # YYYY
+
+
+# Payment List Response Tests
+
+
+def test_payment_list_response_schema_with_multiple_payments():
+    """Verify PaymentListResponse schema with multiple payments."""
+    payments_data = [
+        {
+            "payment_id": 1,
+            "amount": "150.50",
+            "payment_date": "15.11.2025",
+            "account_name": "Взносы",
+            "comment": "November contribution",
+        },
+        {
+            "payment_id": 2,
+            "amount": "75.00",
+            "payment_date": "10.11.2025",
+            "account_name": "Траты",
+            "comment": None,
+        },
+    ]
+    response_data = {
+        "payments": payments_data,
+        "total_count": 2,
+    }
+    response = PaymentListResponse(**response_data)
+    assert len(response.payments) == 2
+    assert response.total_count == 2
+    assert response.payments[0].payment_id == 1
+    assert response.payments[1].payment_id == 2
+
+
+def test_payment_list_response_schema_empty_payments():
+    """Verify PaymentListResponse with empty payments list."""
+    response_data = {
+        "payments": [],
+        "total_count": 0,
+    }
+    response = PaymentListResponse(**response_data)
+    assert len(response.payments) == 0
+    assert response.total_count == 0
+
+
+def test_payment_list_response_schema_total_count_matches_length():
+    """Verify total_count matches payments list length."""
+    payments_data = [
+        {
+            "payment_id": i,
+            "amount": f"{100 + i}.00",
+            "payment_date": "15.11.2025",
+            "account_name": "Взносы",
+            "comment": None,
+        }
+        for i in range(5)
+    ]
+    response_data = {
+        "payments": payments_data,
+        "total_count": len(payments_data),
+    }
+    response = PaymentListResponse(**response_data)
+    assert response.total_count == len(response.payments)
+    assert response.total_count == 5
+
+
+def test_payment_list_response_schema_missing_required_field():
+    """Verify ValidationError for missing required field."""
+    response_data = {
+        "payments": [],
+        # Missing total_count (required)
+    }
+    with pytest.raises(ValidationError):
+        PaymentListResponse(**response_data)
+
+
+def test_payment_list_response_schema_payments_ordering():
+    """Verify payments list can be ordered (by date descending)."""
+    payments_data = [
+        {
+            "payment_id": 1,
+            "amount": "100.00",
+            "payment_date": "15.11.2025",
+            "account_name": "Взносы",
+            "comment": None,
+        },
+        {
+            "payment_id": 2,
+            "amount": "200.00",
+            "payment_date": "10.11.2025",
+            "account_name": "Взносы",
+            "comment": None,
+        },
+        {
+            "payment_id": 3,
+            "amount": "150.00",
+            "payment_date": "20.11.2025",
+            "account_name": "Траты",
+            "comment": None,
+        },
+    ]
+    response_data = {
+        "payments": payments_data,
+        "total_count": 3,
+    }
+    response = PaymentListResponse(**response_data)
+    # Verify order is preserved (should be most recent first)
+    assert response.payments[0].payment_date == "15.11.2025"
+    assert response.payments[1].payment_date == "10.11.2025"
+    assert response.payments[2].payment_date == "20.11.2025"
+
+
+def test_payment_list_response_schema_large_amount():
+    """Verify PaymentListResponse handles large amounts."""
+    response_data = {
+        "payments": [
+            {
+                "payment_id": 1,
+                "amount": "999999.99",
+                "payment_date": "15.11.2025",
+                "account_name": "Large Payment",
+                "comment": None,
+            }
+        ],
+        "total_count": 1,
+    }
+    response = PaymentListResponse(**response_data)
+    assert response.payments[0].amount == "999999.99"
+
+
+def test_payment_list_response_schema_different_accounts():
+    """Verify PaymentListResponse with payments from different accounts."""
+    response_data = {
+        "payments": [
+            {
+                "payment_id": 1,
+                "amount": "100.00",
+                "payment_date": "15.11.2025",
+                "account_name": "Взносы",
+                "comment": None,
+            },
+            {
+                "payment_id": 2,
+                "amount": "50.00",
+                "payment_date": "14.11.2025",
+                "account_name": "Траты",
+                "comment": None,
+            },
+            {
+                "payment_id": 3,
+                "amount": "200.00",
+                "payment_date": "13.11.2025",
+                "account_name": "Other Account",
+                "comment": None,
+            },
+        ],
+        "total_count": 3,
+    }
+    response = PaymentListResponse(**response_data)
+    accounts = [p.account_name for p in response.payments]
+    assert "Взносы" in accounts
+    assert "Траты" in accounts
+    assert "Other Account" in accounts

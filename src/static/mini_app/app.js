@@ -151,6 +151,111 @@ function renderUserStatuses(roles) {
 }
 
 /**
+ * Load payment transactions from backend and render list
+ */
+async function loadPaymentTransactions() {
+    try {
+        const initData = tg.initData;
+        
+        if (!initData) {
+            console.error('No Telegram init data available');
+            return;
+        }
+        
+        // Fetch payments from backend
+        const response = await fetch('/api/mini-app/payments', {
+            method: 'GET',
+            headers: {
+                'X-Telegram-Init-Data': initData,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            console.error('Failed to load payments:', response.status, response.statusText);
+            return;
+        }
+        
+        const data = await response.json();
+        
+        // Render payment transactions
+        if (data.payments && Array.isArray(data.payments)) {
+            renderPaymentTransactions(data.payments);
+        }
+        
+    } catch (error) {
+        console.error('Error loading payment transactions:', error);
+    }
+}
+
+/**
+ * Render payment transactions list
+ */
+function renderPaymentTransactions(payments) {
+    const container = document.getElementById('transaction-list');
+    
+    if (!container) {
+        console.warn('Transaction list container not found');
+        return;
+    }
+    
+    container.innerHTML = '';
+    
+    if (!payments || payments.length === 0) {
+        container.innerHTML = '<div class="transaction-empty">No transactions yet</div>';
+        return;
+    }
+    
+    payments.forEach(payment => {
+        const transactionItem = document.createElement('div');
+        transactionItem.className = 'transaction-item';
+        
+        // Left section: date and account
+        const leftDiv = document.createElement('div');
+        leftDiv.className = 'transaction-item-left';
+        
+        const dateEl = document.createElement('div');
+        dateEl.className = 'transaction-item-date';
+        dateEl.textContent = payment.payment_date;
+        
+        const accountEl = document.createElement('div');
+        accountEl.className = 'transaction-item-account';
+        accountEl.textContent = payment.account_name;
+        
+        leftDiv.appendChild(dateEl);
+        leftDiv.appendChild(accountEl);
+        
+        // Right section: amount and optional comment
+        const rightDiv = document.createElement('div');
+        rightDiv.className = 'transaction-item-right';
+        
+        const amountEl = document.createElement('div');
+        amountEl.className = 'transaction-item-amount';
+        // Format amount: remove trailing .00 and add thousand delimiters
+        const amount = parseFloat(payment.amount);
+        const formattedAmount = amount % 1 === 0 
+            ? amount.toLocaleString('ru-RU')
+            : amount.toLocaleString('ru-RU', { minimumFractionDigits: 1, maximumFractionDigits: 2 });
+        amountEl.textContent = `₽.${formattedAmount}`;
+        
+        rightDiv.appendChild(amountEl);
+        
+        if (payment.comment) {
+            const commentEl = document.createElement('div');
+            commentEl.className = 'transaction-item-comment';
+            commentEl.title = payment.comment; // Show full comment on hover
+            commentEl.textContent = payment.comment;
+            rightDiv.appendChild(commentEl);
+        }
+        
+        transactionItem.appendChild(leftDiv);
+        transactionItem.appendChild(rightDiv);
+        
+        container.appendChild(transactionItem);
+    });
+}
+
+/**
  * Load user status from backend and render badges
  */
 async function loadUserStatus() {
@@ -314,6 +419,8 @@ async function initMiniApp() {
             renderWelcomeScreen(data);
             // Load and display user status badges after welcome screen renders
             await loadUserStatus();
+            // Load and display payment transactions
+            await loadPaymentTransactions();
         } else {
             renderAccessDenied(data);
         }
