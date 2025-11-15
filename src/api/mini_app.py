@@ -7,9 +7,12 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from src.bot.config import bot_config
+from src.models.payment import Payment
 from src.services import get_async_session
 from src.services.user_service import UserService, UserStatusService
 
@@ -27,6 +30,27 @@ class UserStatusResponse(BaseModel):
     roles: list[str]  # e.g., ["investor", "owner", "stakeholder"]
     stakeholder_url: str | None  # URL from environment, may be null
     share_percentage: int | None  # 1 (signed), 0 (unsigned owner), None (non-owner)
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PaymentTransactionResponse(BaseModel):
+    """Response schema for a single payment transaction."""
+
+    payment_id: int
+    amount: str  # Formatted decimal as string for display
+    payment_date: str  # Formatted as DD.MM.YYYY
+    account_name: str
+    comment: str | None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PaymentListResponse(BaseModel):
+    """Response schema for payment list endpoint."""
+
+    payments: list[PaymentTransactionResponse]
+    total_count: int
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -228,6 +252,91 @@ async def menu_action(
         raise
     except Exception as e:
         logger.error(f"Error in /api/mini-app/menu-action: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Server error") from e
+
+
+@router.get("/payments", response_model=PaymentListResponse)
+async def get_user_payments(
+    x_telegram_init_data: str = Header(..., alias="X-Telegram-Init-Data"),
+    session: AsyncSession = Depends(get_async_session),  # noqa: B008
+) -> PaymentListResponse:
+    """
+    Get current user's payment transactions for display in dashboard.
+
+    Returns list of user's payments sorted by date (most recent first).
+
+    Args:
+        x_telegram_init_data: Telegram WebApp initData (signature verification)
+        session: Database session
+
+    Returns:
+        PaymentListResponse with list of payment transactions
+
+    Raises:
+        401: Invalid Telegram signature
+        403: User not registered or inactive
+        500: Server error
+    """
+    try:
+        # Verify Telegram signature
+        parsed_data = UserService.verify_telegram_webapp_signature(
+            init_data=x_telegram_init_data, bot_token=bot_config.telegram_bot_token
+        )
+
+        if not parsed_data:
+            logger.warning("Invalid Telegram signature in /api/mini-app/payments")
+            raise HTTPException(status_code=401, detail="Invalid Telegram signature")
+
+        # Extract telegram_id from parsed data
+        user_data = json.loads(parsed_data.get("user", "{}"))
+        telegram_id = str(user_data.get("id"))
+
+        if not telegram_id:
+            raise HTTPException(status_code=401, detail="No user ID in init data")
+
+        # Get user from database
+        user_service = UserService(session)
+        user = await user_service.get_by_telegram_id(telegram_id)
+
+        if not user or not user.is_active:
+            logger.warning(f"Unauthorized access attempt: telegram_id={telegram_id}")
+            raise HTTPException(status_code=403, detail="User not registered or inactive")
+
+        # Query payments for this user, sorted by date descending (most recent first)
+        # Eagerly load the account relationship to avoid async issues
+        query = (
+            select(Payment)
+            .where(Payment.owner_id == user.id)
+            .order_by(desc(Payment.payment_date))
+            .options(selectinload(Payment.account))
+        )
+        result = await session.execute(query)
+        payments = result.scalars().all()
+
+        # Format payment responses
+        payment_responses = []
+        for payment in payments:
+            # Format date as DD.MM.YYYY
+            formatted_date = payment.payment_date.strftime("%d.%m.%Y")
+            # Format amount with 2 decimal places
+            formatted_amount = f"{float(payment.amount):.2f}"
+
+            payment_responses.append(
+                PaymentTransactionResponse(
+                    payment_id=payment.id,
+                    amount=formatted_amount,
+                    payment_date=formatted_date,
+                    account_name=payment.account.name,
+                    comment=payment.comment,
+                )
+            )
+
+        return PaymentListResponse(payments=payment_responses, total_count=len(payment_responses))
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in /api/mini-app/payments: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Server error") from e
 
 
