@@ -75,6 +75,12 @@ def upgrade() -> None:
         sa.Column("is_for_tenant", sa.Boolean(), nullable=False, server_default="0"),
         sa.Column("photo_link", sa.String(length=500), nullable=True),
         sa.Column("sale_price", sa.Numeric(precision=15, scale=2), nullable=True),
+        sa.Column(
+            "main_property_id",
+            sa.Integer(),
+            nullable=True,
+            comment="ID of main property if this is an additional property",
+        ),
         sa.Column("is_active", sa.Boolean(), nullable=False, server_default="1"),
         sa.Column(
             "created_at",
@@ -92,8 +98,13 @@ def upgrade() -> None:
             ["owner_id"],
             ["users.id"],
         ),
+        sa.ForeignKeyConstraint(
+            ["main_property_id"],
+            ["properties.id"],
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.Index("ix_properties_owner_id", "owner_id"),
+        sa.Index("ix_properties_main_property_id", "main_property_id"),
     )
 
     # Create access_requests table

@@ -90,6 +90,7 @@ def parse_property_row(row_dict: Dict[str, str], owner: User) -> List[Dict]:
             "photo_link": row_dict.get(photo_column, "").strip() or None,
             "sale_price": sale_price,
             "is_active": True,
+            "main_property_id": None,  # Main property has no parent
         }
         properties.append(main_property)
         logger.debug(f"Parsed main property: {property_name}")
@@ -123,6 +124,7 @@ def parse_property_row(row_dict: Dict[str, str], owner: User) -> List[Dict]:
                     "photo_link": None,
                     "sale_price": None,
                     "is_active": True,
+                    "main_property_id": None,  # Will be set in create_properties
                 }
                 properties.append(additional_property)
                 logger.debug(
@@ -139,6 +141,10 @@ def create_properties(session: Session, property_dicts: List[Dict], owner: User)
     """
     Create Property records in database.
 
+    The first property is treated as the main property. Additional properties
+    (those created from "Доп" column) are linked to the main property via
+    main_property_id foreign key.
+
     Args:
         session: SQLAlchemy session
         property_dicts: List of dicts with property attributes
@@ -154,12 +160,28 @@ def create_properties(session: Session, property_dicts: List[Dict], owner: User)
     created = []
 
     try:
-        for prop_dict in property_dicts:
-            prop = Property(**prop_dict)
-            session.add(prop)
-            session.flush()  # Get ID before full commit
-            created.append(prop)
-            logger.debug(f"Added property to session: {prop.property_name}")
+        main_property = None
+
+        for idx, prop_dict in enumerate(property_dicts):
+            # First property is the main property
+            if idx == 0:
+                prop = Property(**prop_dict)
+                session.add(prop)
+                session.flush()  # Get ID before full commit
+                main_property = prop
+                created.append(prop)
+                logger.debug(f"Created main property: {prop.property_name} (id={prop.id})")
+            else:
+                # Additional properties reference the main property
+                prop_dict["main_property_id"] = main_property.id
+                prop = Property(**prop_dict)
+                session.add(prop)
+                session.flush()
+                created.append(prop)
+                logger.debug(
+                    f"Created additional property: {prop.property_name} "
+                    f"(id={prop.id}, main_property_id={prop.main_property_id})"
+                )
 
         return created
 

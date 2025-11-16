@@ -31,8 +31,12 @@ class UserStatusResponse(BaseModel):
     stakeholder_url: str | None  # URL from environment, may be null
     share_percentage: int | None  # 1 (signed), 0 (unsigned owner), None (non-owner)
     representative_of: dict[str, int | str | None] | None = None  # User being represented, if any
-    represented_user_roles: list[str] | None = None  # Roles of represented user if representing someone
-    represented_user_share_percentage: int | None = None  # Share percentage of represented user if representing someone
+    represented_user_roles: list[str] | None = (
+        None  # Roles of represented user if representing someone
+    )
+    represented_user_share_percentage: int | None = (
+        None  # Share percentage of represented user if representing someone
+    )
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -53,6 +57,31 @@ class PaymentListResponse(BaseModel):
     """Response schema for payment list endpoint."""
 
     payments: list[PaymentTransactionResponse]
+    total_count: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PropertyResponse(BaseModel):
+    """Response schema for a single property."""
+
+    id: int
+    property_name: str
+    type: str
+    share_weight: str | None  # Formatted decimal as string for display
+    is_ready: bool
+    is_for_tenant: bool
+    photo_link: str | None
+    sale_price: str | None  # Formatted decimal as string for display
+    main_property_id: int | None  # ID of parent property if this is an additional property
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PropertyListResponse(BaseModel):
+    """Response schema for properties list endpoint."""
+
+    properties: list[PropertyResponse]
     total_count: int
 
     model_config = ConfigDict(from_attributes=True)
@@ -429,7 +458,9 @@ async def get_user_status(
                 }
                 # Get represented user's roles and share percentage for context switching
                 represented_user_roles = UserStatusService.get_active_roles(represented_user)
-                represented_user_share_percentage = UserStatusService.get_share_percentage(represented_user)
+                represented_user_share_percentage = UserStatusService.get_share_percentage(
+                    represented_user
+                )
 
         return UserStatusResponse(
             user_id=user.id,
@@ -445,6 +476,116 @@ async def get_user_status(
         raise
     except Exception as e:
         logger.error(f"Error in /api/mini-app/user-status: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Server error") from e
+
+
+@router.get("/properties")
+async def get_properties(
+    x_telegram_init_data: str = Header(..., alias="X-Telegram-Init-Data"),
+    session: AsyncSession = Depends(get_async_session),  # noqa: B008
+) -> PropertyListResponse:
+    """
+    Get properties for owner or represented owner.
+
+    Returns properties owned by the authenticated user if they are an owner,
+    or properties of the user they represent if applicable.
+    Uses context switching: if user represents someone, returns their properties.
+
+    Args:
+        x_telegram_init_data: Telegram WebApp initData (signature verification)
+        session: Database session
+
+    Returns:
+        PropertyListResponse with list of properties and total count
+
+    Raises:
+        401: Invalid Telegram signature
+        403: User not registered, inactive, or not an owner
+        500: Server error
+    """
+    try:
+        # Verify Telegram signature
+        parsed_data = UserService.verify_telegram_webapp_signature(
+            init_data=x_telegram_init_data, bot_token=bot_config.telegram_bot_token
+        )
+
+        if not parsed_data:
+            logger.warning("Invalid Telegram signature in /api/mini-app/properties")
+            raise HTTPException(status_code=401, detail="Invalid Telegram signature")
+
+        # Extract telegram_id from parsed data
+        user_data = json.loads(parsed_data.get("user", "{}"))
+        telegram_id = str(user_data.get("id"))
+
+        if not telegram_id:
+            raise HTTPException(status_code=401, detail="No user ID in init data")
+
+        # Get user from database
+        user_service = UserService(session)
+        user = await user_service.get_by_telegram_id(telegram_id)
+
+        if not user or not user.is_active:
+            logger.warning(f"Unauthorized access attempt: telegram_id={telegram_id}")
+            raise HTTPException(status_code=403, detail="User not registered or inactive")
+
+        # Determine target user for property lookup (context switching)
+        target_user_id = user.id
+        is_owner = user.is_owner
+
+        # If user represents someone, switch context to represented user
+        if user.representative_id:
+            user_status_service = UserStatusService(session)
+            represented_user = await user_status_service.get_represented_user(user.id)
+            if represented_user:
+                target_user_id = represented_user.id
+                is_owner = represented_user.is_owner
+
+        # Only owners can view properties
+        if not is_owner:
+            logger.warning(f"Non-owner attempted to access properties: telegram_id={telegram_id}")
+            raise HTTPException(status_code=403, detail="Only owners can view properties")
+
+        # Fetch properties for target user (context-switched if representing)
+        from src.models.property import Property
+
+        stmt = (
+            select(Property)
+            .where(
+                Property.owner_id == target_user_id,
+                Property.is_active == True,  # noqa: E712
+            )
+            .order_by(Property.id)
+        )  # Sort by ID ascending for consistent ordering
+
+        result = await session.execute(stmt)
+        properties = result.scalars().all()
+
+        # Format response
+        property_responses = []
+        for prop in properties:
+            property_responses.append(
+                PropertyResponse(
+                    id=prop.id,
+                    property_name=prop.property_name,
+                    type=prop.type,
+                    share_weight=str(prop.share_weight) if prop.share_weight else None,
+                    is_ready=prop.is_ready,
+                    is_for_tenant=prop.is_for_tenant,
+                    photo_link=prop.photo_link,
+                    sale_price=str(prop.sale_price) if prop.sale_price else None,
+                    main_property_id=prop.main_property_id,
+                )
+            )
+
+        return PropertyListResponse(
+            properties=property_responses,
+            total_count=len(property_responses),
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in /api/mini-app/properties: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Server error") from e
 
 

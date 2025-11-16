@@ -221,8 +221,6 @@ class UserStatusService:
             roles.append("owner")
         if user.is_staff:
             roles.append("staff")
-        if user.is_stakeholder and user.is_owner:  # stakeholder only meaningful for owners
-            roles.append("stakeholder")
         if user.is_tenant:
             roles.append("tenant")
 

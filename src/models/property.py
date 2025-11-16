@@ -27,6 +27,7 @@ class Property(Base, BaseModel):
         nullable=False,
         index=True,
     )
+
     property_name: Mapped[str] = mapped_column(
         String(100),
         nullable=False,
@@ -81,11 +82,34 @@ class Property(Base, BaseModel):
         comment="Selling price of the property",
     )
 
+    # Self-referential FK for hierarchical property relationships
+    main_property_id: Mapped[int | None] = mapped_column(
+        ForeignKey("properties.id"),
+        nullable=True,
+        index=True,
+        comment="ID of main property if this is an additional property",
+    )
+
     # Relationships
     owner: Mapped["User"] = relationship(  # noqa: F821
         "User",
         back_populates="properties",
         foreign_keys=[owner_id],
+    )
+
+    # Self-referential relationship for additional properties
+    main_property: Mapped["Property | None"] = relationship(
+        "Property",
+        remote_side="Property.id",
+        back_populates="additional_properties",
+        foreign_keys="Property.main_property_id",
+    )
+
+    additional_properties: Mapped[list["Property"]] = relationship(
+        "Property",
+        back_populates="main_property",
+        foreign_keys="Property.main_property_id",
+        viewonly=True,
     )
 
     # Indexes for common queries
@@ -97,6 +121,7 @@ class Property(Base, BaseModel):
     def __repr__(self) -> str:
         return (
             f"<Property(id={self.id}, owner_id={self.owner_id}, "
+            f"main_property_id={self.main_property_id}, "
             f"property_name={self.property_name!r}, type={self.type!r}, "
             f"share_weight={self.share_weight}, is_active={self.is_active}, "
             f"is_ready={self.is_ready}, is_for_tenant={self.is_for_tenant}, "

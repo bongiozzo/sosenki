@@ -236,7 +236,7 @@ function renderPaymentTransactions(payments) {
         const formattedAmount = amount % 1 === 0 
             ? amount.toLocaleString('ru-RU')
             : amount.toLocaleString('ru-RU', { minimumFractionDigits: 1, maximumFractionDigits: 2 });
-        amountEl.textContent = `₽.${formattedAmount}`;
+        amountEl.textContent = `₽${formattedAmount}`;
         
         rightDiv.appendChild(amountEl);
         
@@ -296,6 +296,17 @@ async function loadUserStatus() {
         const sharePercentageToDisplay = isRepresenting ? data.represented_user_share_percentage : data.share_percentage;
         const isOwner = sharePercentageToDisplay !== null; // Owner if share_percentage is 1 or 0 (not null)
         renderStakeholderLink(data.stakeholder_url || null, isOwner, sharePercentageToDisplay);
+
+        // Load properties if user is an owner
+        if (isOwner) {
+            await loadProperties();
+        } else {
+            // Hide properties section if not an owner
+            const container = document.getElementById('properties-container');
+            if (container) {
+                container.classList.remove('visible');
+            }
+        }
 
         // Render representative info (always call to ensure proper hiding when no data)
         renderRepresentativeInfo(data.representative_of || null);
@@ -471,7 +482,203 @@ async function initMiniApp() {
     }
 }
 
-// Start the app when DOM is ready
+/**
+ * Render properties list with hierarchical grouping (main properties and additional properties)
+ * @param {Array<Object>} properties - Array of property objects
+ */
+function renderProperties(properties) {
+    const container = document.getElementById('properties-container');
+    const listContainer = document.getElementById('properties-list');
+
+    if (!container || !listContainer) {
+        console.warn('Properties container not found');
+        return;
+    }
+
+    // Clear existing content
+    listContainer.innerHTML = '';
+
+    // Hide if no properties
+    if (!properties || properties.length === 0) {
+        container.classList.remove('visible');
+        return;
+    }
+
+    // Show container if there are properties
+    container.classList.add('visible');
+
+    // Build property hierarchy: separate main properties from additional ones
+    const mainProperties = properties.filter(p => !p.main_property_id)
+        .sort((a, b) => a.id - b.id);
+    const additionalProperties = properties.filter(p => p.main_property_id);
+    
+    // Create a map for quick lookup of additional properties by main_property_id
+    const additionalMap = {};
+    additionalProperties.forEach(prop => {
+        if (!additionalMap[prop.main_property_id]) {
+            additionalMap[prop.main_property_id] = [];
+        }
+        additionalMap[prop.main_property_id].push(prop);
+    });
+    
+    // Sort additional properties within each group by ID
+    Object.keys(additionalMap).forEach(mainId => {
+        additionalMap[mainId].sort((a, b) => a.id - b.id);
+    });
+
+    // Helper function to create property item element
+    function createPropertyElement(property, isAdditional = false) {
+        const item = document.createElement('div');
+        item.className = `property-item ${isAdditional ? 'is-additional-property' : 'is-main-property'}`;
+
+        // Create info section
+        const info = document.createElement('div');
+        info.className = 'property-info';
+
+        // Property name with parent indicator for additional properties
+        const nameEl = document.createElement('div');
+        nameEl.className = 'property-name';
+        if (isAdditional) {
+            nameEl.textContent = '└─ ' + property.property_name;
+        } else {
+            nameEl.textContent = property.property_name;
+        }
+        info.appendChild(nameEl);
+
+        // Property type
+        if (property.type) {
+            const typeEl = document.createElement('div');
+            typeEl.className = 'property-type';
+            typeEl.textContent = property.type;
+            info.appendChild(typeEl);
+        }
+
+        // Meta information (badges and additional info)
+        const metaEl = document.createElement('div');
+        metaEl.className = 'property-meta';
+
+        if (!property.is_ready) {
+            const readyBadge = document.createElement('span');
+            readyBadge.className = 'property-badge not-ready';
+            readyBadge.textContent = 'Not Ready';
+            metaEl.appendChild(readyBadge);
+        }
+
+        if (property.is_for_tenant) {
+            const tenantBadge = document.createElement('span');
+            tenantBadge.className = 'property-badge tenant';
+            tenantBadge.textContent = 'Tenant';
+            metaEl.appendChild(tenantBadge);
+        }
+
+        if (property.share_weight) {
+            const weightBadge = document.createElement('span');
+            weightBadge.className = 'property-badge';
+            weightBadge.textContent = `Weight: ${property.share_weight}`;
+            metaEl.appendChild(weightBadge);
+        }
+
+        if (property.sale_price) {
+            const priceBadge = document.createElement('span');
+            priceBadge.className = 'property-badge';
+            const price = parseFloat(property.sale_price);
+            const formattedPrice = price % 1 === 0 
+                ? price.toLocaleString('ru-RU')
+                : price.toLocaleString('ru-RU', { minimumFractionDigits: 1, maximumFractionDigits: 2 });
+            priceBadge.textContent = `₽${formattedPrice}`;
+            metaEl.appendChild(priceBadge);
+        }
+
+        if (metaEl.children.length > 0) {
+            info.appendChild(metaEl);
+        }
+
+        // Photo link (if available)
+        if (property.photo_link) {
+            const photoLinkEl = document.createElement('div');
+            photoLinkEl.className = 'property-photo-link';
+            const linkEl = document.createElement('a');
+            linkEl.href = property.photo_link;
+            linkEl.target = '_blank';
+            linkEl.rel = 'noopener noreferrer';
+            linkEl.textContent = 'View Photos';
+            photoLinkEl.appendChild(linkEl);
+            info.appendChild(photoLinkEl);
+        }
+
+        item.appendChild(info);
+        return item;
+    }
+
+    // Render main properties and their additional properties
+    console.log('Rendering properties - Main:', mainProperties.length, 'Additional groups:', Object.keys(additionalMap).length);
+    
+    mainProperties.forEach(mainProperty => {
+        // Render main property
+        const mainItem = createPropertyElement(mainProperty, false);
+        listContainer.appendChild(mainItem);
+        console.log('Rendered main property:', mainProperty.id, mainProperty.property_name);
+
+        // Render additional properties under this main property
+        const children = additionalMap[mainProperty.id] || [];
+        children.forEach(additionalProperty => {
+            const childItem = createPropertyElement(additionalProperty, true);
+            listContainer.appendChild(childItem);
+            console.log('  └─ Rendered additional property:', additionalProperty.id, additionalProperty.property_name);
+        });
+    });
+    
+    console.log('Total items rendered:', listContainer.children.length);
+}
+
+/**
+ * Load properties from backend and render list
+ */
+async function loadProperties() {
+    try {
+        const initData = tg.initData;
+
+        if (!initData) {
+            console.error('No Telegram init data available');
+            return;
+        }
+
+        // Fetch properties from backend
+        const response = await fetch('/api/mini-app/properties', {
+            method: 'GET',
+            headers: {
+                'X-Telegram-Init-Data': initData,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            if (response.status === 403) {
+                // User is not an owner, hide properties section
+                const container = document.getElementById('properties-container');
+                if (container) {
+                    container.classList.remove('visible');
+                }
+                return;
+            }
+            console.error('Failed to load properties:', response.status, response.statusText);
+            return;
+        }
+
+        const data = await response.json();
+
+        if (data.properties && Array.isArray(data.properties)) {
+            renderProperties(data.properties);
+        }
+
+    } catch (error) {
+        console.error('Error loading properties:', error);
+    }
+}
+
+/**
+ * Start the app when DOM is ready
+ */
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initMiniApp);
 } else {
