@@ -161,6 +161,9 @@ function renderError(message, error = null) {
     const debugInfoEl = content.getElementById('debug-info');
     debugInfoEl.textContent = JSON.stringify(debugInfo, null, 2);
     
+    // Store debug info globally for copy function
+    window.currentDebugInfo = JSON.stringify(debugInfo, null, 2);
+    
     // Log to console with breakdown
     console.error('Mini App Error:', debugInfo);
     console.error('[DEBUG] Telegram WebApp state:', debugInfo.telegramWebApp);
@@ -169,6 +172,23 @@ function renderError(message, error = null) {
     // Clear and render
     appContainer.innerHTML = '';
     appContainer.appendChild(content);
+}
+
+/**
+ * Copy debug info to clipboard
+ */
+function copyDebugInfo() {
+    if (!window.currentDebugInfo) {
+        alert('No debug info available');
+        return;
+    }
+    
+    navigator.clipboard.writeText(window.currentDebugInfo).then(() => {
+        alert('Debug info copied to clipboard');
+    }).catch(err => {
+        console.error('Failed to copy:', err);
+        alert('Failed to copy debug info');
+    });
 }
 
 /**
@@ -203,103 +223,126 @@ function renderUserStatuses(roles) {
     });
 }
 
+
+
 /**
- * Load debit transactions from backend and render list
+ * Format date to locale string (e.g., "Nov 19, 2025")
  */
-async function loadDebitTransactions() {
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+    });
+}
+
+/**
+ * Format amount with 2 decimal places and locale-specific formatting
+ */
+function formatAmount(amount) {
+    return new Intl.NumberFormat('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).format(amount);
+}
+
+/**
+ * Load and render transactions from backend
+ * @param {string} containerId - ID of container to render transactions into
+ * @param {string} scope - Scope for filtering ('personal' or 'all'). Defaults to 'personal'
+ */
+async function loadTransactions(containerId = 'transactions-list', scope = 'personal') {
     try {
         const initData = getInitData();
         
         if (!initData) {
-            console.error('[DEBUG loadDebitTransactions] No init data available from getInitData()');
+            console.error('[DEBUG loadTransactions] No init data available from getInitData()');
             return;
         }
 
-        // Fetch debits from backend
-        const response = await fetchWithTmaAuth('/api/mini-app/debits', initData);
+        // Fetch transactions from backend with scope parameter
+        const url = `/api/mini-app/transactions-list?scope=${scope}`;
+        const response = await fetchWithTmaAuth(url, initData);
 
         if (!response.ok) {
-            console.error('[DEBUG loadDebitTransactions] Failed to load debits:', response.status, response.statusText);
+            console.error('[DEBUG loadTransactions] Failed to load transactions:', response.status, response.statusText);
             const errorText = await response.text();
-            console.error('[DEBUG loadDebitTransactions] Error response:', errorText);
+            console.error('[DEBUG loadTransactions] Error response:', errorText);
             return;
         }
         
         const data = await response.json();
         
-        // Render debit transactions
-        if (data.debits && Array.isArray(data.debits)) {
-            renderDebitTransactions(data.debits);
+        // Render transactions
+        if (data.transactions && Array.isArray(data.transactions)) {
+            renderTransactionsList(data.transactions, containerId);
         }
         
     } catch (error) {
-        console.error('[DEBUG loadDebitTransactions] Exception:', error);
-        console.error('[DEBUG loadDebitTransactions] Error message:', error.message);
+        console.error('[DEBUG loadTransactions] Exception:', error);
+        console.error('[DEBUG loadTransactions] Error message:', error.message);
     }
 }
 
 /**
- * Render debit transactions list
+ * Render transactions list into specified container
+ * @param {Array} transactions - Array of transaction objects
+ * @param {string} containerId - ID of container to render into
  */
-function renderDebitTransactions(debits) {
-    const container = document.getElementById('transaction-list');
+function renderTransactionsList(transactions, containerId = 'transactions-list') {
+    const container = document.getElementById(containerId);
     
     if (!container) {
-        console.warn('Transaction list container not found');
+        console.warn(`Transaction list container '${containerId}' not found`);
         return;
     }
     
     container.innerHTML = '';
     
-    if (!debits || debits.length === 0) {
+    if (!transactions || transactions.length === 0) {
         container.innerHTML = '<div class="transaction-empty">No transactions yet</div>';
         return;
     }
     
-    debits.forEach(debit => {
+    transactions.forEach(transaction => {
         const transactionItem = document.createElement('div');
         transactionItem.className = 'transaction-item';
         
-        // Left section: date and account
+        // Header row: date and accounts with amount
+        const headerDiv = document.createElement('div');
+        headerDiv.className = 'transaction-item-header';
+        
         const leftDiv = document.createElement('div');
         leftDiv.className = 'transaction-item-left';
         
         const dateEl = document.createElement('div');
         dateEl.className = 'transaction-item-date';
-        dateEl.textContent = debit.debit_date;
+        dateEl.textContent = formatDate(transaction.date);
         
         const accountEl = document.createElement('div');
         accountEl.className = 'transaction-item-account';
-        accountEl.textContent = debit.account_name;
+        accountEl.textContent = `${transaction.from_ac_name} → ${transaction.to_ac_name}`;
         
         leftDiv.appendChild(dateEl);
         leftDiv.appendChild(accountEl);
         
-        // Right section: amount and optional comment
-        const rightDiv = document.createElement('div');
-        rightDiv.className = 'transaction-item-right';
-        
         const amountEl = document.createElement('div');
         amountEl.className = 'transaction-item-amount';
-        // Format amount: remove trailing .00 and add thousand delimiters
-        const amount = parseFloat(debit.amount);
-        const formattedAmount = amount % 1 === 0 
-            ? amount.toLocaleString('ru-RU')
-            : amount.toLocaleString('ru-RU', { minimumFractionDigits: 1, maximumFractionDigits: 2 });
-        amountEl.textContent = `₽${formattedAmount}`;
+        amountEl.textContent = `₽${formatAmount(transaction.amount)}`;
         
-        rightDiv.appendChild(amountEl);
+        headerDiv.appendChild(leftDiv);
+        headerDiv.appendChild(amountEl);
         
-        if (debit.comment) {
-            const commentEl = document.createElement('div');
-            commentEl.className = 'transaction-item-comment';
-            commentEl.title = debit.comment; // Show full comment on hover
-            commentEl.textContent = debit.comment;
-            rightDiv.appendChild(commentEl);
+        transactionItem.appendChild(headerDiv);
+        
+        // Description line (if exists)
+        if (transaction.description) {
+            const descriptionEl = document.createElement('div');
+            descriptionEl.className = 'transaction-item-description';
+            descriptionEl.textContent = transaction.description;
+            transactionItem.appendChild(descriptionEl);
         }
-        
-        transactionItem.appendChild(leftDiv);
-        transactionItem.appendChild(rightDiv);
         
         container.appendChild(transactionItem);
     });
@@ -485,6 +528,35 @@ async function handleMenuAction(action) {
 }
 
 /**
+ * Navigate to transactions page
+ */
+function navigateToTransactions(event) {
+    event.preventDefault();
+    
+    // Show transactions page
+    const template = document.getElementById('transactions-template');
+    if (!template) {
+        console.error('Transactions template not found');
+        return;
+    }
+    
+    const content = template.content.cloneNode(true);
+    appContainer.innerHTML = '';
+    appContainer.appendChild(content);
+    
+    // Load all organization transactions
+    loadTransactions('transactions-list', 'all');
+}
+
+/**
+ * Go back to welcome screen
+ */
+function goBackToWelcome() {
+    // Reload to show welcome screen again
+    location.reload();
+}
+
+/**
  * Initialize Mini App
  */
 async function initMiniApp() {
@@ -520,8 +592,8 @@ async function initMiniApp() {
                 renderWelcomeScreen(data);
                 // Load and display user status badges after welcome screen renders
                 await loadUserStatus();
-                // Load and display debit transactions
-                await loadDebitTransactions();
+                // Load and display personal transactions
+                await loadTransactions('transactions-list', 'personal');
             } else {
                 renderAccessDenied(data);
             }
