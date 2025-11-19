@@ -14,7 +14,7 @@
     
     <!-- Welcome Screen Template (registered user) -->
     <template id="welcome-template">
-        <div class="welcome-container">
+        <div class="page-container">
             <header class="header">
                 <h1 class="brand">SOSenki</h1>
                 <p class="tagline">Welcome back, <span id="user-name">User</span></p>
@@ -59,10 +59,29 @@
             </section>
             
             <!-- Transaction List Section -->
-            <section id="transaction-list-container" class="transaction-section">
-                <h2>Transactions</h2>
-                <div id="transaction-list"></div>
+            <section id="transactions-section" class="transactions-section">
+                <div class="section-header">
+                    <h2>Transactions</h2>
+                    <a href="#" class="view-all-link" onclick="navigateToTransactions(event)">View All →</a>
+                </div>
+                <div id="transactions-list"></div>
             </section>
+        </div>
+    </template>
+    
+    <!-- Transactions Page Template -->
+    <template id="transactions-template">
+        <div class="page-container">
+            <header class="header">
+                <button class="back-button" onclick="goBackToWelcome()">← Back</button>
+                <h1>Transactions</h1>
+            </header>
+            
+            <main class="transactions-main">
+                <div id="transactions-list" class="transactions-list">
+                    <!-- Transactions will be rendered here -->
+                </div>
+            </main>
         </div>
     </template>
     
@@ -92,6 +111,9 @@
                 <details style="margin-top: 16px; text-align: left; background: #f5f5f5; padding: 8px; border-radius: 4px; font-size: 12px;">
                     <summary style="cursor: pointer; font-weight: 600;">Debug Info</summary>
                     <pre id="debug-info" style="overflow-x: auto; margin-top: 8px; white-space: pre-wrap; word-wrap: break-word; font-size: 11px;"></pre>
+                    <button class="copy-button" onclick="copyDebugInfo()" style="margin-top: 8px; padding: 6px 12px; background: #0099cc; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">
+                        Copy Debug Info
+                    </button>
                 </details>
                 <button class="retry-button" onclick="location.reload()">
                     Retry

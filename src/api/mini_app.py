@@ -7,7 +7,7 @@ from typing import Any
 
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import and_, desc, select
+from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -75,25 +75,7 @@ class UserStatusResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class DebitTransactionResponse(BaseModel):
-    """Response schema for a single debit transaction."""
 
-    debit_id: int
-    amount: str  # Formatted decimal as string for display
-    debit_date: str  # Formatted as DD.MM.YYYY
-    account_name: str
-    comment: str | None
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class DebitListResponse(BaseModel):
-    """Response schema for debit list endpoint."""
-
-    debits: list[DebitTransactionResponse]
-    total_count: int
-
-    model_config = ConfigDict(from_attributes=True)
 
 
 class PropertyResponse(BaseModel):
@@ -345,100 +327,7 @@ async def menu_action(
         raise HTTPException(status_code=500, detail="Server error") from e
 
 
-@router.post("/debits", response_model=DebitListResponse)
-async def get_user_debits(
-    session: AsyncSession = Depends(get_async_session),  # noqa: B008
-    authorization: str | None = Header(None, alias="Authorization"),
-    body: dict[str, Any] | None = Body(None),
-) -> DebitListResponse:
-    """
-    Get current user's debit transactions for display in dashboard.
 
-    Returns list of user's debits sorted by date (most recent first).
-
-    Args:
-        session: Database session
-
-    Returns:
-        DebitListResponse with list of debit transactions
-
-    Raises:
-        401: Invalid Telegram signature
-        403: User not registered or inactive
-        500: Server error
-    """
-    try:
-        # Extract and verify Telegram signature
-        raw_init = _extract_init_data(authorization, None, body)
-        parsed_data = UserService.verify_telegram_webapp_signature(
-            init_data=raw_init or "", bot_token=bot_config.telegram_bot_token
-        )
-
-        if not parsed_data:
-            logger.warning("Invalid Telegram signature in /api/mini-app/debits")
-            raise HTTPException(status_code=401, detail="Invalid Telegram signature")
-
-        # Extract telegram_id from parsed data
-        user_data = json.loads(parsed_data.get("user", "{}"))
-        telegram_id = str(user_data.get("id"))
-
-        if not telegram_id:
-            raise HTTPException(status_code=401, detail="No user ID in init data")
-
-        # Get user from database
-        user_service = UserService(session)
-        user = await user_service.get_by_telegram_id(telegram_id)
-
-        if not user or not user.is_active:
-            logger.warning(f"Unauthorized access attempt: telegram_id={telegram_id}")
-            raise HTTPException(status_code=403, detail="User not registered or inactive")
-
-        # Determine which user's debits to fetch
-        # If this user represents someone, fetch debits for the represented user
-        target_user_id = user.id
-        if user.representative_id:
-            user_status_service = UserStatusService(session)
-            represented_user = await user_status_service.get_represented_user(user.id)
-            if represented_user:
-                target_user_id = represented_user.id
-
-        # Query transactions where this user is the payer (from_account belongs to user)
-        # Eagerly load the from_account and to_account relationships
-        query = (
-            select(Transaction)
-            .join(Account, Transaction.from_account_id == Account.id)
-            .where(Account.user_id == target_user_id)
-            .order_by(desc(Transaction.transaction_date))
-            .options(selectinload(Transaction.from_account), selectinload(Transaction.to_account))
-        )
-        result = await session.execute(query)
-        transactions = result.scalars().all()
-
-        # Format debit responses
-        debit_responses = []
-        for transaction in transactions:
-            # Format date as DD.MM.YYYY
-            formatted_date = transaction.transaction_date.strftime("%d.%m.%Y")
-            # Format amount with 2 decimal places
-            formatted_amount = f"{float(transaction.amount):.2f}"
-
-            debit_responses.append(
-                DebitTransactionResponse(
-                    debit_id=transaction.id,
-                    amount=formatted_amount,
-                    debit_date=formatted_date,
-                    account_name=transaction.to_account.name,
-                    comment=transaction.description,
-                )
-            )
-
-        return DebitListResponse(debits=debit_responses, total_count=len(debit_responses))
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error in /api/mini-app/debits: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Server error") from e
 
 
 @router.post("/user-status", response_model=UserStatusResponse)
@@ -648,6 +537,147 @@ async def get_properties(
         raise
     except Exception as e:
         logger.error(f"Error in /api/mini-app/properties: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Server error") from e
+
+
+# Transaction Response Models
+class TransactionResponse(BaseModel):
+    """Response model for a single transaction."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    from_ac_name: str
+    """Account name the transaction is from."""
+
+    to_ac_name: str
+    """Account name the transaction is to."""
+
+    amount: float
+    """Transaction amount."""
+
+    date: str
+    """Transaction date in ISO format."""
+
+    description: str | None = None
+    """Optional transaction description."""
+
+
+class TransactionListResponse(BaseModel):
+    """Response for transactions list."""
+
+    transactions: list[TransactionResponse]
+
+
+@router.post("/transactions-list")
+async def transactions_list(
+    scope: str = "all",
+    authorization: str | None = Header(None),
+    x_telegram_init_data: str | None = Header(None),
+    body: dict[str, Any] | None = Body(None),
+    db: AsyncSession = Depends(get_async_session),
+) -> TransactionListResponse:
+    """Get list of transactions.
+
+    Args:
+        scope: Filter scope - 'personal' returns only user's transactions,
+               'all' (default) returns all organization transactions.
+
+    Returns all transactions or user's transactions based on scope parameter.
+    """
+    # Extract and verify init data
+    init_data_raw = _extract_init_data(authorization, x_telegram_init_data, body)
+    parsed_data = UserService.verify_telegram_webapp_signature(
+        init_data=init_data_raw or "", bot_token=bot_config.telegram_bot_token
+    )
+
+    if not parsed_data:
+        logger.warning("Invalid Telegram signature in /api/mini-app/transactions-list")
+        raise HTTPException(status_code=401, detail="Invalid Telegram signature")
+
+    # Extract telegram_id from parsed data
+    user_data = json.loads(parsed_data.get("user", "{}"))
+    telegram_id = str(user_data.get("id"))
+
+    if not telegram_id:
+        raise HTTPException(status_code=401, detail="No user ID in init data")
+
+    try:
+        # Get user from database
+        user_service = UserService(db)
+        user = await user_service.get_by_telegram_id(telegram_id)
+
+        if not user or not user.is_active:
+            logger.warning(f"Unauthorized access attempt: telegram_id={telegram_id}")
+            raise HTTPException(status_code=403, detail="User not registered or inactive")
+
+        user_id = user.id
+
+        # Get user's accounts for personal scope filtering
+        user_accounts_stmt = select(Account).where(Account.user_id == user_id)
+        result = await db.execute(user_accounts_stmt)
+        user_accounts = result.scalars().all()
+        account_ids = [acc.id for acc in user_accounts]
+
+        if not account_ids and scope == "personal":
+            # No transactions if user has no accounts
+            return TransactionListResponse(transactions=[])
+
+        # Get all transactions involving user's accounts
+        # Use separate joins for from and to accounts
+        from_account_alias = (
+            select(Account.name.label("from_ac_name"))
+            .where(Account.id == Transaction.from_account_id)
+            .correlate(Transaction)
+            .scalar_subquery()
+        )
+
+        to_account_alias = (
+            select(Account.name.label("to_ac_name"))
+            .where(Account.id == Transaction.to_account_id)
+            .correlate(Transaction)
+            .scalar_subquery()
+        )
+
+        # Build WHERE clause based on scope
+        where_clause = []
+        if scope == "personal" and account_ids:
+            where_clause = [
+                (Transaction.from_account_id.in_(account_ids))
+                | (Transaction.to_account_id.in_(account_ids))
+            ]
+
+        trans_stmt = (
+            select(
+                from_account_alias.label("from_ac_name"),
+                to_account_alias.label("to_ac_name"),
+                Transaction.amount,
+                Transaction.transaction_date,
+                Transaction.description,
+            )
+            .order_by(Transaction.transaction_date.desc())
+        )
+
+        if where_clause:
+            trans_stmt = trans_stmt.where(*where_clause)
+
+        result = await db.execute(trans_stmt)
+        transactions_data = result.all()
+
+        transactions_list_data = [
+            TransactionResponse(
+                from_ac_name=row[0] or "Unknown",
+                to_ac_name=row[1] or "Unknown",
+                amount=float(row[2]),
+                date=row[3].isoformat() if row[3] else "",
+                description=row[4],
+            )
+            for row in transactions_data
+        ]
+
+        return TransactionListResponse(transactions=transactions_list_data)
+
+    except Exception as e:
+        logger.error(f"Error in /api/mini-app/transactions-list: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Server error") from e
 
 
