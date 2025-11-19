@@ -23,12 +23,12 @@ from src.services.credit_seeding import (
     parse_credit_range_with_service_period,
     parse_credit_row,
 )
-from src.services.errors import DatabaseError, TransactionError
-from src.services.google_sheets import GoogleSheetsClient
 from src.services.debit_seeding import (
     parse_debit_range_with_service_period,
     parse_debit_row,
 )
+from src.services.errors import DatabaseError, TransactionError
+from src.services.google_sheets import GoogleSheetsClient
 from src.services.property_seeding import create_properties, parse_property_row
 from src.services.seeding_utils import (
     get_or_create_user,
@@ -279,11 +279,11 @@ class SeededService:
                             # Parse debit rows
                             debit_dicts: List[Dict] = []
                             account_column = config.get_debit_account_column()
-                            
+
                             for row_idx, row_values in enumerate(debit_data_rows, start=1):
                                 try:
                                     row_dict = sheet_row_to_dict(row_values, debit_header_row)
-                                    debit_dict = parse_debit_row(row_dict, account_column)
+                                    debit_dict = parse_debit_row(row_dict, account_column, config)
                                     if debit_dict:
                                         debit_dicts.append(debit_dict)
                                 except Exception as e:
@@ -297,10 +297,12 @@ class SeededService:
                             # Get service period info for this range
                             if debit_dicts:
                                 try:
-                                    debit_dicts, period_info = parse_debit_range_with_service_period(
-                                        debit_dicts, debit_range_name, config
+                                    debit_dicts, period_info = (
+                                        parse_debit_range_with_service_period(
+                                            debit_dicts, debit_range_name, config
+                                        )
                                     )
-                                    
+
                                     # Get or create service period from info
                                     service_period = get_or_create_service_period(
                                         self.session,
@@ -308,7 +310,7 @@ class SeededService:
                                         period_info["start_date"],
                                         period_info["end_date"],
                                     )
-                                    
+
                                     # Create transactions using new service
                                     range_debits = create_debit_transactions(
                                         self.session,
@@ -319,7 +321,9 @@ class SeededService:
                                     )
                                     total_debits += range_debits
                                 except Exception as e:
-                                    self.logger.error(f"Failed to create transactions from '{debit_range_name}': {e}")
+                                    self.logger.error(
+                                        f"Failed to create transactions from '{debit_range_name}': {e}"
+                                    )
                                     rows_skipped += len(debit_dicts)
                     else:
                         self.logger.warning(
@@ -379,8 +383,10 @@ class SeededService:
                                 # Get service period info for this range
                                 if credit_dicts:
                                     try:
-                                        credit_dicts, period_info = parse_credit_range_with_service_period(
-                                            credit_dicts, credit_range_name, config
+                                        credit_dicts, period_info = (
+                                            parse_credit_range_with_service_period(
+                                                credit_dicts, credit_range_name, config
+                                            )
                                         )
 
                                         # Get or create service period from info
@@ -401,7 +407,9 @@ class SeededService:
                                         )
                                         total_credits += range_credits
                                     except Exception as e:
-                                        self.logger.error(f"Failed to create credit transactions from '{credit_range_name}': {e}")
+                                        self.logger.error(
+                                            f"Failed to create credit transactions from '{credit_range_name}': {e}"
+                                        )
                                         rows_skipped += len(credit_dicts)
                         else:
                             self.logger.info(

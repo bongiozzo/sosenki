@@ -77,6 +77,16 @@ class Transaction(Base, BaseModel):
         back_populates="transactions",
         foreign_keys=[service_period_id],
     )
+    budget_item_id: Mapped[int | None] = mapped_column(
+        ForeignKey("budget_items.id"),
+        nullable=True,
+        index=True,
+        comment="Optional reference to budget item for expense categorization",
+    )
+    budget_item: Mapped["BudgetItem | None"] = relationship(  # noqa: F821
+        "BudgetItem",
+        foreign_keys=[budget_item_id],
+    )
 
     # Indexes for common queries
     __table_args__ = (
@@ -85,6 +95,7 @@ class Transaction(Base, BaseModel):
         Index("idx_transaction_from_to", "from_account_id", "to_account_id"),
         Index("idx_transaction_period", "service_period_id"),
         Index("idx_transaction_date", "transaction_date"),
+        Index("idx_transaction_budget_item", "budget_item_id"),
     )
 
     def __repr__(self) -> str:

@@ -5,15 +5,14 @@ import logging
 import os
 from typing import Any
 
-from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Body, Depends, Header, HTTPException
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import desc, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from src.bot.config import bot_config
-from src.models.transaction import Transaction
 from src.models.account import Account
+from src.models.transaction import Transaction
 from src.services import get_async_session
 from src.services.user_service import UserService, UserStatusService
 
@@ -75,9 +74,6 @@ class UserStatusResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-
-
-
 class PropertyResponse(BaseModel):
     """Response schema for a single property."""
 
@@ -105,8 +101,8 @@ class PropertyListResponse(BaseModel):
 
 @router.post("/config")
 async def get_config(
-    authorization: str | None = Header(None, alias="Authorization"),
-    body: dict[str, Any] | None = Body(None),
+    authorization: str | None = Header(None, alias="Authorization"),  # noqa: B008
+    body: dict[str, Any] | None = Body(None),  # noqa: B008
 ) -> dict[str, Any]:
     """
     Get Mini App configuration from environment variables.
@@ -124,7 +120,7 @@ async def get_config(
     init_data_raw = _extract_init_data(authorization, None, body)
     if not init_data_raw:
         raise HTTPException(status_code=401, detail="Missing init data")
-    
+
     try:
         photo_gallery_url = os.getenv("PHOTO_GALLERY_URL")
         return {"photoGalleryUrl": photo_gallery_url}
@@ -136,8 +132,8 @@ async def get_config(
 @router.post("/init")
 async def mini_app_init(
     session: AsyncSession = Depends(get_async_session),  # noqa: B008
-    authorization: str | None = Header(None, alias="Authorization"),
-    body: dict[str, Any] | None = Body(None),
+    authorization: str | None = Header(None, alias="Authorization"),  # noqa: B008
+    body: dict[str, Any] | None = Body(None),  # noqa: B008
 ) -> dict[str, Any]:
     """
     Initialize Mini App and verify user registration status.
@@ -223,8 +219,8 @@ async def mini_app_init(
 @router.post("/verify-registration")
 async def verify_registration(
     session: AsyncSession = Depends(get_async_session),  # noqa: B008
-    authorization: str | None = Header(None, alias="Authorization"),
-    body: dict[str, Any] | None = Body(None),
+    authorization: str | None = Header(None, alias="Authorization"),  # noqa: B008
+    body: dict[str, Any] | None = Body(None),  # noqa: B008
 ) -> dict[str, Any]:
     """
     Verify user registration status (explicit refresh).
@@ -288,10 +284,10 @@ async def verify_registration(
 
 
 @router.post("/menu-action")
-async def menu_action(
-    authorization: str | None = Header(None, alias="Authorization"),
-    x_telegram_init_data: str | None = Header(None, alias="X-Telegram-Init-Data"),
-    action_data: dict[str, Any] | None = Body(None),
+async def parse_action(
+    authorization: str | None = Header(None, alias="Authorization"),  # noqa: B008
+    x_telegram_init_data: str | None = Header(None, alias="X-Telegram-Init-Data"),  # noqa: B008
+    action_data: dict[str, Any] | None = Body(None),  # noqa: B008
 ) -> dict[str, Any]:
     """
     Handle menu action (placeholder for future features).
@@ -327,14 +323,11 @@ async def menu_action(
         raise HTTPException(status_code=500, detail="Server error") from e
 
 
-
-
-
 @router.post("/user-status", response_model=UserStatusResponse)
 async def get_user_status(
     session: AsyncSession = Depends(get_async_session),  # noqa: B008
-    authorization: str | None = Header(None, alias="Authorization"),
-    body: dict[str, Any] | None = Body(None),
+    authorization: str | None = Header(None, alias="Authorization"),  # noqa: B008
+    body: dict[str, Any] | None = Body(None),  # noqa: B008
 ) -> UserStatusResponse:
     """
     Get current user's status information for dashboard display.
@@ -432,8 +425,8 @@ async def get_user_status(
 @router.post("/properties")
 async def get_properties(
     session: AsyncSession = Depends(get_async_session),  # noqa: B008
-    authorization: str | None = Header(None, alias="Authorization"),
-    body: dict[str, Any] | None = Body(None),
+    authorization: str | None = Header(None, alias="Authorization"),  # noqa: B008
+    body: dict[str, Any] | None = Body(None),  # noqa: B008
 ) -> PropertyListResponse:
     """
     Get properties for owner or represented owner.
@@ -571,10 +564,10 @@ class TransactionListResponse(BaseModel):
 @router.post("/transactions-list")
 async def transactions_list(
     scope: str = "all",
-    authorization: str | None = Header(None),
-    x_telegram_init_data: str | None = Header(None),
-    body: dict[str, Any] | None = Body(None),
-    db: AsyncSession = Depends(get_async_session),
+    authorization: str | None = Header(None),  # noqa: B008
+    x_telegram_init_data: str | None = Header(None),  # noqa: B008
+    body: dict[str, Any] | None = Body(None),  # noqa: B008
+    db: AsyncSession = Depends(get_async_session),  # noqa: B008
 ) -> TransactionListResponse:
     """Get list of transactions.
 
@@ -646,16 +639,13 @@ async def transactions_list(
                 | (Transaction.to_account_id.in_(account_ids))
             ]
 
-        trans_stmt = (
-            select(
-                from_account_alias.label("from_ac_name"),
-                to_account_alias.label("to_ac_name"),
-                Transaction.amount,
-                Transaction.transaction_date,
-                Transaction.description,
-            )
-            .order_by(Transaction.transaction_date.desc())
-        )
+        trans_stmt = select(
+            from_account_alias.label("from_ac_name"),
+            to_account_alias.label("to_ac_name"),
+            Transaction.amount,
+            Transaction.transaction_date,
+            Transaction.description,
+        ).order_by(Transaction.transaction_date.desc())
 
         if where_clause:
             trans_stmt = trans_stmt.where(*where_clause)

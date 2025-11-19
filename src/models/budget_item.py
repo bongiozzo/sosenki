@@ -3,8 +3,9 @@
 from decimal import Decimal
 from enum import Enum
 
-from sqlalchemy import Enum as SQLEnum, ForeignKey, Index, Numeric
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import Enum as SQLEnum
+from sqlalchemy import ForeignKey, Numeric
+from sqlalchemy.orm import Mapped, mapped_column
 
 from src.models import Base, BaseModel
 
@@ -19,9 +20,9 @@ class AllocationStrategy(str, Enum):
 
 
 class BudgetItem(Base, BaseModel):
-    """Model representing a budget item for expense categorization.
+    """Model representing a budget/expense categorization entry.
 
-    Defines how to allocate specific expense types among property owners.
+    Tracks expense types and their annual budgets for a service period.
     """
 
     __tablename__ = "budget_items"
@@ -45,29 +46,16 @@ class BudgetItem(Base, BaseModel):
         default=AllocationStrategy.NONE,
         comment="Strategy for allocating costs among residents",
     )
-    total_amount: Mapped[Decimal] = mapped_column(
+    year_budget: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False,
-        comment="Total budgeted or actual amount for this expense type",
-    )
-
-    # Relationships
-    service_period: Mapped["ServicePeriod"] = relationship(  # noqa: F821
-        "ServicePeriod",
-        back_populates="budget_items",
-        foreign_keys=[service_period_id],
-    )
-
-    # Indexes for common queries
-    __table_args__ = (
-        Index("idx_period_type", "service_period_id", "expense_type"),
-        Index("idx_period_strategy", "service_period_id", "allocation_strategy"),
+        comment="Annual budgeted or actual amount for this expense type",
     )
 
     def __repr__(self) -> str:
         return (
             f"<BudgetItem(id={self.id}, period_id={self.service_period_id}, "
-            f"type={self.expense_type}, strategy={self.allocation_strategy}, amount={self.total_amount})>"
+            f"type={self.expense_type}, strategy={self.allocation_strategy}, budget={self.year_budget})>"
         )
 
 

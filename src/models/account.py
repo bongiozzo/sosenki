@@ -2,7 +2,7 @@
 
 from enum import Enum
 
-from sqlalchemy import Index, String, ForeignKey
+from sqlalchemy import ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models import Base, BaseModel
@@ -14,19 +14,19 @@ class AccountType(str, Enum):
     USER = "user"
     """Personal account linked to a User (1:1 relationship)."""
 
-    COMMUNITY = "community"
-    """Shared community/fund account (no User link)."""
+    ORGANIZATION = "organization"
+    """Shared organization/fund account (no User link)."""
 
 
 class Account(Base, BaseModel):
     """Model representing a payment account.
 
     Polymorphic account supporting both user personal accounts and shared
-    community accounts. All transactions flow between accounts (from_account → to_account).
+    organization accounts. All transactions flow between accounts (from_account → to_account).
 
     Account types:
     - USER: Personal account for a community member (1:1 with User)
-    - COMMUNITY: Shared fund account (e.g., "Взносы", "Reserve")
+    - ORGANIZATION: Shared fund account (e.g., "Взносы", "Reserve")
     """
 
     __tablename__ = "accounts"
@@ -42,8 +42,8 @@ class Account(Base, BaseModel):
     account_type: Mapped[AccountType] = mapped_column(
         String(50),
         nullable=False,
-        default=AccountType.COMMUNITY,
-        comment="Account type: 'user' for personal, 'community' for shared fund",
+        default=AccountType.ORGANIZATION,
+        comment="Account type: 'user' for personal, 'organization' for shared fund",
     )
 
     # User link (only for account_type='user')

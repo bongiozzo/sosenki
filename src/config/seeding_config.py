@@ -222,16 +222,30 @@ class SeedingConfig:
         result = {}
 
         # Process debit transaction service period mappings
-        debit_range_to_period_ref = self._config["schemas"]["debit_transactions"].get("service_periods", {})
+        debit_range_to_period_ref = self._config["schemas"]["debit_transactions"].get(
+            "service_periods", {}
+        )
         for range_name, period_ref in debit_range_to_period_ref.items():
             if period_ref in service_periods_defs:
                 result[range_name] = service_periods_defs[period_ref]
 
         # Process credit (expense) service period mappings
-        credit_range_to_period_ref = self._config["schemas"]["credit_transactions"].get("service_periods", {})
+        credit_range_to_period_ref = self._config["schemas"]["credit_transactions"].get(
+            "service_periods", {}
+        )
         for range_name, period_ref in credit_range_to_period_ref.items():
             if period_ref in service_periods_defs:
                 result[range_name] = service_periods_defs[period_ref]
 
         return result
 
+    def get_debit_default_account(self) -> str:
+        """Get the default account name for debit transactions.
+
+        Returns:
+            Account name (e.g., "Взносы")
+        """
+        additional = self._config["schemas"]["debit_transactions"].get("additional", {})
+        accounts = additional.get("accounts", {})
+        defaults = accounts.get("defaults", {})
+        return defaults.get("account_name", "Взносы")

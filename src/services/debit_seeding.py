@@ -8,8 +8,6 @@ import logging
 from datetime import datetime
 from typing import Dict, List, Optional
 
-from sqlalchemy.orm import Session
-
 from src.config.seeding_config import SeedingConfig
 from src.services.errors import DataValidationError
 from src.services.parsers import parse_russian_currency
@@ -43,7 +41,9 @@ def parse_date(value: Optional[str]) -> Optional[datetime]:
         raise ValueError(f"Cannot parse date '{value}' (expected DD.MM.YYYY): {e}") from e
 
 
-def parse_debit_row(row_dict: Dict[str, str], account_column: str = None) -> Optional[Dict]:
+def parse_debit_row(  # noqa: C901
+    row_dict: Dict[str, str], account_column: str = None, config: SeedingConfig = None
+) -> Optional[Dict]:
     """
     Parse a row from debit sheet into debit attributes.
 
@@ -55,6 +55,7 @@ def parse_debit_row(row_dict: Dict[str, str], account_column: str = None) -> Opt
     Args:
         row_dict: Dictionary mapping column names to cell values
         account_column: Optional column name that contains account name (e.g., 'Счет')
+        config: Optional SeedingConfig instance (loads if not provided)
 
     Returns:
         Dict with debit attributes (including account_name if account_column specified)
@@ -66,7 +67,8 @@ def parse_debit_row(row_dict: Dict[str, str], account_column: str = None) -> Opt
     logger = logging.getLogger("sosenki.seeding.debits")
 
     # Load configuration
-    config = SeedingConfig.load()
+    if config is None:
+        config = SeedingConfig.load()
     parsing_rules = config.get_debit_parsing_rules()
 
     # PHASE 1: Extract field column names
@@ -79,6 +81,11 @@ def parse_debit_row(row_dict: Dict[str, str], account_column: str = None) -> Opt
     amount_str = row_dict.get(amount_column, "").strip()
     date_str = row_dict.get(date_column, "").strip()
     comment = row_dict.get(comment_column, "").strip() or None
+
+    # Check for Skip marker
+    if owner_name == "Skip":
+        logger.info("Skipping record")
+        raise DataValidationError("Row marked as Skip")
 
     # PHASE 2: Validate required fields
     if not owner_name:
@@ -97,6 +104,10 @@ def parse_debit_row(row_dict: Dict[str, str], account_column: str = None) -> Opt
     account_name = None
     if account_column:
         account_name = row_dict.get(account_column, "").strip() or None
+
+    # Use default account from config if not specified in row
+    if not account_name:
+        account_name = config.get_debit_default_account()
 
     # PHASE 3: Parse and convert field values
     try:

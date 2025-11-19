@@ -10,6 +10,7 @@ from typing import Dict, List
 from sqlalchemy.orm import Session
 
 from src.models.account import Account, AccountType
+from src.models.budget_item import AllocationStrategy, BudgetItem
 from src.models.service_period import ServicePeriod
 from src.models.transaction import Transaction
 from src.models.user import User
@@ -17,42 +18,38 @@ from src.services.errors import DataValidationError
 
 
 def get_or_create_service_period(
-    session: Session, 
-    period_name: str,
-    start_date_str: str,
-    end_date_str: str
+    session: Session, period_name: str, start_date_str: str, end_date_str: str
 ) -> ServicePeriod:
     """Get existing service period or create new one.
-    
+
     Args:
         session: SQLAlchemy session
         period_name: Period name (e.g., "2024-2025")
         start_date_str: Start date as DD.MM.YYYY string
         end_date_str: End date as DD.MM.YYYY string
-        
+
     Returns:
         ServicePeriod instance
-        
+
     Raises:
         DataValidationError: On creation failure
     """
     logger = logging.getLogger("sosenki.seeding.transactions")
-    
+
     try:
         # Query for existing period
-        period = session.query(ServicePeriod).filter(
-            ServicePeriod.name == period_name
-        ).first()
-        
+        period = session.query(ServicePeriod).filter(ServicePeriod.name == period_name).first()
+
         if period:
             logger.debug(f"Found existing service period: {period_name}")
             return period
-        
+
         # Parse dates
         from datetime import datetime as dt
+
         start_date = dt.strptime(start_date_str, "%d.%m.%Y").date()
         end_date = dt.strptime(end_date_str, "%d.%m.%Y").date()
-        
+
         # Create new period
         period = ServicePeriod(
             name=period_name,
@@ -61,58 +58,113 @@ def get_or_create_service_period(
         )
         session.add(period)
         session.flush()
-        
-        logger.info(
-            f"Created service period: {period_name} ({start_date} - {end_date})"
-        )
+
+        logger.info(f"Created service period: {period_name} ({start_date} - {end_date})")
         return period
-        
+
     except Exception as e:
         raise DataValidationError(
             f"Failed to get or create service period '{period_name}': {e}"
         ) from e
 
 
-def get_or_create_community_account(session: Session, name: str) -> Account:
-    """Get existing community account or create new one.
-    
+def get_or_create_budget_item(
+    session: Session, budget_item_name: str, service_period: ServicePeriod
+) -> BudgetItem | None:
+    """Get existing budget item or create new one.
+
+    Args:
+        session: SQLAlchemy session
+        budget_item_name: Budget item name (expense type)
+        service_period: ServicePeriod to link budget item to
+
+    Returns:
+        BudgetItem instance or None if name is empty
+    """
+    if not budget_item_name:
+        return None
+
+    logger = logging.getLogger("sosenki.seeding.transactions")
+
+    try:
+        # Query for existing budget item
+        budget_item = (
+            session.query(BudgetItem)
+            .filter(
+                BudgetItem.service_period_id == service_period.id,
+                BudgetItem.expense_type == budget_item_name,
+            )
+            .first()
+        )
+
+        if budget_item:
+            logger.debug(f"Found existing budget item: {budget_item_name}")
+            return budget_item
+
+        # Create new budget item
+        budget_item = BudgetItem(
+            service_period_id=service_period.id,
+            expense_type=budget_item_name,
+            allocation_strategy=AllocationStrategy.NONE,
+            year_budget=0,  # Will be calculated/updated separately
+        )
+        session.add(budget_item)
+        session.flush()
+
+        logger.info(f"Created budget item: {budget_item_name}")
+        return budget_item
+    except Exception as e:
+        raise DataValidationError(
+            f"Failed to get or create budget item '{budget_item_name}': {e}"
+        ) from e
+
+
+def get_or_create_community_account(session: Session, name: str) -> Account | None:
+    """Get existing organization account or create new one.
+
     Args:
         session: SQLAlchemy session
         name: Account name (e.g., "Взносы", "Reserve")
-        
+
     Returns:
-        Account instance with account_type='community'
-        
+        Account instance with account_type='organization', or None if name is 'Skip'
+
     Raises:
         DataValidationError: On creation failure
     """
     logger = logging.getLogger("sosenki.seeding.transactions")
-    
+
+    # Skip if marked with 'Skip' literal
+    if name == "Skip":
+        logger.info(f"Skipping account creation: {name}")
+        return None
+
     try:
         # Query for existing account
-        account = session.query(Account).filter(
-            Account.name == name,
-            Account.account_type == AccountType.COMMUNITY
-        ).first()
-        
+        account = (
+            session.query(Account)
+            .filter(Account.name == name, Account.account_type == AccountType.ORGANIZATION)
+            .first()
+        )
+
         if account:
-            logger.debug(f"Found existing community account: {name}")
+            logger.debug(f"Found existing organization account: {name}")
             return account
-        
+
         # Create new account
         account = Account(
             name=name,
-            account_type=AccountType.COMMUNITY,
+            account_type=AccountType.ORGANIZATION,
         )
         session.add(account)
         session.flush()
-        
-        logger.info(f"Created community account: {name}")
+
+        logger.info(f"Created organization account: {name}")
         return account
-        
+
     except Exception as e:
         raise DataValidationError(
-            f"Failed to get or create community account '{name}': {e}"
+            f"Failed to get or create organization account '{name}': {e}"
         ) from e
 
 
@@ -123,43 +175,47 @@ def create_debit_transactions(
     period: ServicePeriod,
     default_account_name: str = "Взносы",
 ) -> int:
-    """Create debit transactions (user account → community account).
-    
+    """Create debit transactions (user account → organization account).
+
     Args:
         session: SQLAlchemy session
         debit_dicts: List of dicts with owner_name, amount, debit_date, comment, account_name
         user_map: Dict mapping user names to User instances
         period: ServicePeriod to link transactions to
-        default_account_name: Default community account name
-        
+        default_account_name: Default organization account name
+
     Returns:
         Number of transactions created
-        
+
     Raises:
         DataValidationError: On creation failure
     """
     logger = logging.getLogger("sosenki.seeding.transactions")
-    
+
     try:
         created_count = 0
-        
+
         for debit_dict in debit_dicts:
             owner_name = debit_dict.pop("owner_name")
             user = user_map.get(owner_name)
-            
+
             if not user:
                 logger.warning(f"Owner not found: {owner_name}, skipping debit")
                 continue
-            
+
             if not user.account:
                 logger.warning(f"No personal account for user: {owner_name}, skipping debit")
                 continue
-            
-            # Get community account
+
+            # Get organization account
             account_name = debit_dict.pop("account_name", None) or default_account_name
             community_account = get_or_create_community_account(session, account_name)
-            
-            # Create transaction: user account → community account
+
+            if not community_account:
+                logger.warning(f"Account is Skip marker: {account_name}, skipping debit")
+                continue
+
+            # Create transaction: user account → organization account
             transaction = Transaction(
                 from_account_id=user.account.id,
                 to_account_id=community_account.id,
@@ -169,16 +225,16 @@ def create_debit_transactions(
                 description=debit_dict.get("comment"),
             )
             session.add(transaction)
-            
+
             logger.info(
                 f"Created debit transaction: {owner_name} → {account_name} "
                 f"{debit_dict['amount']} {debit_dict['debit_date']}"
             )
             created_count += 1
-        
+
         logger.info(f"Created {created_count} debit transactions")
         return created_count
-        
+
     except Exception as e:
         raise DataValidationError(f"Failed to create debit transactions: {e}") from e
 
@@ -190,63 +246,129 @@ def create_credit_transactions(
     period: ServicePeriod,
     default_account_name: str = "Взносы",
 ) -> int:
-    """Create credit transactions (community account → user account).
-    
+    """Create credit transactions (organization account → user account).
+
     Args:
         session: SQLAlchemy session
         credit_dicts: List of dicts with payer_name, amount, debit_date, expense_type, description
         user_map: Dict mapping user first names to User instances
         period: ServicePeriod to link transactions to
-        default_account_name: Default community account name
-        
+        default_account_name: Default organization account name
+
     Returns:
         Number of transactions created
-        
+
     Raises:
         DataValidationError: On creation failure
     """
     logger = logging.getLogger("sosenki.seeding.transactions")
-    
+
     try:
         created_count = 0
         community_account = get_or_create_community_account(session, default_account_name)
-        
+
+        if not community_account:
+            raise DataValidationError(f"Default account '{default_account_name}' is marked as Skip")
+
         for credit_dict in credit_dicts:
             payer_name = credit_dict.pop("payer_name")
             # Extract first name for user lookup
             payer_first_word = payer_name.split()[0] if payer_name else ""
             user = user_map.get(payer_first_word)
-            
+
             if not user:
+                # Check if payer_name is an organization account
+                organization_account_for_payer = (
+                    session.query(Account)
+                    .filter(
+                        Account.name == payer_name, Account.account_type == AccountType.ORGANIZATION
+                    )
+                    .first()
+                )
+
+                if organization_account_for_payer:
+                    # Use payer as from_account (account-to-account transaction)
+                    account_name = credit_dict.pop("account_name", None) or default_account_name
+                    to_organization_account = get_or_create_community_account(session, account_name)
+
+                    if not to_organization_account:
+                        logger.warning(
+                            f"Target account is Skip marker: {account_name}, skipping credit"
+                        )
+                        continue
+
+                    budget_item_name = credit_dict.pop("budget_item_name", None)
+                    budget_item = get_or_create_budget_item(session, budget_item_name, period)
+
+                    transaction = Transaction(
+                        from_account_id=organization_account_for_payer.id,
+                        to_account_id=to_organization_account.id,
+                        amount=credit_dict["amount"],
+                        transaction_date=credit_dict["debit_date"],
+                        service_period_id=period.id,
+                        budget_item_id=budget_item.id if budget_item else None,
+                        description=(
+                            f"{credit_dict['expense_type']}: {credit_dict.get('description', '')}"
+                            if credit_dict.get("expense_type")
+                            else credit_dict.get("description", "")
+                        ).strip(),
+                    )
+                    session.add(transaction)
+
+                    logger.info(
+                        f"Created credit transaction: {payer_name} → {to_organization_account.name} "
+                        f"{credit_dict['amount']} {credit_dict['debit_date']} "
+                        f"({credit_dict['expense_type']})"
+                    )
+                    created_count += 1
+                    continue
+
                 logger.warning(f"Payer not found: {payer_name}, skipping credit")
                 continue
-            
+
             if not user.account:
                 logger.warning(f"No personal account for user: {payer_name}, skipping credit")
                 continue
-            
-            # Create transaction: community account → user account
-            # (community reimburses the person who paid from pocket)
+
+            # Get or use account name from parsed data
+            account_name = credit_dict.pop("account_name", None) or default_account_name
+            organization_account = get_or_create_community_account(session, account_name)
+
+            if not organization_account:
+                logger.warning(f"Account is Skip marker: {account_name}, skipping credit")
+                continue
+
+            # Get or create budget item if specified
+            budget_item_name = credit_dict.pop("budget_item_name", None)
+            budget_item = get_or_create_budget_item(session, budget_item_name, period)
+
+            # Create transaction: user account → organization account
+            # (user contributes via this credit)
             transaction = Transaction(
-                from_account_id=community_account.id,
-                to_account_id=user.account.id,
+                from_account_id=user.account.id,
+                to_account_id=organization_account.id,
                 amount=credit_dict["amount"],
                 transaction_date=credit_dict["debit_date"],
                 service_period_id=period.id,
-                description=f"{credit_dict['expense_type']}: {credit_dict.get('description', '')}".strip(),
+                budget_item_id=budget_item.id if budget_item else None,
+                description=(
+                    f"{credit_dict['expense_type']}: {credit_dict.get('description', '')}"
+                    if credit_dict.get("expense_type")
+                    else credit_dict.get("description", "")
+                ).strip(),
             )
             session.add(transaction)
-            
+
             logger.info(
-                f"Created credit transaction: {community_account.name} → {payer_name} "
+                f"Created credit transaction: {payer_name} → {organization_account.name} "
                 f"{credit_dict['amount']} {credit_dict['debit_date']} "
                 f"({credit_dict['expense_type']})"
             )
             created_count += 1
-        
+
         logger.info(f"Created {created_count} credit transactions")
         return created_count
-        
+
     except Exception as e:
         raise DataValidationError(f"Failed to create credit transactions: {e}") from e
 
@@ -254,6 +376,7 @@ def create_credit_transactions(
 __all__ = [
     "get_or_create_service_period",
     "get_or_create_community_account",
+    "get_or_create_budget_item",
     "create_debit_transactions",
     "create_credit_transactions",
 ]

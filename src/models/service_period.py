@@ -3,7 +3,8 @@
 from datetime import date
 from enum import Enum
 
-from sqlalchemy import Date, Enum as SQLEnum
+from sqlalchemy import Date
+from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models import Base, BaseModel
@@ -50,11 +51,6 @@ class ServicePeriod(Base, BaseModel):
     # Relationships
     transactions: Mapped[list["Transaction"]] = relationship(  # noqa: F821
         "Transaction",
-        back_populates="service_period",
-        cascade="all, delete-orphan",
-    )
-    budget_items: Mapped[list["BudgetItem"]] = relationship(  # noqa: F821
-        "BudgetItem",
         back_populates="service_period",
         cascade="all, delete-orphan",
     )

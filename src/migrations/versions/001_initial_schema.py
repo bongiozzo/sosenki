@@ -207,6 +207,12 @@ def upgrade() -> None:
         ),
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column(
+            "budget_item_id",
+            sa.Integer(),
+            nullable=True,
+            comment="Optional reference to budget item for expense categorization",
+        ),
+        sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
             nullable=False,
@@ -221,12 +227,14 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["from_account_id"], ["accounts.id"]),
         sa.ForeignKeyConstraint(["to_account_id"], ["accounts.id"]),
         sa.ForeignKeyConstraint(["service_period_id"], ["service_periods.id"]),
+        sa.ForeignKeyConstraint(["budget_item_id"], ["budget_items.id"]),
         sa.PrimaryKeyConstraint("id"),
         sa.Index("idx_transaction_from_account", "from_account_id"),
         sa.Index("idx_transaction_to_account", "to_account_id"),
         sa.Index("idx_transaction_from_to", "from_account_id", "to_account_id"),
         sa.Index("idx_transaction_period", "service_period_id"),
         sa.Index("idx_transaction_date", "transaction_date"),
+        sa.Index("idx_transaction_budget_item", "budget_item_id"),
     )
 
     # Create service_periods table
@@ -270,7 +278,7 @@ def upgrade() -> None:
             nullable=False,
             server_default="none",
         ),
-        sa.Column("total_amount", sa.Numeric(precision=10, scale=2), nullable=False),
+        sa.Column("year_budget", sa.Numeric(precision=10, scale=2), nullable=False),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),

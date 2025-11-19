@@ -109,7 +109,7 @@ def get_or_create_user(session: Session, name: str, user_attrs: Optional[Dict] =
 
         # Auto-create personal account for the user
         from src.models.account import Account, AccountType
-        
+
         user_account = Account(
             name=name,
             account_type=AccountType.USER,

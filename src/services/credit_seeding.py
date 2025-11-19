@@ -40,7 +40,7 @@ def parse_date(value: Optional[str]) -> Optional[datetime]:
         raise ValueError(f"Cannot parse date '{value}' (expected DD.MM.YYYY): {e}") from e
 
 
-def parse_credit_row(row_dict: Dict[str, str]) -> Optional[Dict]:
+def parse_credit_row(row_dict: Dict[str, str]) -> Optional[Dict]:  # noqa: C901
     """Parse a row from credits sheet into credit attributes.
 
     Uses three-phase approach:
@@ -74,8 +74,13 @@ def parse_credit_row(row_dict: Dict[str, str]) -> Optional[Dict]:
     payer_name = row_dict.get(payer_name_column, "").strip()
     amount_str = row_dict.get(amount_column, "").strip()
     date_str = row_dict.get(date_column, "").strip()
-    expense_type = row_dict.get(expense_type_column, "").strip() or "Other"
+    expense_type_raw = row_dict.get(expense_type_column, "").strip() or "Other"
     comment = row_dict.get(comment_column, "").strip() or None
+
+    # Check for Skip marker in payer_name
+    if payer_name == "Skip":
+        logger.info("Skipping record")
+        raise DataValidationError("Row marked as Skip")
 
     # PHASE 2: Validate required fields
     if not payer_name:
@@ -102,12 +107,32 @@ def parse_credit_row(row_dict: Dict[str, str]) -> Optional[Dict]:
     except (ValueError, DataValidationError) as e:
         raise DataValidationError(f"Failed to parse credit for {payer_name}: {e}") from e
 
+    # Parse expense_type_raw to extract budget_item and account_name
+    # Format: "BUDGET_ITEM ACCOUNT_NAME" or just "ACCOUNT_NAME"
+    budget_item_name = None
+    account_name = None
+
+    expense_parts = expense_type_raw.split(maxsplit=1)
+    if len(expense_parts) == 2:
+        budget_item_name = expense_parts[0]
+        account_name = expense_parts[1]
+    elif len(expense_parts) == 1:
+        # Single word = account name
+        account_name = expense_parts[0]
+
+    # Check for Skip marker in account_name
+    if account_name == "Skip":
+        logger.info("Skipping record")
+        raise DataValidationError("Row marked as Skip")
+
     return {
         "payer_name": payer_name,
-        "expense_type": expense_type,
+        "expense_type": expense_type_raw,
         "amount": amount,
         "debit_date": debit_date,
         "description": comment,
+        "budget_item_name": budget_item_name,
+        "account_name": account_name,
     }
 
 

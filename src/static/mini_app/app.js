@@ -226,11 +226,11 @@ function renderUserStatuses(roles) {
 
 
 /**
- * Format date to locale string (e.g., "Nov 19, 2025")
+ * Format date to locale string (e.g., "19 нояб. 2025")
  */
 function formatDate(dateString) {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
+    return date.toLocaleDateString('ru-RU', {
         year: 'numeric',
         month: 'short',
         day: 'numeric'
@@ -241,8 +241,8 @@ function formatDate(dateString) {
  * Format amount with 2 decimal places and locale-specific formatting
  */
 function formatAmount(amount) {
-    return new Intl.NumberFormat('en-US', {
-        minimumFractionDigits: 2,
+    return new Intl.NumberFormat('ru-RU', {
+        minimumFractionDigits: 0,
         maximumFractionDigits: 2
     }).format(amount);
 }
