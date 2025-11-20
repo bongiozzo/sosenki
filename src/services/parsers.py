@@ -5,6 +5,7 @@ Handles Russian-specific number formatting:
 - Thousand separator: space ( )
 - Currency symbol: р.
 - Boolean values: "Да"/"Нет"
+- Date format: DD.MM.YYYY
 
 Example:
     >>> parse_russian_decimal("1 000,25")
@@ -18,8 +19,12 @@ Example:
 
     >>> parse_boolean("Да")
     True
+
+    >>> parse_date("23.06.2025")
+    datetime.date(2025, 6, 23)
 """
 
+from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Optional
 
@@ -168,3 +173,40 @@ def parse_boolean(value: Optional[str]) -> bool:
         return False
 
     return value.strip().lower() == "да"
+
+
+def parse_date(value: Optional[str]) -> Optional[date]:
+    """Parse a Russian-formatted date string to Python date object.
+
+    Handles format: "DD.MM.YYYY" (e.g., "23.06.2025")
+
+    Args:
+        value: Date string in format "DD.MM.YYYY" or None/empty
+
+    Returns:
+        datetime.date object or None if input is empty
+
+    Raises:
+        ValueError: If date format is invalid
+
+    Examples:
+        >>> parse_date("23.06.2025")
+        datetime.date(2025, 6, 23)
+        >>> parse_date("01.01.2024")
+        datetime.date(2024, 1, 1)
+        >>> parse_date("")
+        None
+        >>> parse_date(None)
+        None
+    """
+    if not value or not isinstance(value, str):
+        return None
+
+    value = value.strip()
+    if not value:
+        return None
+
+    try:
+        return datetime.strptime(value, "%d.%m.%Y").date()
+    except ValueError as e:
+        raise ValueError(f"Cannot parse date '{value}' (expected DD.MM.YYYY): {e}") from e

@@ -1,7 +1,7 @@
 """Electricity reading and bill parsing and creation utilities for database seeding."""
 
 import logging
-from datetime import date, datetime
+from datetime import date
 from typing import Dict, List, Optional
 
 from sqlalchemy.orm import Session
@@ -10,34 +10,7 @@ from src.config.seeding_config import SeedingConfig
 from src.models.property import Property
 from src.models.user import User
 from src.services.errors import DataValidationError
-from src.services.parsers import parse_russian_currency, parse_russian_decimal
-
-
-def parse_date(value: Optional[str]) -> Optional[date]:
-    """Parse a Russian-formatted date string to Python date object.
-
-    Handles format: "DD.MM.YYYY" (e.g., "23.06.2025")
-
-    Args:
-        value: Date string in format "DD.MM.YYYY" or None/empty
-
-    Returns:
-        datetime.date object or None if input is empty
-
-    Raises:
-        ValueError: If date format is invalid
-    """
-    if not value or not isinstance(value, str):
-        return None
-
-    value = value.strip()
-    if not value:
-        return None
-
-    try:
-        return datetime.strptime(value, "%d.%m.%Y").date()
-    except ValueError as e:
-        raise ValueError(f"Cannot parse date '{value}' (expected DD.MM.YYYY): {e}") from e
+from src.services.parsers import parse_date, parse_russian_currency, parse_russian_decimal
 
 
 def parse_electricity_row(  # noqa: C901

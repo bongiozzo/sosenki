@@ -5,39 +5,11 @@ Creation is delegated to transaction_seeding.create_credit_transactions()
 """
 
 import logging
-from datetime import datetime
 from typing import Dict, List, Optional
 
 from src.config.seeding_config import SeedingConfig
 from src.services.errors import DataValidationError
-from src.services.parsers import parse_russian_currency
-
-
-def parse_date(value: Optional[str]) -> Optional[datetime]:
-    """Parse a Russian-formatted date string to Python date object.
-
-    Handles format: "DD.MM.YYYY" (e.g., "23.06.2025")
-
-    Args:
-        value: Date string in format "DD.MM.YYYY" or None/empty
-
-    Returns:
-        datetime.date object or None if input is empty
-
-    Raises:
-        ValueError: If date format is invalid
-    """
-    if not value or not isinstance(value, str):
-        return None
-
-    value = value.strip()
-    if not value:
-        return None
-
-    try:
-        return datetime.strptime(value, "%d.%m.%Y").date()
-    except ValueError as e:
-        raise ValueError(f"Cannot parse date '{value}' (expected DD.MM.YYYY): {e}") from e
+from src.services.parsers import parse_date, parse_russian_currency
 
 
 def parse_credit_row(row_dict: Dict[str, str]) -> Optional[Dict]:  # noqa: C901
@@ -155,19 +127,8 @@ def parse_credit_range_with_service_period(
     Raises:
         DataValidationError: If range name is not mapped to service period
     """
-    if config is None:
-        config = SeedingConfig.load()
+    from src.services.seeding_utils import parse_range_with_service_period
 
-    logger = logging.getLogger("sosenki.seeding.credits")
-
-    service_periods = config.get_service_periods()
-    if range_name not in service_periods:
-        raise DataValidationError(
-            f"Range '{range_name}' not mapped to service period in config. "
-            f"Available: {list(service_periods.keys())}"
-        )
-
-    period_info = service_periods[range_name]
-    logger.info(f"Range '{range_name}' mapped to period '{period_info['name']}'")
-
-    return credit_dicts, period_info
+    return parse_range_with_service_period(
+        credit_dicts, range_name, "sosenki.seeding.credits", config
+    )
