@@ -5,7 +5,7 @@ from Google Sheets data. Separate from the async UserService used by bot.
 """
 
 import logging
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
@@ -154,3 +154,45 @@ def sheet_row_to_dict(row_values: list, header_names: list) -> Dict[str, str]:
             result[header_name] = ""
 
     return result
+
+
+def parse_range_with_service_period(
+    data_dicts: List[Dict],
+    range_name: str,
+    logger_name: str,
+    config: SeedingConfig = None,
+) -> tuple[List[Dict], Dict]:
+    """
+    Enrich data dicts with service period information based on range name.
+
+    Generic function that replaces parse_credit_range_with_service_period and
+    parse_debit_range_with_service_period to eliminate code duplication.
+
+    Args:
+        data_dicts: List of parsed data dicts (from parse_credit_row, parse_debit_row, etc.)
+        range_name: Google Sheets range name (e.g., 'Credit2425', 'Contrib25_1')
+        logger_name: Logger name to use (e.g., 'sosenki.seeding.credits')
+        config: Optional SeedingConfig instance (loads if not provided)
+
+    Returns:
+        Tuple of (enriched_data_dicts, service_period_dict)
+
+    Raises:
+        DataValidationError: If range name is not mapped to service period
+    """
+    if config is None:
+        config = SeedingConfig.load()
+
+    logger = logging.getLogger(logger_name)
+
+    service_periods = config.get_service_periods()
+    if range_name not in service_periods:
+        raise DataValidationError(
+            f"Range '{range_name}' not mapped to service period in config. "
+            f"Available: {list(service_periods.keys())}"
+        )
+
+    period_info = service_periods[range_name]
+    logger.info(f"Range '{range_name}' mapped to period '{period_info['name']}'")
+
+    return data_dicts, period_info
