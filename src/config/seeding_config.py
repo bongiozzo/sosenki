@@ -201,50 +201,66 @@ class SeedingConfig:
         """
         return self._config["schemas"]["properties"].get("range_name")
 
+    def _process_range_periods(  # noqa: C901
+        self, service_periods_defs: Dict, schema_key: str, result: Dict
+    ) -> None:
+        """Process service period mappings for a specific schema section.
+
+        Args:
+            service_periods_defs: Central service periods definitions
+            schema_key: Schema section key (e.g., "debit_transactions", "bills")
+            result: Result dict to accumulate period mappings
+        """
+        schema = self._config["schemas"].get(schema_key, {})
+        range_to_period_ref = schema.get("service_periods", {})
+
+        for range_name, period_ref in range_to_period_ref.items():
+            if period_ref in service_periods_defs:
+                period_data = service_periods_defs[period_ref].copy()
+                period_data["name"] = period_ref
+                result[range_name] = period_data
+
     def get_service_periods(self) -> Dict[str, Dict]:
         """Get service period mappings for all transaction ranges.
 
         Resolves period references to full period definitions from service_periods block.
-        Service periods are shared across debits, credits, and electricity readings.
+        Service periods are shared across debits, credits, electricity readings, and shared bills.
 
         Returns:
             Dict mapping range names to period info (name, start_date, end_date)
         """
         # Get the central service periods definitions
         service_periods_defs = self._config["schemas"]["service_periods"]
-
         result = {}
 
-        # Process debit transaction service period mappings
-        debit_range_to_period_ref = self._config["schemas"]["debit_transactions"].get(
-            "service_periods", {}
-        )
-        for range_name, period_ref in debit_range_to_period_ref.items():
-            if period_ref in service_periods_defs:
-                period_data = service_periods_defs[period_ref].copy()
-                period_data["name"] = period_ref  # Add period name reference
-                result[range_name] = period_data
+        # Process all schema sections that have service_periods mappings
+        schema_keys = [
+            "debit_transactions",
+            "credit_transactions",
+            "electricity_readings",
+            "shared_electricity_bills",
+            "bills",
+        ]
 
-        # Process credit (expense) service period mappings
-        credit_range_to_period_ref = self._config["schemas"]["credit_transactions"].get(
-            "service_periods", {}
-        )
-        for range_name, period_ref in credit_range_to_period_ref.items():
-            if period_ref in service_periods_defs:
-                period_data = service_periods_defs[period_ref].copy()
-                period_data["name"] = period_ref  # Add period name reference
-                result[range_name] = period_data
+        for schema_key in schema_keys:
+            self._process_range_periods(service_periods_defs, schema_key, result)
 
-        # Process electricity reading service period mappings
-        elec_range_to_period_ref = self._config["schemas"]["electricity_readings"].get(
-            "service_periods", {}
-        )
-        for range_name, period_ref in elec_range_to_period_ref.items():
-            if period_ref in service_periods_defs:
-                period_data = service_periods_defs[period_ref].copy()
-                period_data["name"] = period_ref  # Add period name reference
-                result[range_name] = period_data
+        return result
 
+    def get_schema_service_periods(self, schema_key: str) -> Dict[str, Dict]:
+        """Get service period mappings for a specific schema section.
+
+        This avoids collisions when multiple schemas use the same range names.
+
+        Args:
+            schema_key: Schema section key (e.g., "shared_electricity_bills", "bills")
+
+        Returns:
+            Dict mapping range names to period info for this schema only
+        """
+        service_periods_defs = self._config["schemas"]["service_periods"]
+        result = {}
+        self._process_range_periods(service_periods_defs, schema_key, result)
         return result
 
     def get_debit_default_account(self) -> str:
@@ -276,3 +292,59 @@ class SeedingConfig:
             "service_periods", {}
         )
         return list(elec_range_to_period_ref.keys())
+
+    def get_shared_electricity_bill_range_names(self) -> list:
+        """Get the range names for shared electricity bills.
+
+        Returns:
+            List of range name strings to process sequentially
+        """
+        shared_range_to_period_ref = self._config["schemas"]["shared_electricity_bills"].get(
+            "service_periods", {}
+        )
+        return list(shared_range_to_period_ref.keys())
+
+    def get_shared_electricity_parsing_rules(self) -> Dict[str, str]:
+        """Get column names for shared electricity bill parsing.
+
+        Returns:
+            Dict with column mappings for shared electricity bill data
+        """
+        return self._config["schemas"]["shared_electricity_bills"]["fields"]["parsing"]
+
+    def get_shared_electricity_name_based_rules(self) -> Dict[str, Dict[str, float]]:
+        """Get name-based transformation rules for split shared electricity bills.
+
+        Returns:
+            Dict mapping split names to user coefficient mappings
+        """
+        transformations = self._config["schemas"]["shared_electricity_bills"].get(
+            "transformations", {}
+        )
+        return transformations.get("name_based_rules", {})
+
+    def get_bills_range_names(self) -> list:
+        """Get the range names for bills (conservation, main, etc.).
+
+        Returns:
+            List of range name strings to process sequentially
+        """
+        bills_range_to_period_ref = self._config["schemas"]["bills"].get("service_periods", {})
+        return list(bills_range_to_period_ref.keys())
+
+    def get_bills_parsing_rules(self) -> Dict[str, str]:
+        """Get column names for bills parsing.
+
+        Returns:
+            Dict with column mappings for bills data
+        """
+        return self._config["schemas"]["bills"]["fields"]["parsing"]
+
+    def get_bills_name_based_rules(self) -> Dict[str, Dict[str, float]]:
+        """Get name-based transformation rules for split bills.
+
+        Returns:
+            Dict mapping split names to user coefficient mappings
+        """
+        transformations = self._config["schemas"]["bills"].get("transformations", {})
+        return transformations.get("name_based_rules", {})

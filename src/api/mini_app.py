@@ -590,17 +590,20 @@ class ElectricityBillResponse(BaseModel):
     property_type: str | None = None
     """Property type if bill is for a property."""
 
-    start_reading: float
-    """Meter reading at period start."""
+    start_reading: float | None = None
+    """Meter reading at period start (electricity bills only)."""
 
-    end_reading: float
-    """Meter reading at period end."""
+    end_reading: float | None = None
+    """Meter reading at period end (electricity bills only)."""
 
-    consumption: float
-    """Electricity consumption (end - start)."""
+    consumption: float | None = None
+    """Electricity consumption (end - start) (electricity bills only)."""
 
     bill_amount: float
     """Bill amount in rubles."""
+
+    bill_type: str | None = None
+    """Bill type: electricity, shared_electricity, conservation, main."""
 
     comment: str | None = None
     """Optional comment (e.g., property name when property not found)."""
@@ -848,6 +851,176 @@ async def electricity_bills(
         raise
     except Exception as e:
         logger.error(f"Error in /api/mini-app/electricity-bills: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Server error") from e
+
+
+@router.post("/bills")
+async def get_bills(
+    representing: bool | None = None,
+    authorization: str | None = Header(None),  # noqa: B008
+    x_telegram_init_data: str | None = Header(None),  # noqa: B008
+    body: dict[str, Any] | None = Body(None),  # noqa: B008
+    db: AsyncSession = Depends(get_async_session),  # noqa: B008
+) -> ElectricityBillsListResponse:
+    """Get list of all bills (electricity, shared electricity, conservation, main) for authenticated user.
+
+    Returns bills for properties owned by the user or bills directly assigned to the user.
+    Each bill includes period information, bill type, and amount.
+
+    Args:
+        representing: If True, return bills for represented user instead of authenticated user.
+
+    Returns:
+        ElectricityBillsListResponse with list of bills sorted by period (most recent first).
+
+    Raises:
+        401: Invalid Telegram signature
+        403: User not registered or inactive
+        500: Server error
+    """
+    from src.models.bill import Bill
+    from src.models.property import Property
+    from src.models.service_period import ServicePeriod
+
+    logger.info(
+        f"[bills ENDPOINT START] representing={representing} (type={type(representing).__name__})"
+    )
+    # Extract and verify init data
+    init_data_raw = _extract_init_data(authorization, x_telegram_init_data, body)
+    parsed_data = UserService.verify_telegram_webapp_signature(
+        init_data=init_data_raw or "", bot_token=bot_config.telegram_bot_token
+    )
+
+    if not parsed_data:
+        logger.warning("Invalid Telegram signature in /api/mini-app/bills")
+        raise HTTPException(status_code=401, detail="Invalid Telegram signature")
+
+    # Extract telegram_id from parsed data
+    user_data = json.loads(parsed_data.get("user", "{}"))
+    telegram_id = str(user_data.get("id"))
+
+    if not telegram_id:
+        raise HTTPException(status_code=401, detail="No user ID in init data")
+
+    try:
+        from src.models.electricity_reading import ElectricityReading
+
+        target_user, _ = await _resolve_target_user(db, telegram_id, representing)
+        target_user_id = target_user.id
+
+        user_id = target_user_id
+
+        # Get user's property IDs
+        user_properties_stmt = select(Property.id).where(Property.owner_id == user_id)
+        result = await db.execute(user_properties_stmt)
+        user_property_ids = [row[0] for row in result.all()]
+
+        # Query bills with dual joins for start and end electricity readings
+        # For ELECTRICITY bills: join with readings at period start_date and end_date
+        # IMPORTANT: Match readings by BOTH user_id AND property_id to avoid cross-property mixing
+        start_reading_alias = (
+            select(ElectricityReading.reading_value)
+            .where(
+                (ElectricityReading.user_id == Bill.user_id)
+                & (ElectricityReading.property_id == Bill.property_id)
+                & (ElectricityReading.reading_date <= ServicePeriod.start_date)
+            )
+            .order_by(ElectricityReading.reading_date.desc())
+            .limit(1)
+            .correlate(Bill, ServicePeriod)
+            .scalar_subquery()
+        )
+
+        end_reading_alias = (
+            select(ElectricityReading.reading_value)
+            .where(
+                (ElectricityReading.user_id == Bill.user_id)
+                & (ElectricityReading.property_id == Bill.property_id)
+                & (ElectricityReading.reading_date <= ServicePeriod.end_date)
+            )
+            .order_by(ElectricityReading.reading_date.desc())
+            .limit(1)
+            .correlate(Bill, ServicePeriod)
+            .scalar_subquery()
+        )
+
+        # Query bills for user or user's properties
+        bills_stmt = (
+            select(Bill, ServicePeriod, Property, start_reading_alias, end_reading_alias)
+            .join(ServicePeriod, Bill.service_period_id == ServicePeriod.id)
+            .outerjoin(Property, Bill.property_id == Property.id)
+            .where((Bill.user_id == user_id) | (Bill.property_id.in_(user_property_ids)))
+            .order_by(ServicePeriod.start_date.desc())
+        )
+
+        result = await db.execute(bills_stmt)
+        bills_data = result.all()
+
+        # Build response list
+        bills_response = []
+
+        for row_data in bills_data:
+            bill = row_data[0]
+            service_period = row_data[1]
+            property_obj = row_data[2]
+            start_reading = None
+            end_reading = None
+            consumption = None
+
+            if bill.bill_type.value == "electricity":
+                # Extract readings from query result
+                start_reading = float(row_data[3]) if row_data[3] else None
+                end_reading = float(row_data[4]) if row_data[4] else None
+
+                # Calculate consumption if both readings exist
+                if (
+                    start_reading is not None
+                    and end_reading is not None
+                    and end_reading >= start_reading
+                ):
+                    consumption = end_reading - start_reading
+
+                logger.debug(
+                    f"[bills DEBUG] ELECTRICITY bill: user_id={bill.user_id}, "
+                    f"period={service_period.name}, start_reading={start_reading}, "
+                    f"end_reading={end_reading}, consumption={consumption}"
+                )
+
+            bill_response = {
+                "period_name": service_period.name,
+                "period_start_date": service_period.start_date.isoformat(),
+                "period_end_date": service_period.end_date.isoformat(),
+                "property_name": property_obj.property_name if property_obj else None,
+                "property_type": property_obj.type if property_obj else None,
+                "comment": bill.comment,
+                "bill_amount": float(bill.bill_amount),
+                "bill_type": bill.bill_type.value,
+                "start_reading": start_reading,
+                "end_reading": end_reading,
+                "consumption": consumption,
+            }
+            bills_response.append(bill_response)
+
+        logger.info(
+            f"[bills ENDPOINT] Found {len(bills_response)} bills for "
+            f"user={target_user.name} (telegram_id={telegram_id})"
+        )
+
+        # Debug: Log first few bills with full details
+        if bills_response:
+            logger.info(f"[bills DEBUG] First bill: {bills_response[0]}")
+            for i, bill in enumerate(bills_response[:3]):
+                logger.info(
+                    f"[bills DEBUG] Bill {i}: type={bill['bill_type']}, "
+                    f"start_reading={bill['start_reading']}, "
+                    f"end_reading={bill['end_reading']}, "
+                    f"consumption={bill['consumption']}"
+                )
+
+        return {"bills": bills_response}
+
+    except Exception as e:
+        logger.error(f"Error in /api/mini-app/bills: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Server error") from e
 
 

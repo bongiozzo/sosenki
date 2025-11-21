@@ -54,6 +54,11 @@ class ServicePeriod(Base, BaseModel):
         back_populates="service_period",
         cascade="all, delete-orphan",
     )
+    bills: Mapped[list["Bill"]] = relationship(  # noqa: F821
+        "Bill",
+        back_populates="service_period",
+        cascade="all, delete-orphan",
+    )
 
     def __repr__(self) -> str:
         return f"<ServicePeriod(id={self.id}, name={self.name}, status={self.status})>"

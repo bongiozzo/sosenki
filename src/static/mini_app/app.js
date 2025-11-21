@@ -396,69 +396,84 @@ function renderTransactionsList(transactions, containerId = 'transactions-list')
  * @param {string} containerId - ID of container to render bills into
  * @param {boolean} isRepresenting - Whether the authenticated user is representing someone else
  */
-async function loadElectricityBills(containerId = 'electricity-bills-list', contextOrFlag = false) {
+async function loadBills(containerId = 'bills-list', contextOrFlag = false) {
     try {
         const initData = getInitData();
         
         if (!initData) {
-            console.error('[DEBUG loadElectricityBills] No init data available from getInitData()');
+            console.error('[DEBUG loadBills] No init data available from getInitData()');
             return;
         }
 
         const isRepresenting = (typeof contextOrFlag === 'object') ? !!contextOrFlag.isRepresenting : !!contextOrFlag;
         // Fetch bills from backend with representing flag
-        const url = `/api/mini-app/electricity-bills?representing=${isRepresenting}`;
+        const url = `/api/mini-app/bills?representing=${isRepresenting}`;
         const response = await fetchWithTmaAuth(url, initData);
 
         if (!response.ok) {
-            console.error('[DEBUG loadElectricityBills] Failed to load bills:', response.status, response.statusText);
+            console.error('[DEBUG loadBills] Failed to load bills:', response.status, response.statusText);
             const errorText = await response.text();
-            console.error('[DEBUG loadElectricityBills] Error response:', errorText);
+            console.error('[DEBUG loadBills] Error response:', errorText);
             return;
         }
         
         const data = await response.json();
         
+        // Debug: Log the response data
+        console.log('[bills DEBUG] Full response:', data);
+        if (data.bills && data.bills.length > 0) {
+            console.log('[bills DEBUG] First bill:', data.bills[0]);
+            for (let i = 0; i < Math.min(3, data.bills.length); i++) {
+                const bill = data.bills[i];
+                console.log(
+                    `[bills DEBUG] Bill ${i}: type=${bill.bill_type}, ` +
+                    `start_reading=${bill.start_reading}, end_reading=${bill.end_reading}, consumption=${bill.consumption}`
+                );
+            }
+        }
+        
         // Render bills
         if (data.bills && Array.isArray(data.bills)) {
-            renderElectricityBills(data.bills, containerId);
+            renderBills(data.bills, containerId);
         }
         
     } catch (error) {
-        console.error('[DEBUG loadElectricityBills] Exception:', error);
-        console.error('[DEBUG loadElectricityBills] Error message:', error.message);
+        console.error('[DEBUG loadBills] Exception:', error);
+        console.error('[DEBUG loadBills] Error message:', error.message);
     }
 }
 
 /**
- * Render electricity bills list into specified container
+ * Render bills list into specified container (all bill types)
  * @param {Array} bills - Array of bill objects
  * @param {string} containerId - ID of container to render into
  */
-function renderElectricityBills(bills, containerId = 'electricity-bills-list') {
+function renderBills(bills, containerId = 'bills-list') {
     const container = document.getElementById(containerId);
     
     if (!container) {
-        console.warn(`Electricity bills container '${containerId}' not found`);
+        console.warn(`Bills container '${containerId}' not found`);
         return;
     }
     
     container.innerHTML = '';
     
     if (!bills || bills.length === 0) {
-        container.innerHTML = '<div class="electricity-empty">No electricity bills yet</div>';
+        container.innerHTML = '<div class="bill-empty">No bills yet</div>';
         return;
     }
     
     bills.forEach(bill => {
         const billItem = document.createElement('div');
-        billItem.className = 'electricity-bill-item';
+        billItem.className = 'bill-item';
         
-        // Header row: period name and amount
-        const headerDiv = document.createElement('div');
-        headerDiv.className = 'bill-item-header';
+        // Debug: Log bill rendering
+        console.log(
+            `[renderBills DEBUG] Rendering bill: type=${bill.bill_type}, ` +
+            `start_reading=${bill.start_reading}, end_reading=${bill.end_reading}, consumption=${bill.consumption}`
+        );
         
-        // Period header row
+        // Line 1: Period dates (from - to)
         const periodDiv = document.createElement('div');
         periodDiv.className = 'bill-item-period-row';
         const periodEl = document.createElement('div');
@@ -467,14 +482,20 @@ function renderElectricityBills(bills, containerId = 'electricity-bills-list') {
         periodDiv.appendChild(periodEl);
         billItem.appendChild(periodDiv);
         
-        // Property + Amount row
-        const propertyRowDiv = document.createElement('div');
-        propertyRowDiv.className = 'bill-item-property-row';
+        // Line 2: Bill type, Property, Amount
+        const typePropertyRowDiv = document.createElement('div');
+        typePropertyRowDiv.className = 'bill-item-type-property-row';
         
+        // Bill type badge (left)
+        const badgeEl = document.createElement('span');
+        badgeEl.className = `bill-type-badge bill-type-${bill.bill_type.toLowerCase()}`;
+        badgeEl.textContent = formatBillType(bill.bill_type);
+        typePropertyRowDiv.appendChild(badgeEl);
+        
+        // Property info (center)
         const propertyLeftDiv = document.createElement('div');
-        propertyLeftDiv.className = 'bill-item-left';
+        propertyLeftDiv.className = 'bill-item-property-center';
         
-        // Property info (if exists)
         if (bill.property_name || bill.property_type || bill.comment) {
             const propertyEl = document.createElement('div');
             propertyEl.className = 'bill-item-property';
@@ -490,33 +511,62 @@ function renderElectricityBills(bills, containerId = 'electricity-bills-list') {
             propertyLeftDiv.appendChild(propertyEl);
         }
         
+        typePropertyRowDiv.appendChild(propertyLeftDiv);
+        
+        // Amount (right)
         const amountEl = document.createElement('div');
         amountEl.className = 'bill-item-amount';
         amountEl.textContent = `₽${formatAmount(bill.bill_amount)}`;
         
-        propertyRowDiv.appendChild(propertyLeftDiv);
-        propertyRowDiv.appendChild(amountEl);
-        billItem.appendChild(propertyRowDiv);
+        typePropertyRowDiv.appendChild(amountEl);
+        billItem.appendChild(typePropertyRowDiv);
         
-        // Readings row
-        const readingsDiv = document.createElement('div');
-        readingsDiv.className = 'bill-item-readings';
-        
-        const readingsText = document.createElement('span');
-        readingsText.className = 'readings-range';
-        readingsText.textContent = `${formatAmount(bill.start_reading)} → ${formatAmount(bill.end_reading)}`;
-        
-        const consumptionBadge = document.createElement('span');
-        consumptionBadge.className = 'consumption-badge';
-        consumptionBadge.textContent = `${formatAmount(bill.consumption)} kWh`;
-        
-        readingsDiv.appendChild(readingsText);
-        readingsDiv.appendChild(consumptionBadge);
-        
-        billItem.appendChild(readingsDiv);
+        // Readings row (only for ELECTRICITY bills with end_reading)
+        if (bill.bill_type && bill.bill_type.toUpperCase() === 'ELECTRICITY' && bill.end_reading !== null) {
+            const readingsDiv = document.createElement('div');
+            readingsDiv.className = 'bill-item-readings';
+            
+            const readingsText = document.createElement('span');
+            readingsText.className = 'readings-range';
+            
+            // Display start → end if both exist, otherwise just end
+            if (bill.start_reading !== null) {
+                readingsText.textContent = `${formatAmount(bill.start_reading)} → ${formatAmount(bill.end_reading)}`;
+            } else {
+                readingsText.textContent = `${formatAmount(bill.end_reading)} kWh`;
+            }
+            
+            readingsDiv.appendChild(readingsText);
+            
+            // Add consumption badge if available
+            if (bill.consumption !== null) {
+                const consumptionBadge = document.createElement('span');
+                consumptionBadge.className = 'consumption-badge';
+                consumptionBadge.textContent = `${formatAmount(bill.consumption)} kWh`;
+                readingsDiv.appendChild(consumptionBadge);
+            }
+            
+            billItem.appendChild(readingsDiv);
+        }
         
         container.appendChild(billItem);
     });
+}
+
+/**
+ * Format bill type for display
+ * @param {string} billType - Bill type (electricity, shared_electricity, conservation, main or uppercase variants)
+ * @returns {string} Formatted display string
+ */
+function formatBillType(billType) {
+    const normalized = billType.toUpperCase();
+    const typeMap = {
+        'ELECTRICITY': '⚡ Electricity',
+        'SHARED_ELECTRICITY': '🔌 Shared Electricity',
+        'CONSERVATION': '🏘️ Conservation',
+        'MAIN': '📋 Main'
+    };
+    return typeMap[normalized] || billType;
 }
 
 /**
@@ -771,7 +821,7 @@ async function initMiniApp() {
                     renderStakeholderLink(context.stakeholderUrl, context.isOwner, context.sharePercentage);
                     if (context.isOwner) await loadProperties(context);
                     await loadTransactions('transactions-list', 'personal', context);
-                    await loadElectricityBills('electricity-bills-list', context);
+                    await loadBills('bills-list', context);
                 } else {
                     console.error('[init] Failed to establish app context');
                 }

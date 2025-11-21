@@ -767,28 +767,28 @@ body {
     gap: var(--spacing-sm);
 }
 
-/* Electricity Bills Section */
-.electricity-section {
+/* Bills Section (all types) */
+.bills-section {
     padding: var(--spacing-md);
     background: var(--color-white);
     border-top: 1px solid #E5E5E7;
     margin-top: var(--spacing-md);
 }
 
-.electricity-section h2 {
+.bills-section h2 {
     font-size: 16px;
     font-weight: 600;
     margin-bottom: var(--spacing-sm);
     color: var(--color-text);
 }
 
-#electricity-bills-list {
+#bills-list {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-sm);
 }
 
-.electricity-bill-item {
+.bill-item {
     display: flex;
     flex-direction: column;
     padding: var(--spacing-sm);
@@ -799,13 +799,56 @@ body {
     gap: var(--spacing-xs);
 }
 
-.electricity-bill-item:active {
+.bill-item:active {
     background-color: #EFEFEF;
+}
+
+/* Bill type badges */
+.bill-type-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.bill-type-electricity {
+    background-color: #e3f2fd;
+    color: #0277bd;
+}
+
+.bill-type-shared_electricity {
+    background-color: #f3e5f5;
+    color: #6a1b9a;
+}
+
+.bill-type-conservation {
+    background-color: #e8f5e9;
+    color: #2e7d32;
+}
+
+.bill-type-main {
+    background-color: #fff3e0;
+    color: #e65100;
 }
 
 .bill-item-period-row {
     display: flex;
     width: 100%;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.bill-item-type-property-row {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    width: 100%;
+    flex-wrap: nowrap;
+    gap: var(--spacing-sm);
 }
 
 .bill-item-header {
@@ -825,6 +868,14 @@ body {
 }
 
 .bill-item-left {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.bill-item-property-center {
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -883,7 +934,7 @@ body {
     white-space: nowrap;
 }
 
-.electricity-empty {
+.bill-empty {
     padding: var(--spacing-md);
     text-align: center;
     color: var(--color-text-secondary);
