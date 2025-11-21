@@ -340,9 +340,9 @@ def upgrade() -> None:
         sa.Index("idx_reading_property_date", "property_id", "reading_date"),
     )
 
-    # Create electricity_bills table (polymorphic: user or property bills)
+    # Create bills table (unified: electricity, shared_electricity, conservation, main)
     op.create_table(
-        "electricity_bills",
+        "bills",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column(
             "service_period_id",
@@ -361,6 +361,12 @@ def upgrade() -> None:
             sa.Integer(),
             nullable=True,
             comment="FK to Property for property-level bills (polymorphic with user_id)",
+        ),
+        sa.Column(
+            "bill_type",
+            sa.String(length=50),
+            nullable=False,
+            comment="Type of bill: electricity, shared_electricity, conservation, or main",
         ),
         sa.Column(
             "bill_amount",
@@ -392,6 +398,8 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         sa.Index("idx_bill_period_user", "service_period_id", "user_id"),
         sa.Index("idx_bill_period_property", "service_period_id", "property_id"),
+        sa.Index("idx_bill_type", "bill_type"),
+        sa.Index("idx_bill_period_type", "service_period_id", "bill_type"),
     )
 
 

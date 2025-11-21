@@ -19,6 +19,7 @@ from src.config.seeding_config import SeedingConfig
 from src.models.account import Account
 from src.models.property import Property
 from src.models.user import User
+from src.services.bills_seeding import create_bills
 from src.services.credit_seeding import (
     parse_credit_row,
 )
@@ -33,6 +34,7 @@ from src.services.seeding_utils import (
     parse_user_row,
     sheet_row_to_dict,
 )
+from src.services.shared_electricity_bill_seeding import create_shared_electricity_bills
 from src.services.transaction_seeding import (
     create_credit_transactions,
     create_debit_transactions,
@@ -65,13 +67,16 @@ class SeedResult:
     electricity_bills_created: int = 0
     """Number of electricity bills created"""
 
+    shared_electricity_bills_created: int = 0
+    """Number of shared electricity bills created"""
+
+    bills_created: int = 0
+    """Number of regular bills (conservation, main, etc.) created"""
+
     rows_skipped: int = 0
     """Number of rows skipped due to validation errors"""
 
     error_message: str | None = None
-    """Error message if seeding failed"""
-
-    error_message: str = None
     """Error message if success=False"""
 
     def __str__(self) -> str:
@@ -85,6 +90,8 @@ class SeedResult:
                 f"  Credits: {self.credits_created}\n"
                 f"  Electricity readings: {self.electricity_readings_created}\n"
                 f"  Electricity bills: {self.electricity_bills_created}\n"
+                f"  Shared electricity bills: {self.shared_electricity_bills_created}\n"
+                f"  Bills (conservation/main): {self.bills_created}\n"
                 f"  Skipped: {self.rows_skipped}"
             )
         else:
@@ -444,6 +451,9 @@ class SeededService:
                 elec_range_names = config.get_electricity_range_names()
 
                 if elec_range_names:
+                    elec_service_periods_map = config.get_schema_service_periods(
+                        "electricity_readings"
+                    )
                     self.logger.info(
                         f"Processing {len(elec_range_names)} electricity reading range(s)"
                     )
@@ -484,9 +494,9 @@ class SeededService:
                             )
 
                             # Get service period for this range
-                            if reading_dicts and elec_range_name in service_periods_map:
+                            if reading_dicts and elec_range_name in elec_service_periods_map:
                                 try:
-                                    period_info = service_periods_map[elec_range_name]
+                                    period_info = elec_service_periods_map[elec_range_name]
                                     period_start_date = parse_date(period_info.get("start_date"))
                                     period_end_date = parse_date(period_info.get("end_date"))
 
@@ -526,7 +536,196 @@ class SeededService:
             except Exception as e:
                 self.logger.error(f"Failed to process electricity readings: {e}")
 
-            # Step 10: Commit transaction
+            # Step 10: Process shared electricity bills
+            total_shared_electricity_bills = 0
+            try:
+                config = SeedingConfig.load()
+                shared_bill_range_names = config.get_shared_electricity_bill_range_names()
+
+                if shared_bill_range_names:
+                    shared_parsing_rules = config.get_shared_electricity_parsing_rules()
+                    shared_name_based_rules = config.get_shared_electricity_name_based_rules()
+                    shared_service_periods_map = config.get_schema_service_periods(
+                        "shared_electricity_bills"
+                    )
+                    self.logger.info(
+                        f"Processing {len(shared_bill_range_names)} shared electricity bill ranges..."
+                    )
+
+                    for shared_range_name in shared_bill_range_names:
+                        self.logger.info(
+                            f"Fetching shared electricity bills from range '{shared_range_name}'..."
+                        )
+
+                        try:
+                            sheet_data = google_sheets_client.fetch_sheet_data(
+                                spreadsheet_id, range_spec=shared_range_name
+                            )
+
+                            if not sheet_data or len(sheet_data) < 2:
+                                self.logger.warning(
+                                    f"Range '{shared_range_name}' has insufficient data"
+                                )
+                                continue
+
+                            header_row = sheet_data[0]
+                            data_rows = sheet_data[1:]
+
+                            # Parse rows into bill dictionaries
+                            bill_dicts: List[Dict] = []
+                            for row_idx, row_values in enumerate(data_rows, start=1):
+                                try:
+                                    row_dict = sheet_row_to_dict(row_values, header_row)
+                                    # Map column names to field names
+                                    parsed = {
+                                        "user": row_dict.get(shared_parsing_rules.get("user")),
+                                        "amount": row_dict.get(shared_parsing_rules.get("amount")),
+                                    }
+                                    if parsed.get("user") or parsed.get("amount"):
+                                        bill_dicts.append(parsed)
+                                except Exception as e:
+                                    self.logger.debug(f"Shared bill row {row_idx}: Skipped ({e})")
+                                    rows_skipped += 1
+
+                            self.logger.info(
+                                f"Parsed {len(bill_dicts)} shared electricity bills from '{shared_range_name}'"
+                            )
+
+                            # Get service period for this range
+                            if bill_dicts and shared_range_name in shared_service_periods_map:
+                                try:
+                                    period_info = shared_service_periods_map[shared_range_name]
+
+                                    # Get service period object
+                                    service_period = get_or_create_service_period(
+                                        self.session,
+                                        period_info.get("name"),
+                                        period_info.get("start_date"),
+                                        period_info.get("end_date"),
+                                    )
+
+                                    # Create shared bills with name-based split rules
+                                    range_shared_bills = create_shared_electricity_bills(
+                                        bill_dicts,
+                                        user_map=created_users,
+                                        service_period=service_period,
+                                        session=self.session,
+                                        name_based_rules=shared_name_based_rules,
+                                    )
+
+                                    total_shared_electricity_bills += range_shared_bills
+                                    self.logger.info(
+                                        f"✓ Created {range_shared_bills} shared electricity bills from '{shared_range_name}'"
+                                    )
+
+                                except Exception as e:
+                                    self.logger.error(
+                                        f"Failed to create shared bills from '{shared_range_name}': {e}",
+                                        exc_info=True,
+                                    )
+
+                        except Exception as e:
+                            self.logger.error(f"Failed to process range '{shared_range_name}': {e}")
+                else:
+                    self.logger.info("No shared electricity bill ranges configured")
+
+            except Exception as e:
+                self.logger.error(f"Failed to process shared electricity bills: {e}")
+
+            # Step 11: Process bills (conservation, main, etc.)
+            total_bills = 0
+            try:
+                config = SeedingConfig.load()
+                bills_range_names = config.get_bills_range_names()
+
+                if bills_range_names:
+                    bills_parsing_rules = config.get_bills_parsing_rules()
+                    bills_name_based_rules = config.get_bills_name_based_rules()
+                    bills_service_periods_map = config.get_schema_service_periods("bills")
+                    self.logger.info(f"Processing {len(bills_range_names)} bills range(s)...")
+
+                    for bills_range_name in bills_range_names:
+                        self.logger.info(f"Fetching bills from range '{bills_range_name}'...")
+
+                        try:
+                            sheet_data = google_sheets_client.fetch_sheet_data(
+                                spreadsheet_id, range_spec=bills_range_name
+                            )
+
+                            if not sheet_data or len(sheet_data) < 2:
+                                self.logger.warning(
+                                    f"Range '{bills_range_name}' has insufficient data"
+                                )
+                                continue
+
+                            header_row = sheet_data[0]
+                            data_rows = sheet_data[1:]
+
+                            # Parse rows into bill dictionaries
+                            bill_dicts: List[Dict] = []
+                            for row_idx, row_values in enumerate(data_rows, start=1):
+                                try:
+                                    row_dict = sheet_row_to_dict(row_values, header_row)
+                                    # Map column names to field names
+                                    parsed = {
+                                        "user": row_dict.get(bills_parsing_rules.get("user")),
+                                        "amount": row_dict.get(bills_parsing_rules.get("amount")),
+                                        "conservation": row_dict.get(
+                                            bills_parsing_rules.get("conservation", "")
+                                        ),
+                                    }
+                                    if parsed.get("user") or parsed.get("amount"):
+                                        bill_dicts.append(parsed)
+                                except Exception as e:
+                                    self.logger.debug(f"Bills row {row_idx}: Skipped ({e})")
+                                    rows_skipped += 1
+
+                            self.logger.info(
+                                f"Parsed {len(bill_dicts)} bills from '{bills_range_name}'"
+                            )
+
+                            # Get service period for this range
+                            if bill_dicts and bills_range_name in bills_service_periods_map:
+                                try:
+                                    period_info = bills_service_periods_map[bills_range_name]
+
+                                    # Get service period object
+                                    service_period = get_or_create_service_period(
+                                        self.session,
+                                        period_info.get("name"),
+                                        period_info.get("start_date"),
+                                        period_info.get("end_date"),
+                                    )
+
+                                    # Create bills with name-based split rules
+                                    range_bills = create_bills(
+                                        bill_dicts,
+                                        user_map=created_users,
+                                        service_period=service_period,
+                                        session=self.session,
+                                        name_based_rules=bills_name_based_rules,
+                                    )
+
+                                    total_bills += range_bills
+                                    self.logger.info(
+                                        f"✓ Created {range_bills} bills from '{bills_range_name}'"
+                                    )
+
+                                except Exception as e:
+                                    self.logger.error(
+                                        f"Failed to create bills from '{bills_range_name}': {e}",
+                                        exc_info=True,
+                                    )
+
+                        except Exception as e:
+                            self.logger.error(f"Failed to process range '{bills_range_name}': {e}")
+                else:
+                    self.logger.info("No bills ranges configured")
+
+            except Exception as e:
+                self.logger.error(f"Failed to process bills: {e}")
+
+            # Step 12: Commit transaction
             try:
                 self.session.commit()
                 self.logger.info("✓ Seed committed successfully")
@@ -538,6 +737,8 @@ class SeededService:
                     credits_created=total_credits,
                     electricity_readings_created=total_electricity_readings,
                     electricity_bills_created=total_electricity_bills,
+                    shared_electricity_bills_created=total_shared_electricity_bills,
+                    bills_created=total_bills,
                     rows_skipped=rows_skipped,
                 )
             except Exception as e:

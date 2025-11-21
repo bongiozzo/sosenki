@@ -131,7 +131,7 @@ def create_electricity_readings_and_bills(
     Returns:
         Tuple of (readings_created, bills_created)
     """
-    from src.models.electricity_bill import ElectricityBill
+    from src.models.bill import Bill, BillType
     from src.models.electricity_reading import ElectricityReading
 
     logger = logging.getLogger("sosenki.seeding.electricity")
@@ -160,17 +160,16 @@ def create_electricity_readings_and_bills(
         try:
             # Determine if we have a property match
             property_id = property_obj.id if property_obj else None
-            user_id = user.id if not property_id else None
+            user_id = user.id  # Always assign user_id
 
             # Create first reading (start date with start reading value)
             # Check if reading already exists for this property/user and date
             query_start = session.query(ElectricityReading).filter(
-                ElectricityReading.reading_date == period_start_date
+                ElectricityReading.reading_date == period_start_date,
+                ElectricityReading.user_id == user_id,
             )
             if property_id:
                 query_start = query_start.filter(ElectricityReading.property_id == property_id)
-            else:
-                query_start = query_start.filter(ElectricityReading.user_id == user_id)
 
             existing_start = query_start.first()
 
@@ -199,12 +198,11 @@ def create_electricity_readings_and_bills(
             # Create second reading (end date with end reading value)
             # Check if reading already exists for this property/user and date
             query_end = session.query(ElectricityReading).filter(
-                ElectricityReading.reading_date == period_end_date
+                ElectricityReading.reading_date == period_end_date,
+                ElectricityReading.user_id == user_id,
             )
             if property_id:
                 query_end = query_end.filter(ElectricityReading.property_id == property_id)
-            else:
-                query_end = query_end.filter(ElectricityReading.user_id == user_id)
 
             existing_end = query_end.first()
 
@@ -233,11 +231,12 @@ def create_electricity_readings_and_bills(
             # Create bill with optional comment if property not found
             # Check if bill already exists for this service period, user/property combo
             existing_bill = (
-                session.query(ElectricityBill)
+                session.query(Bill)
                 .filter(
-                    ElectricityBill.service_period_id == service_period_id,
-                    ElectricityBill.user_id == user_id,
-                    ElectricityBill.property_id == property_id,
+                    Bill.service_period_id == service_period_id,
+                    Bill.user_id == user_id,
+                    Bill.property_id == property_id,
+                    Bill.bill_type == BillType.ELECTRICITY,
                 )
                 .first()
             )
@@ -248,10 +247,11 @@ def create_electricity_readings_and_bills(
                     comment = property_name
                     logger.info(f"Bill created with user_id (property not found): {property_name}")
 
-                bill = ElectricityBill(
+                bill = Bill(
                     service_period_id=service_period_id,
                     user_id=user_id,
                     property_id=property_id,
+                    bill_type=BillType.ELECTRICITY,
                     bill_amount=bill_amount,
                     comment=comment,
                 )

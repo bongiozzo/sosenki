@@ -30,8 +30,8 @@ class BaseModel:
 # This must be after Base declaration to avoid circular imports
 from src.models.access_request import AccessRequest, RequestStatus  # noqa: E402
 from src.models.account import Account, AccountType  # noqa: E402
+from src.models.bill import Bill, BillType  # noqa: E402
 from src.models.budget_item import AllocationStrategy, BudgetItem  # noqa: E402
-from src.models.electricity_bill import ElectricityBill  # noqa: E402
 from src.models.electricity_reading import ElectricityReading  # noqa: E402
 from src.models.property import Property  # noqa: E402
 from src.models.service_period import PeriodStatus, ServicePeriod  # noqa: E402
@@ -53,5 +53,6 @@ __all__ = [
     "BudgetItem",
     "AllocationStrategy",
     "ElectricityReading",
-    "ElectricityBill",
+    "Bill",
+    "BillType",
 ]

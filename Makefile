@@ -1,13 +1,14 @@
-# TODO Bills on first page
+# TODO Shared Electricity Bills on first page
+# TODO Conservation Bills on first page
 # TODO Debt on first page
 # TODO Balance for accounts
-## TODO User management from bot - list, change - active/inactive, role, 
+## TODO User management from bot - MCP server
 
 # TODO Invest part
 # TODO Production from main and Dev from dev
 # TODO Rule part with Job descriptions
 
-# TODO Remove /specs when finished and make git-filter-repo to clean history
+# TODO Make git-filter-repo to clean history
 
 # ============================================================================
 # Configuration

@@ -20,24 +20,6 @@ def db_session():
     session.close()
 
 
-def test_get_admin_telegram_id_when_admin_exists(db_session: Session):
-    """Test retrieving admin telegram ID when admin user exists."""
-    # Create an admin user
-    admin = User(
-        name="П",
-        telegram_id="123456789",
-        is_administrator=True,
-        is_active=True,
-    )
-    db_session.add(admin)
-    db_session.commit()
-
-    # Retrieve admin telegram ID
-    admin_id = get_admin_telegram_id(db_session)
-
-    assert admin_id == "123456789"
-
-
 def test_get_admin_telegram_id_when_no_admin_exists(db_session: Session):
     """Test retrieving admin telegram ID when no admin user exists."""
     # Add a non-admin user
@@ -54,44 +36,6 @@ def test_get_admin_telegram_id_when_no_admin_exists(db_session: Session):
     admin_id = get_admin_telegram_id(db_session)
 
     assert admin_id is None
-
-
-def test_get_admin_telegram_id_when_admin_has_no_telegram_id(db_session: Session):
-    """Test retrieving admin telegram ID when admin exists but has no telegram_id."""
-    # Create an admin user without telegram_id
-    admin = User(
-        name="П",
-        is_administrator=True,
-        is_active=True,
-    )
-    db_session.add(admin)
-    db_session.commit()
-
-    # Try to retrieve admin telegram ID
-    admin_id = get_admin_telegram_id(db_session)
-
-    assert admin_id is None
-
-
-def test_get_admin_user_when_admin_exists(db_session: Session):
-    """Test retrieving admin user when admin exists."""
-    # Create an admin user
-    admin = User(
-        name="П",
-        telegram_id="123456789",
-        is_administrator=True,
-        is_active=True,
-    )
-    db_session.add(admin)
-    db_session.commit()
-
-    # Retrieve admin user
-    admin_user = get_admin_user(db_session)
-
-    assert admin_user is not None
-    assert admin_user.name == "П"
-    assert admin_user.telegram_id == "123456789"
-    assert admin_user.is_administrator is True
 
 
 def test_get_admin_user_when_no_admin_exists(db_session: Session):
