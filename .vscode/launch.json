@@ -25,14 +25,15 @@
       "name": "Python: seed (Database seeding from Google Sheets)",
       "type": "debugpy",
       "request": "launch",
-      "module": "src.cli.seed",
+      "module": "seeding.cli.seed",
       "console": "integratedTerminal",
       "justMyCode": true,
       "stopOnEntry": false,
       "env": {
         "PYTHONPATH": "${workspaceFolder}",
         "DATABASE_URL": "sqlite:///./sosenki.db",
-        "GOOGLE_CREDENTIALS_PATH": ".env_google_credentials.json"
+        "GOOGLE_CREDENTIALS_PATH": ".env_google_credentials.json",
+        "SEEDING_CONFIG_PATH": "seeding/config/seeding.json",
       },
       "presentation": {
         "hidden": false,

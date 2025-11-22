@@ -15,31 +15,27 @@ from typing import Dict, List
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
-from src.config.seeding_config import SeedingConfig
-from src.models.account import Account
-from src.models.property import Property
-from src.models.user import User
-from src.services.bills_seeding import create_bills
-from src.services.credit_seeding import (
-    parse_credit_row,
-)
-from src.services.debit_seeding import (
-    parse_debit_row,
-)
-from src.services.errors import DatabaseError, TransactionError
-from src.services.google_sheets import GoogleSheetsClient
-from src.services.property_seeding import create_properties, parse_property_row
-from src.services.seeding_utils import (
+from seeding.config.seeding_config import SeedingConfig
+from seeding.core.bills_seeding import create_bills
+from seeding.core.credit_seeding import parse_credit_row
+from seeding.core.debit_seeding import parse_debit_row
+from seeding.core.errors import DatabaseError, TransactionError
+from seeding.core.google_sheets import GoogleSheetsClient
+from seeding.core.property_seeding import create_properties, parse_property_row
+from seeding.core.seeding_utils import (
     get_or_create_user,
     parse_user_row,
     sheet_row_to_dict,
 )
-from src.services.shared_electricity_bill_seeding import create_shared_electricity_bills
-from src.services.transaction_seeding import (
+from seeding.core.shared_electricity_bill_seeding import create_shared_electricity_bills
+from seeding.core.transaction_seeding import (
     create_credit_transactions,
     create_debit_transactions,
     get_or_create_service_period,
 )
+from src.models.account import Account
+from src.models.property import Property
+from src.models.user import User
 
 
 @dataclass
@@ -442,7 +438,7 @@ class SeededService:
             total_electricity_readings = 0
             total_electricity_bills = 0
             try:
-                from src.services.electricity_seeding import (
+                from seeding.core.electricity_seeding import (
                     create_electricity_readings_and_bills,
                     parse_electricity_row,
                 )

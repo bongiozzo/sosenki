@@ -6,10 +6,10 @@ from typing import Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
-from src.config.seeding_config import SeedingConfig
+from seeding.config.seeding_config import SeedingConfig
+from seeding.core.errors import DataValidationError
 from src.models.property import Property
 from src.models.user import User
-from src.services.errors import DataValidationError
 from src.services.parsers import parse_date, parse_russian_currency, parse_russian_decimal
 
 

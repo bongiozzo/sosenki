@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.config.seeding_config import SeedingConfig
+from seeding.config.seeding_config import SeedingConfig
 
 
 def test_seeding_config_loads():

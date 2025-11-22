@@ -67,8 +67,8 @@ class TestMakefileIntegration:
         assert "seed:" in makefile_content, "seed target not defined in Makefile"
 
         # Check that it references the CLI
-        assert "src.cli.seed" in makefile_content, (
-            "seed target does not reference Python CLI module"
+        assert "seeding.cli.seed" in makefile_content, (
+            "seed target does not reference Python CLI module (should be seeding.cli.seed)"
         )
 
     def test_makefile_seed_documentation(self):
@@ -125,8 +125,8 @@ class TestMakefileIntegration:
 
         # Should use uv to run the CLI
         assert "uv run" in seed_section, "seed target should use `uv run` for consistency"
-        assert "python -m src.cli.seed" in seed_section, (
-            "seed target should invoke `python -m src.cli.seed`"
+        assert "python -m seeding.cli.seed" in seed_section, (
+            "seed target should invoke `python -m seeding.cli.seed`"
         )
 
     def test_makefile_seed_has_echo_statements_for_ux(self):

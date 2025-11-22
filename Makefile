@@ -1,9 +1,9 @@
-# TODO Shared Electricity Bills on first page
-# TODO Conservation Bills on first page
 # TODO Debt on first page
 # TODO Balance for accounts
 ## TODO User management from bot - MCP server
 
+# TODO Localization support
+# TODO Fix wrapped tagline on wide monitors
 # TODO Invest part
 # TODO Production from main and Dev from dev
 # TODO Rule part with Job descriptions
@@ -19,6 +19,7 @@ include .env
 
 export DATABASE_URL
 export GOOGLE_CREDENTIALS_PATH
+export GOOGLE_SHEET_ID
 export TELEGRAM_BOT_NAME
 export TELEGRAM_MINI_APP_ID
 
@@ -71,13 +72,17 @@ format:
 # IMPORTANT: Application MUST be offline when running this command
 # This command is idempotent: running it multiple times produces the same result
 # Logs are written to logs/seed.log and stdout (INFO level)
+# Configuration: seeding/config/seeding.json (copy from seeding.json.example)
+# Credentials: credentials.json (from Google Cloud service account)
 seed:
 	@echo "Starting database seed from Google Sheets..."
 	@echo "IMPORTANT: Ensure the application is offline before proceeding"
 	@echo ""
 	export DATABASE_URL=$(DATABASE_URL); \
+	export GOOGLE_SHEET_ID=$(GOOGLE_SHEET_ID); \
 	export GOOGLE_CREDENTIALS_PATH=$(GOOGLE_CREDENTIALS_PATH); \
-	uv run python -m src.cli.seed
+	export SEEDING_CONFIG_PATH="seeding/config/seeding.json"; \
+	uv run python -m seeding.cli.seed
 	@echo ""
 	@echo "Seed complete! Check logs/seed.log for details"
 

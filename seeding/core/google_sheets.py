@@ -11,7 +11,7 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-from src.services.errors import APIError, CredentialsError
+from seeding.core.errors import APIError, CredentialsError
 
 
 class GoogleSheetsClient:

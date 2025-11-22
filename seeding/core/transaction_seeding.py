@@ -9,12 +9,12 @@ from typing import Dict, List
 
 from sqlalchemy.orm import Session
 
+from seeding.core.errors import DataValidationError
 from src.models.account import Account, AccountType
 from src.models.budget_item import AllocationStrategy, BudgetItem
 from src.models.service_period import ServicePeriod
 from src.models.transaction import Transaction
 from src.models.user import User
-from src.services.errors import DataValidationError
 
 
 def get_or_create_service_period(

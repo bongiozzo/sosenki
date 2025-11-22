@@ -44,7 +44,7 @@ class TestSeedingErrorScenarios:
         finally:
             db.close()
 
-    def test_config_loading_works(self):
+    def test_seeding_config_loads(self):
         """Test that seeding configuration can be loaded (US2)."""
         # Should load without error
         config = SeedingConfig.load()
@@ -94,9 +94,6 @@ class TestSeedingErrorScenarios:
             assert saved_user is None
         finally:
             db.close()
-
-    def test_invalid_credentials_path_raises_error(self):
-        """Test that invalid credentials path is caught at config stage (US2)."""
 
     def test_database_connection_pool_works(self):
         """Test that database connection pool operates correctly (US1)."""

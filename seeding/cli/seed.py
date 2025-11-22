@@ -4,7 +4,7 @@ This module provides the `make seed` command interface for developers to
 synchronize the local SQLite database with canonical data from Google Sheets.
 
 Usage:
-    python -m src.cli.seed
+    python -m seeding.cli.seed
     make seed  (via Makefile)
 
 Exit Codes:
@@ -17,10 +17,10 @@ Logging:
 """
 
 import asyncio
+import os
 import sys
 
-from src.services.config import load_config
-from src.services.logging import setup_logging
+from seeding.core.logging import setup_logging
 
 
 async def main() -> int:
@@ -42,22 +42,28 @@ async def main() -> int:
         logger = setup_logging()
         logger.info("Starting database seed from Google Sheets...")
 
-        # Load configuration from .env and environment
-        config = load_config()
-        logger.info(f"Configuration loaded: Sheet ID={config.google_sheet_id[:10]}...")
+        # Load Google Sheets configuration from environment
+        google_sheet_id = os.getenv("GOOGLE_SHEET_ID")
+        credentials_path = os.getenv("GOOGLE_CREDENTIALS_PATH", ".vscode/google_credentials.json")
+
+        if not google_sheet_id:
+            logger.error("GOOGLE_SHEET_ID environment variable not set")
+            return 1
+
+        logger.info(f"Configuration loaded: Sheet ID={google_sheet_id[:10]}...")
 
         # Execute database seeding
+        from seeding.core.google_sheets import GoogleSheetsClient
+        from seeding.core.seeding import SeededService
         from src.services import SessionLocal
-        from src.services.google_sheets import GoogleSheetsClient
-        from src.services.seeding import SeededService
 
         db = SessionLocal()
         try:
-            google_sheets_client = GoogleSheetsClient(config.credentials_path)
+            google_sheets_client = GoogleSheetsClient(credentials_path)
             seeding_service = SeededService(db, logger)
             result = seeding_service.execute_seed(
                 google_sheets_client,
-                config.google_sheet_id,
+                google_sheet_id,
             )
             return 0 if result.success else 1
         finally:

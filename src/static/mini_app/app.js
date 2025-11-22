@@ -500,10 +500,8 @@ function renderBills(bills, containerId = 'bills-list') {
             const propertyEl = document.createElement('div');
             propertyEl.className = 'bill-item-property';
             
-            if (bill.property_name && bill.property_type) {
-                propertyEl.textContent = `${bill.property_name} (${bill.property_type})`;
-            } else if (bill.property_type) {
-                propertyEl.textContent = bill.property_type;
+            if (bill.property_name) {
+                propertyEl.textContent = bill.property_name;
             } else if (bill.comment) {
                 propertyEl.textContent = bill.comment;
             }

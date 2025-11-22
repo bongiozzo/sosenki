@@ -8,7 +8,6 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from seeding.core.errors import CredentialsError
-from seeding.core.google_sheets import GoogleSheetsClient
 from src.models import Base, Property, User
 
 # ============================================================================
@@ -46,6 +45,8 @@ class TestGoogleSheetsClientIntegration:
 
     def test_credentials_loading_with_valid_file(self, tmp_path):
         """T042: Verify GoogleSheetsClient loads credentials from valid file."""
+        from seeding.core.google_sheets import GoogleSheetsClient
+
         # Create a mock credentials file with intentionally fake/invalid private key
         # This is test data only - NOT a real credential
         creds_file = tmp_path / "credentials.json"
@@ -70,11 +71,15 @@ class TestGoogleSheetsClientIntegration:
 
     def test_credentials_loading_missing_file_raises_error(self):
         """T042: Verify GoogleSheetsClient raises error for missing credentials."""
+        from seeding.core.google_sheets import GoogleSheetsClient
+
         with pytest.raises(CredentialsError):
             GoogleSheetsClient(credentials_path="/non/existent/path/credentials.json")
 
     def test_credentials_loading_invalid_json_raises_error(self, tmp_path):
         """T042: Verify GoogleSheetsClient raises error for invalid JSON."""
+        from seeding.core.google_sheets import GoogleSheetsClient
+
         creds_file = tmp_path / "invalid.json"
         creds_file.write_text("{invalid json content")
 
@@ -344,6 +349,8 @@ class TestErrorHandlingRobustness:
 
     def test_credentials_error_message_handling(self):
         """T049: Verify error messages are handled properly."""
+        from seeding.core.google_sheets import GoogleSheetsClient
+
         # Missing credentials should raise CredentialsError
         with pytest.raises(CredentialsError):
             GoogleSheetsClient(credentials_path="/does/not/exist.json")

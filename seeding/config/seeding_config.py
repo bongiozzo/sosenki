@@ -33,7 +33,7 @@ class SeedingConfig:
         """
         if cls._config is None:
             # Read path from environment variable
-            config_path_str = os.getenv("SEEDING_CONFIG_PATH", "src/config/seeding.json")
+            config_path_str = os.getenv("SEEDING_CONFIG_PATH", "seeding/config/seeding.json")
             config_path = Path(config_path_str)
 
             try:

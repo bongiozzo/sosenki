@@ -9,9 +9,9 @@ from typing import Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
-from src.config.seeding_config import SeedingConfig
+from seeding.config.seeding_config import SeedingConfig
+from seeding.core.errors import DataValidationError
 from src.models.user import User
-from src.services.errors import DataValidationError
 
 
 def parse_user_row(row_dict: Dict[str, str]) -> Optional[Dict]:

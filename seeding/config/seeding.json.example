@@ -1,0 +1,188 @@
+{
+  "schemas": {
+    "users": {
+      "range_name": "PropertiesOwners",
+      "fields": {
+        "parsing": {
+          "name_column": "LastName",
+          "stakeholder_column": "Share"
+        }
+      },
+      "defaults": {
+        "is_investor": true,
+        "is_owner": true,
+        "is_active": false,
+        "is_staff": false,
+        "is_administrator": false
+      },
+      "add": {
+        "_example_staff_member": {
+          "is_investor": false,
+          "is_owner": false,
+          "is_active": false,
+          "is_staff": true
+        }
+      },
+      "transformations": {
+        "name_based_rules": {
+          "_example_user": {
+            "is_administrator": true,
+            "telegram_id": 123456789,
+            "username": "example_username",
+            "is_active": true
+          }
+        }
+      }
+    },
+
+    "properties": {
+      "range_name": "PropertiesOwners",
+      "fields": {
+        "parsing": {
+          "property_name_column": "House",
+          "type_column": "Size",
+          "share_weight_column": "Coefficient",
+          "is_ready_column": "Readiness",
+          "is_for_tenant_column": "Rental",
+          "photo_link_column": "Photo",
+          "sale_price_column": "Price"
+        }
+      },
+      "defaults": {
+        "is_active": true,
+        "share_weight": null,
+        "photo_link": null,
+        "sale_price": null
+      },
+      "additional": {
+        "fields": {
+          "source_column": "Additional",
+          "inherited_fields": ["is_ready", "is_for_tenant"],
+          "null_fields": ["share_weight", "photo_link", "sale_price"]
+        },
+        "defaults": {
+          "is_active": true,
+          "default_type": "Other"
+        },
+        "transformations": {
+          "code_to_type": {
+            "1": "Cottage",
+            "2": "Garage",
+            "3": "Storage"
+          }
+        }
+      }
+    },
+
+    "service_periods": {
+      "2024-2025": {
+        "start_date": "01.07.2024",
+        "end_date": "01.07.2025"
+      },
+      "2025-2026": {
+        "start_date": "01.07.2025",
+        "end_date": "01.07.2026"
+      }
+    },
+
+    "debit_transactions": {
+      "service_periods": {
+        "Debits2425": "2024-2025",
+        "Debits25H2": "2025-2026"
+      },
+      "fields": {
+        "parsing": {
+          "owner_name_column": "Owner",
+          "amount_column": "Amount",
+          "date_column": "Date",
+          "comment_column": "Comment"
+        }
+      },
+      "additional": {
+        "accounts": {
+          "fields": {
+            "name_column": "Account"
+          },
+          "defaults": {
+            "account_name": "Contributions"
+          }
+        }
+      }
+    },
+
+    "credit_transactions": {
+      "service_periods": {
+        "Credits2425": "2024-2025",
+        "Credits25H2": "2025-2026"
+      },
+      "fields": {
+        "parsing": {
+          "comment_column": "Collection",
+          "type_column": "Type",
+          "amount_column": "HowMuch",
+          "name_column": "Who",
+          "date_column": "When"
+        }
+      }
+    },
+
+    "electricity_readings": {
+      "service_periods": {
+        "ElecReadings2425": "2024-2025",
+        "ElecReadings25H2": "2025-2026"
+      },
+      "fields": {
+        "parsing": {
+          "user": "LastName",
+          "property": "Building",
+          "start_column": "From",
+          "end_column": "To",
+          "amount_column": "Amount"
+        }
+      }
+    },
+
+    "shared_electricity_bills": {
+      "service_periods": {
+        "SharedElec2425": "2024-2025",
+        "SharedElec25H2": "2025-2026"
+      },
+      "fields": {
+        "parsing": {
+          "user": "FullName",
+          "amount": "SharedElectricity"
+        }
+      },
+      "transformations": {
+        "name_based_rules": {
+          "User1/User2": {
+            "User1": 0.5,
+            "User2": 0.5
+          }
+        }
+      }
+    },
+
+    "bills": {
+      "service_periods": {
+        "Bills2425": "2024-2025",
+        "Bills25H2": "2025-2026"
+      },
+      "fields": {
+        "parsing": {
+          "user": "FullName",
+          "conservation": "Conservation",
+          "amount": "Amount"
+        }
+      },
+      "transformations": {
+        "name_based_rules": {
+          "User1/User2": {
+            "User1": 0.5,
+            "User2": 0.5
+          }
+        }
+      }
+    }
+  }
+}

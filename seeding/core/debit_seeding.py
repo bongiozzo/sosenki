@@ -7,8 +7,8 @@ Creation is delegated to transaction_seeding.create_debit_transactions()
 import logging
 from typing import Dict, List, Optional
 
-from src.config.seeding_config import SeedingConfig
-from src.services.errors import DataValidationError
+from seeding.config.seeding_config import SeedingConfig
+from seeding.core.errors import DataValidationError
 from src.services.parsers import parse_date, parse_russian_currency
 
 
@@ -120,7 +120,7 @@ def parse_debit_range_with_service_period(
     Raises:
         DataValidationError: If range name is not mapped to service period
     """
-    from src.services.seeding_utils import parse_range_with_service_period
+    from seeding.core.seeding_utils import parse_range_with_service_period
 
     return parse_range_with_service_period(
         debit_dicts, range_name, "sosenki.seeding.debits", config
