@@ -8,8 +8,8 @@ from typing import Any, Dict, List
 
 from sqlalchemy.orm import Session
 
+from seeding.core.parsers import parse_russian_currency
 from src.models import Bill, BillType, ServicePeriod, User
-from src.services.parsers import parse_russian_currency
 
 
 def parse_bill_row(

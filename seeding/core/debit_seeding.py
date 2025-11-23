@@ -9,7 +9,7 @@ from typing import Dict, List, Optional
 
 from seeding.config.seeding_config import SeedingConfig
 from seeding.core.errors import DataValidationError
-from src.services.parsers import parse_date, parse_russian_currency
+from seeding.core.parsers import parse_date, parse_russian_currency
 
 
 def parse_debit_row(  # noqa: C901

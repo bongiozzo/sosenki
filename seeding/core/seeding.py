@@ -442,7 +442,7 @@ class SeededService:
                     create_electricity_readings_and_bills,
                     parse_electricity_row,
                 )
-                from src.services.parsers import parse_date
+                from seeding.core.parsers import parse_date
 
                 elec_range_names = config.get_electricity_range_names()
 

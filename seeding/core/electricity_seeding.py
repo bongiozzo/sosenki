@@ -8,9 +8,9 @@ from sqlalchemy.orm import Session
 
 from seeding.config.seeding_config import SeedingConfig
 from seeding.core.errors import DataValidationError
+from seeding.core.parsers import parse_date, parse_russian_currency, parse_russian_decimal
 from src.models.property import Property
 from src.models.user import User
-from src.services.parsers import parse_date, parse_russian_currency, parse_russian_decimal
 
 
 def parse_electricity_row(  # noqa: C901

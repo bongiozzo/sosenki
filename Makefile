@@ -1,14 +1,14 @@
-# TODO Debt on first page
-# TODO Balance for accounts
-## TODO User management from bot - MCP server
-
-# TODO Localization support
+# TODO Switch to another user for Administrator
+# TODO Test Coverage Report and find dead code
+# TODO Finalize seeding and Report summary
 # TODO Fix wrapped tagline on wide monitors
+# TODO Localization support
 # TODO Invest part
-# TODO Production from main and Dev from dev
+## TODO User management from bot - MCP server
+# TODO Make git-filter-repo to clean history
+# TODO Production from branch main and Dev from dev
 # TODO Rule part with Job descriptions
 
-# TODO Make git-filter-repo to clean history
 
 # ============================================================================
 # Configuration
@@ -74,7 +74,8 @@ format:
 # Logs are written to logs/seed.log and stdout (INFO level)
 # Configuration: seeding/config/seeding.json (copy from seeding.json.example)
 # Credentials: credentials.json (from Google Cloud service account)
-seed:
+# NOTE: db-reset is a prerequisite and will run automatically
+seed: db-reset
 	@echo "Starting database seed from Google Sheets..."
 	@echo "IMPORTANT: Ensure the application is offline before proceeding"
 	@echo ""

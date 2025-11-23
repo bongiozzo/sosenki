@@ -723,137 +723,6 @@ async def transactions_list(
         raise HTTPException(status_code=500, detail="Server error") from e
 
 
-@router.post("/electricity-bills")
-async def electricity_bills(
-    representing: bool | None = None,
-    authorization: str | None = Header(None),  # noqa: B008
-    x_telegram_init_data: str | None = Header(None),  # noqa: B008
-    body: dict[str, Any] | None = Body(None),  # noqa: B008
-    db: AsyncSession = Depends(get_async_session),  # noqa: B008
-) -> ElectricityBillsListResponse:
-    """Get list of electricity bills for authenticated user.
-
-    Returns bills for properties owned by the user or bills directly assigned to the user.
-    Each bill includes period information, meter readings, consumption, and amount.
-
-    Args:
-        representing: If True, return bills for represented user instead of authenticated user.
-
-    Returns:
-        ElectricityBillsListResponse with list of bills sorted by period (most recent first).
-
-    Raises:
-        401: Invalid Telegram signature
-        403: User not registered or inactive
-        500: Server error
-    """
-    from src.models.electricity_bill import ElectricityBill
-    from src.models.electricity_reading import ElectricityReading
-    from src.models.property import Property
-    from src.models.service_period import ServicePeriod
-
-    logger.info(
-        f"[electricity-bills ENDPOINT START] representing={representing} (type={type(representing).__name__})"
-    )
-    # Extract and verify init data
-    init_data_raw = _extract_init_data(authorization, x_telegram_init_data, body)
-    parsed_data = UserService.verify_telegram_webapp_signature(
-        init_data=init_data_raw or "", bot_token=bot_config.telegram_bot_token
-    )
-
-    if not parsed_data:
-        logger.warning("Invalid Telegram signature in /api/mini-app/electricity-bills")
-        raise HTTPException(status_code=401, detail="Invalid Telegram signature")
-
-    # Extract telegram_id from parsed data
-    user_data = json.loads(parsed_data.get("user", "{}"))
-    telegram_id = str(user_data.get("id"))
-
-    if not telegram_id:
-        raise HTTPException(status_code=401, detail="No user ID in init data")
-
-    try:
-        target_user, _ = await _resolve_target_user(db, telegram_id, representing)
-        target_user_id = target_user.id
-
-        user_id = target_user_id
-
-        # Get user's property IDs
-        user_properties_stmt = select(Property.id).where(Property.owner_id == user_id)
-        result = await db.execute(user_properties_stmt)
-        user_property_ids = [row[0] for row in result.all()]
-
-        # Query bills for user or user's properties
-        bills_stmt = (
-            select(ElectricityBill, ServicePeriod, Property)
-            .join(ServicePeriod, ElectricityBill.service_period_id == ServicePeriod.id)
-            .outerjoin(Property, ElectricityBill.property_id == Property.id)
-            .where(
-                (ElectricityBill.user_id == user_id)
-                | (ElectricityBill.property_id.in_(user_property_ids))
-            )
-            .order_by(ServicePeriod.start_date.desc())
-        )
-
-        result = await db.execute(bills_stmt)
-        bills_data = result.all()
-
-        # Build response list
-        bills_response = []
-
-        for bill, period, property_obj in bills_data:
-            # Get readings for this bill
-            readings_stmt = select(ElectricityReading).where(
-                ElectricityReading.reading_date.in_([period.start_date, period.end_date])
-            )
-
-            if bill.property_id:
-                readings_stmt = readings_stmt.where(
-                    ElectricityReading.property_id == bill.property_id
-                )
-            else:
-                readings_stmt = readings_stmt.where(ElectricityReading.user_id == bill.user_id)
-
-            readings_result = await db.execute(readings_stmt)
-            readings = readings_result.scalars().all()
-
-            # Sort readings by date to identify start and end
-            readings_sorted = sorted(readings, key=lambda r: r.reading_date)
-
-            # Extract start and end readings (default to 0 if missing)
-            start_reading = float(readings_sorted[0].reading_value) if readings_sorted else 0.0
-            end_reading = (
-                float(readings_sorted[-1].reading_value)
-                if len(readings_sorted) > 1
-                else start_reading
-            )
-            consumption = end_reading - start_reading
-
-            # Build bill response
-            bill_response = ElectricityBillResponse(
-                period_name=period.name,
-                period_start_date=period.start_date.isoformat(),
-                period_end_date=period.end_date.isoformat(),
-                property_name=property_obj.property_name if property_obj else None,
-                property_type=property_obj.type if property_obj else None,
-                start_reading=start_reading,
-                end_reading=end_reading,
-                consumption=consumption,
-                bill_amount=float(bill.bill_amount),
-                comment=bill.comment,
-            )
-
-            bills_response.append(bill_response)
-
-        return ElectricityBillsListResponse(bills=bills_response)
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error in /api/mini-app/electricity-bills: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Server error") from e
-
-
 @router.post("/bills")
 async def get_bills(
     representing: bool | None = None,
@@ -1021,6 +890,163 @@ async def get_bills(
 
     except Exception as e:
         logger.error(f"Error in /api/mini-app/bills: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Server error") from e
+
+
+# Balance Response Models
+class BalanceResponse(BaseModel):
+    """Response schema for single user balance endpoint."""
+
+    balance: float  # Positive = credit, Negative = debt
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BalanceItem(BaseModel):
+    """Response schema for a single owner's balance item."""
+
+    owner_name: str
+    balance: float
+    share_percentage: int | None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BalancesResponse(BaseModel):
+    """Response schema for balances endpoint."""
+
+    balances: list[BalanceItem]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+@router.post("/balance", response_model=BalanceResponse)
+async def get_balance(
+    representing: bool | None = None,
+    authorization: str | None = Header(None),  # noqa: B008
+    x_telegram_init_data: str | None = Header(None),  # noqa: B008
+    session: AsyncSession = Depends(get_async_session),  # noqa: B008
+    body: dict[str, Any] | None = Body(None),  # noqa: B008
+) -> BalanceResponse:
+    """Get balance (transactions - bills) for authenticated or represented user."""
+    try:
+        # Extract init data
+        raw_init_data = _extract_init_data(authorization, x_telegram_init_data, body)
+        if not raw_init_data:
+            raise HTTPException(status_code=400, detail="Missing init data")
+
+        # Verify Telegram signature
+        parsed_data = UserService.verify_telegram_webapp_signature(
+            init_data=raw_init_data, bot_token=bot_config.telegram_bot_token
+        )
+        if not parsed_data:
+            raise HTTPException(status_code=401, detail="Invalid Telegram signature")
+
+        # Extract telegram_id from parsed data
+        user_data = json.loads(parsed_data.get("user", "{}"))
+        telegram_id = str(user_data.get("id"))
+        if not telegram_id:
+            raise HTTPException(status_code=401, detail="User ID not found in init data")
+
+        # Resolve target user
+        target_user, switched = await _resolve_target_user(session, str(telegram_id), representing)
+
+        # Calculate balance using service
+        from src.services.balance_service import BalanceCalculationService
+
+        balance_service = BalanceCalculationService(session)
+        balance = await balance_service.calculate_user_balance(target_user.id)
+
+        logger.info(
+            f"[balance ENDPOINT] user={target_user.name} (id={target_user.id}), balance={balance}"
+        )
+
+        return BalanceResponse(balance=balance)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in /api/mini-app/balance: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Server error") from e
+
+
+@router.post("/balances", response_model=BalancesResponse)
+async def get_all_balances(
+    authorization: str | None = Header(None),  # noqa: B008
+    x_telegram_init_data: str | None = Header(None),  # noqa: B008
+    session: AsyncSession = Depends(get_async_session),  # noqa: B008
+    body: dict[str, Any] | None = Body(None),  # noqa: B008
+) -> BalancesResponse:
+    """Get balances for all owners (info available to any owner)."""
+    try:
+        # Extract init data
+        raw_init_data = _extract_init_data(authorization, x_telegram_init_data, body)
+        if not raw_init_data:
+            raise HTTPException(status_code=400, detail="Missing init data")
+
+        # Verify Telegram signature
+        parsed_data = UserService.verify_telegram_webapp_signature(
+            init_data=raw_init_data, bot_token=bot_config.telegram_bot_token
+        )
+        if not parsed_data:
+            raise HTTPException(status_code=401, detail="Invalid Telegram signature")
+
+        # Extract telegram_id from parsed data
+        user_data = json.loads(parsed_data.get("user", "{}"))
+        telegram_id = str(user_data.get("id"))
+        if not telegram_id:
+            raise HTTPException(status_code=401, detail="User ID not found in init data")
+
+        # Get the authenticated user
+        stmt = select(User).filter(User.telegram_id == int(telegram_id))
+        result = await session.execute(stmt)
+        authenticated_user = result.scalar_one_or_none()
+        if not authenticated_user:
+            raise HTTPException(status_code=401, detail="User not found")
+
+        # Get all distinct owners from properties
+        # (All owners are available to view balances - info is not restricted)
+        from sqlalchemy import distinct
+
+        from src.models.property import Property
+
+        stmt = (
+            select(distinct(User.id), User.name, User.is_stakeholder)
+            .select_from(Property)
+            .join(User, User.id == Property.owner_id)
+        )
+        result = await session.execute(stmt)
+        owners_data = result.all()
+
+        balances_list = []
+
+        from src.services.balance_service import BalanceCalculationService
+
+        balance_service = BalanceCalculationService(session)
+
+        for owner_id, owner_name, is_stakeholder in owners_data:
+            # Calculate balance using service
+            balance = await balance_service.calculate_user_balance(owner_id)
+
+            balances_list.append(
+                BalanceItem(
+                    owner_name=owner_name,
+                    balance=balance,
+                    share_percentage=1.0 if is_stakeholder else 0.0,  # Use stakeholder status as proxy
+                )
+            )
+
+        logger.info(
+            f"[balances ENDPOINT] Found {len(balances_list)} owners for "
+            f"user={authenticated_user.name} (id={authenticated_user.id})"
+        )
+
+        return BalancesResponse(balances=balances_list)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in /api/mini-app/balances: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Server error") from e
 
 

@@ -11,13 +11,13 @@ from sqlalchemy.orm import Session
 
 from seeding.config.seeding_config import SeedingConfig
 from seeding.core.errors import DataValidationError
-from src.models.property import Property
-from src.models.user import User
-from src.services.parsers import (
+from seeding.core.parsers import (
     parse_boolean,
     parse_russian_currency,
     parse_russian_decimal,
 )
+from src.models.property import Property
+from src.models.user import User
 
 
 def parse_property_row(row_dict: Dict[str, str], owner: User) -> List[Dict]:

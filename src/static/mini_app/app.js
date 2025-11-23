@@ -780,6 +780,209 @@ function goBackToWelcome() {
 /**
  * Initialize Mini App
  */
+/**
+ * Load and render balance from backend
+ * @param {boolean} isRepresenting - Whether the authenticated user is representing someone else
+ */
+async function loadBalance(contextOrFlag = false) {
+    try {
+        const initData = getInitData();
+        
+        if (!initData) {
+            console.error('[DEBUG loadBalance] No init data available from getInitData()');
+            return;
+        }
+
+        const isRepresenting = (typeof contextOrFlag === 'object') ? !!contextOrFlag.isRepresenting : !!contextOrFlag;
+        // Fetch balance from backend with representing flag
+        const url = `/api/mini-app/balance?representing=${isRepresenting}`;
+        const response = await fetchWithTmaAuth(url, initData);
+
+        if (!response.ok) {
+            console.error('[DEBUG loadBalance] Failed to load balance:', response.status, response.statusText);
+            return;
+        }
+        
+        const data = await response.json();
+        
+        if (data.balance !== undefined) {
+            renderBalance(data.balance);
+        }
+        
+    } catch (error) {
+        console.error('[DEBUG loadBalance] Exception:', error);
+    }
+}
+
+/**
+ * Render balance into the balance-container
+ * @param {number} balance - Balance amount (transactions - bills)
+ */
+function renderBalance(balance) {
+    const container = document.getElementById('balance-container');
+    
+    if (!container) {
+        console.warn('Balance container not found');
+        return;
+    }
+    
+    // Show the balance section
+    container.classList.add('visible');
+    
+    // Find the balance-value element and update it
+    const balanceValue = container.querySelector('.balance-value');
+    if (balanceValue) {
+        const formattedBalance = formatAmount(Math.abs(balance));
+        const balanceClass = balance >= 0 ? 'positive' : 'negative';
+        balanceValue.className = `balance-value ${balanceClass}`;
+        balanceValue.textContent = `${balance >= 0 ? '+' : '-'}₽${formattedBalance}`;
+    }
+}
+
+/**
+ * Navigate to balances page
+ */
+function navigateToBalances(event) {
+    console.log('[DEBUG navigateToBalances] STARTED');
+    event.preventDefault();
+    
+    // Show balances page
+    const template = document.getElementById('balances-template');
+    if (!template) {
+        console.error('[DEBUG navigateToBalances] balances-template not found');
+        return;
+    }
+    console.log('[DEBUG navigateToBalances] Template found, cloning content');
+    
+    const content = template.content.cloneNode(true);
+    appContainer.innerHTML = '';
+    appContainer.appendChild(content);
+    console.log('[DEBUG navigateToBalances] Template rendered in DOM');
+    
+    // Load all balances
+    console.log('[DEBUG navigateToBalances] Calling loadBalances');
+    loadBalances('balances-list');
+    console.log('[DEBUG navigateToBalances] COMPLETED');
+}
+
+/**
+ * Load and render balances from backend
+ * @param {string} containerId - ID of container to render balances into
+ */
+function loadBalances(containerId = 'balances-list') {
+    console.log('[DEBUG loadBalances] STARTED with containerId:', containerId);
+    try {
+        const initData = getInitData();
+        console.log('[DEBUG loadBalances] Got init data:', initData ? 'YES' : 'NO');
+        
+        if (!initData) {
+            console.error('[DEBUG loadBalances] No init data available from getInitData()');
+            return;
+        }
+
+        // Fetch balances from backend (all users, info available to any owner)
+        const url = `/api/mini-app/balances`;
+        console.log('[DEBUG loadBalances] Fetching from URL:', url);
+        
+        fetchWithTmaAuth(url, initData)
+            .then(response => {
+                console.log('[DEBUG loadBalances] Response status:', response.status);
+                
+                if (!response.ok) {
+                    console.error('[DEBUG loadBalances] Failed to load balances:', response.status, response.statusText);
+                    return response.text().then(errorText => {
+                        console.error('[DEBUG loadBalances] Error response body:', errorText);
+                        throw new Error(`HTTP ${response.status}`);
+                    });
+                }
+                
+                return response.json();
+            })
+            .then(data => {
+                console.log('[DEBUG loadBalances] Got data:', data);
+                console.log('[DEBUG loadBalances] Balances count:', data.balances ? data.balances.length : 0);
+                if (data.balances && data.balances.length > 0) {
+                    console.log('[DEBUG loadBalances] First balance:', data.balances[0]);
+                }
+                console.log('[DEBUG loadBalances] Calling renderBalancesPage with', data.balances ? data.balances.length : 0, 'items');
+                renderBalancesPage(data.balances || [], containerId);
+                console.log('[DEBUG loadBalances] COMPLETED');
+            })
+            .catch(error => {
+                console.error('[DEBUG loadBalances] Exception:', error);
+                console.error('[DEBUG loadBalances] Error message:', error.message);
+                console.error('[DEBUG loadBalances] Stack:', error.stack);
+            });
+        
+    } catch (error) {
+        console.error('[DEBUG loadBalances] Sync error:', error);
+    }
+}
+
+/**
+ * Render balances page with list of owners and their balances
+ * @param {Array} balances - Array of balance items {owner_name, balance, share_percentage}
+ * @param {string} containerId - ID of container to render into
+ */
+function renderBalancesPage(balances, containerId = 'balances-list') {
+    console.log('[DEBUG renderBalancesPage] STARTED with', balances.length, 'balances, containerId:', containerId);
+    const container = document.getElementById(containerId);
+    console.log('[DEBUG renderBalancesPage] Got container:', container ? 'YES' : 'NO');
+    
+    if (!container) {
+        console.warn('[DEBUG renderBalancesPage] balances-list container not found');
+        return;
+    }
+    
+    container.innerHTML = '';
+    
+    if (!balances || balances.length === 0) {
+        container.innerHTML = '<div class="balance-empty">No balances available</div>';
+        console.log('[DEBUG renderBalancesPage] No balances to render');
+        return;
+    }
+    
+    // Sort by balance (most negative first - biggest debt first)
+    const sorted = [...balances].sort((a, b) => a.balance - b.balance);
+    console.log('[DEBUG renderBalancesPage] Sorted balances:', sorted);
+    
+    sorted.forEach((item, index) => {
+        console.log(`[DEBUG renderBalancesPage] Rendering balance ${index}:`, item);
+        const row = document.createElement('div');
+        row.className = 'balance-row';
+        
+        // Owner info (name + share percentage)
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'balance-row-info';
+        
+        const nameEl = document.createElement('div');
+        nameEl.className = 'balance-row-name';
+        nameEl.textContent = item.owner_name;
+        infoDiv.appendChild(nameEl);
+        
+        if (item.share_percentage !== null) {
+            const shareEl = document.createElement('div');
+            shareEl.className = 'balance-row-share';
+            shareEl.textContent = `${formatAmount(item.share_percentage)}%`;
+            infoDiv.appendChild(shareEl);
+        }
+        
+        row.appendChild(infoDiv);
+        
+        // Balance amount (with color coding)
+        const amountEl = document.createElement('div');
+        const formattedAmount = formatAmount(Math.abs(item.balance));
+        const balanceClass = item.balance >= 0 ? 'positive' : 'negative';
+        amountEl.className = `balance-row-amount ${balanceClass}`;
+        amountEl.textContent = `${item.balance >= 0 ? '+' : '-'}₽${formattedAmount}`;
+        
+        row.appendChild(amountEl);
+        container.appendChild(row);
+        console.log(`[DEBUG renderBalancesPage] Appended balance row ${index}`);
+    });
+    console.log('[DEBUG renderBalancesPage] COMPLETED - rendered', sorted.length, 'balances');
+}
+
 async function initMiniApp() {
     try {
         // Get init data from Telegram WebApp (supports both desktop and iOS)
@@ -817,7 +1020,10 @@ async function initMiniApp() {
                     renderUserStatuses(context.roles);
                     renderRepresentativeInfo(context.representativeOf);
                     renderStakeholderLink(context.stakeholderUrl, context.isOwner, context.sharePercentage);
-                    if (context.isOwner) await loadProperties(context);
+                    if (context.isOwner) {
+                        await loadProperties(context);
+                        await loadBalance(context);
+                    }
                     await loadTransactions('transactions-list', 'personal', context);
                     await loadBills('bills-list', context);
                 } else {

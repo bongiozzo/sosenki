@@ -139,7 +139,7 @@ class TestRussianNumberParsingIntegration:
 
     def test_russian_decimal_parser_converts_correctly(self):
         """T044: Verify Russian decimal parser converts format correctly."""
-        from src.services.parsers import parse_russian_decimal
+        from seeding.core.parsers import parse_russian_decimal
 
         # Test Russian format: "1 000,25" → Decimal("1000.25")
         result = parse_russian_decimal("1 000,25")
@@ -151,7 +151,7 @@ class TestRussianNumberParsingIntegration:
 
     def test_russian_percentage_parser_converts_correctly(self):
         """T044: Verify Russian percentage parser converts format correctly."""
-        from src.services.parsers import parse_russian_percentage
+        from seeding.core.parsers import parse_russian_percentage
 
         # Test Russian format: "3,85%" → Decimal("3.85")
         result = parse_russian_percentage("3,85%")
@@ -159,7 +159,7 @@ class TestRussianNumberParsingIntegration:
 
     def test_boolean_parser_converts_correctly(self):
         """T044: Verify boolean parser handles Russian Yes/No."""
-        from src.services.parsers import parse_boolean
+        from seeding.core.parsers import parse_boolean
 
         # "Да" → True
         assert parse_boolean("Да") is True
@@ -337,7 +337,7 @@ class TestErrorHandlingRobustness:
 
     def test_invalid_decimal_format_rejected(self):
         """T048: Verify invalid decimals are rejected."""
-        from src.services.parsers import parse_russian_decimal
+        from seeding.core.parsers import parse_russian_decimal
 
         # Valid format
         result = parse_russian_decimal("100,50")
