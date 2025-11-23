@@ -60,8 +60,20 @@ async def _resolve_target_user(
     session: AsyncSession,
     telegram_id: str,
     representing: bool | None = None,
+    selected_user_id: int | None = None,
 ) -> tuple[User, bool]:
-    """Resolve the target user (authenticated vs represented) for dataset endpoints."""
+    """
+    Resolve the target user (authenticated vs represented) for dataset endpoints.
+
+    Args:
+        session: Database session
+        telegram_id: Telegram ID of the authenticated user
+        representing: Whether to consider representation (legacy parameter)
+        selected_user_id: User ID selected by admin (takes precedence if admin)
+
+    Returns:
+        Tuple of (target_user, switched) where switched indicates context change
+    """
     user_service = UserService(session)
     user = await user_service.get_by_telegram_id(telegram_id)
 
@@ -71,16 +83,28 @@ async def _resolve_target_user(
 
     target_user = user
     switched = False
-    consider_represented = representing is True or (
-        representing is None and user.representative_id is not None
-    )
 
-    if consider_represented and user.representative_id:
-        user_status_service = UserStatusService(session)
-        represented_user = await user_status_service.get_represented_user(user.id)
-        if represented_user:
-            target_user = represented_user
+    # Admin override: if selected_user_id provided and user is admin, use selected user
+    if selected_user_id is not None and user.is_administrator:
+        selected_user = await session.get(User, selected_user_id)
+        if selected_user:
+            target_user = selected_user
             switched = True
+        else:
+            logger.warning(f"Admin {telegram_id} requested invalid user_id: {selected_user_id}")
+            raise HTTPException(status_code=404, detail="Selected user not found")
+    else:
+        # Fallback to legacy representation logic (only if no admin selection)
+        consider_represented = representing is True or (
+            representing is None and user.representative_id is not None
+        )
+
+        if consider_represented and user.representative_id:
+            user_status_service = UserStatusService(session)
+            represented_user = await user_status_service.get_represented_user(user.id)
+            if represented_user:
+                target_user = represented_user
+                switched = True
 
     return target_user, switched
 
@@ -100,6 +124,24 @@ class UserStatusResponse(BaseModel):
     represented_user_share_percentage: int | None = (
         None  # Share percentage of represented user if representing someone
     )
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UserListItemResponse(BaseModel):
+    """Response schema for a single user in the users list."""
+
+    user_id: int
+    name: str
+    telegram_id: str | None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UserListResponse(BaseModel):
+    """Response schema for users list endpoint."""
+
+    users: list[UserListItemResponse]
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -358,6 +400,7 @@ async def get_user_status(
     session: AsyncSession = Depends(get_async_session),  # noqa: B008
     authorization: str | None = Header(None, alias="Authorization"),  # noqa: B008
     body: dict[str, Any] | None = Body(None),  # noqa: B008
+    selected_user_id: int | None = None,  # noqa: B008
 ) -> UserStatusResponse:
     """
     Get current user's status information for dashboard display.
@@ -367,6 +410,7 @@ async def get_user_status(
 
     Args:
         session: Database session
+        selected_user_id: User ID selected by admin (takes precedence if admin)
 
     Returns:
         UserStatusResponse with user_id, roles, stakeholder_url, share_percentage
@@ -394,35 +438,33 @@ async def get_user_status(
         if not telegram_id:
             raise HTTPException(status_code=401, detail="No user ID in init data")
 
-        # Get user from database
-        user_service = UserService(session)
-        user = await user_service.get_by_telegram_id(telegram_id)
-
-        if not user or not user.is_active:
-            logger.warning(f"Unauthorized access attempt: telegram_id={telegram_id}")
-            raise HTTPException(status_code=403, detail="User not registered or inactive")
+        # Resolve target user (authenticated or admin-selected)
+        target_user, _ = await _resolve_target_user(session, telegram_id, None, selected_user_id)
 
         # Get active roles
-        roles = UserStatusService.get_active_roles(user)
+        roles = UserStatusService.get_active_roles(target_user)
 
         # Get stakeholder URL from environment (for owners only)
         import os
 
         stakeholder_url = None
-        if user.is_owner:
+        if target_user.is_owner:
             stakeholder_url = os.getenv("STAKEHOLDER_SHARES_URL")
 
         # Get share percentage (for owners only)
-        share_percentage = UserStatusService.get_share_percentage(user)
+        share_percentage = UserStatusService.get_share_percentage(target_user)
 
-        # Get representative info (if user represents someone)
+        # Get representative info (if user represents someone) - only for authenticated user, not selected user
         representative_of = None
         represented_user_roles = None
         represented_user_share_percentage = None
 
-        if user.representative_id:
+        # Check if authenticated user (not target) represents someone
+        user_service = UserService(session)
+        auth_user = await user_service.get_by_telegram_id(telegram_id)
+        if auth_user and auth_user.representative_id:
             user_status_service = UserStatusService(session)
-            represented_user = await user_status_service.get_represented_user(user.id)
+            represented_user = await user_status_service.get_represented_user(auth_user.id)
             if represented_user:
                 representative_of = {
                     "user_id": represented_user.id,
@@ -436,7 +478,7 @@ async def get_user_status(
                 )
 
         return UserStatusResponse(
-            user_id=user.id,
+            user_id=target_user.id,
             roles=roles,
             stakeholder_url=stakeholder_url,
             share_percentage=share_percentage,
@@ -452,9 +494,80 @@ async def get_user_status(
         raise HTTPException(status_code=500, detail="Server error") from e
 
 
+@router.post("/users", response_model=UserListResponse)
+async def get_users(
+    session: AsyncSession = Depends(get_async_session),  # noqa: B008
+    authorization: str | None = Header(None, alias="Authorization"),  # noqa: B008
+    body: dict[str, Any] | None = Body(None),  # noqa: B008
+) -> UserListResponse:
+    """
+    Get list of all users for admin dropdown (administrators only).
+
+    Returns all users ordered by name. Access restricted to administrators.
+
+    Args:
+        session: Database session
+
+    Returns:
+        UserListResponse with list of all users
+
+    Raises:
+        401: Invalid Telegram signature
+        403: User not registered, inactive, or not an administrator
+        500: Server error
+    """
+    try:
+        # Extract and verify Telegram signature
+        raw_init = _extract_init_data(authorization, None, body)
+        parsed_data = UserService.verify_telegram_webapp_signature(
+            init_data=raw_init or "", bot_token=bot_config.telegram_bot_token
+        )
+
+        if not parsed_data:
+            logger.warning("Invalid Telegram signature in /api/mini-app/users")
+            raise HTTPException(status_code=401, detail="Invalid Telegram signature")
+
+        # Extract telegram_id from parsed data
+        user_data = json.loads(parsed_data.get("user", "{}"))
+        telegram_id = str(user_data.get("id"))
+
+        if not telegram_id:
+            raise HTTPException(status_code=401, detail="No user ID in init data")
+
+        # Check if user is administrator
+        user_service = UserService(session)
+        is_admin = await user_service.is_administrator(telegram_id)
+
+        if not is_admin:
+            logger.warning(f"Non-admin attempted to access users list: telegram_id={telegram_id}")
+            raise HTTPException(status_code=403, detail="Only administrators can view users list")
+
+        # Fetch all users ordered by name
+        all_users = await user_service.get_all_users()
+
+        # Format response
+        user_list = [
+            UserListItemResponse(
+                user_id=u.id,
+                name=u.name,
+                telegram_id=u.telegram_id,
+            )
+            for u in all_users
+        ]
+
+        return UserListResponse(users=user_list)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in /api/mini-app/users: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Server error") from e
+
+
 @router.post("/properties")
 async def get_properties(
     representing: bool | None = None,
+    selected_user_id: int | None = None,
     session: AsyncSession = Depends(get_async_session),  # noqa: B008
     authorization: str | None = Header(None, alias="Authorization"),  # noqa: B008
     body: dict[str, Any] | None = Body(None),  # noqa: B008
@@ -494,7 +607,9 @@ async def get_properties(
         if not telegram_id:
             raise HTTPException(status_code=401, detail="No user ID in init data")
 
-        target_user, _ = await _resolve_target_user(session, telegram_id, representing)
+        target_user, _ = await _resolve_target_user(
+            session, telegram_id, representing, selected_user_id
+        )
 
         if not target_user.is_owner:
             logger.warning(f"Non-owner attempted to access properties: telegram_id={telegram_id}")
@@ -620,6 +735,7 @@ class ElectricityBillsListResponse(BaseModel):
 @router.post("/transactions-list")
 async def transactions_list(
     representing: bool | None = None,
+    selected_user_id: int | None = None,
     scope: str = "all",
     authorization: str | None = Header(None),  # noqa: B008
     x_telegram_init_data: str | None = Header(None),  # noqa: B008
@@ -635,9 +751,6 @@ async def transactions_list(
 
     Returns all transactions or user's transactions based on scope parameter.
     """
-    logger.info(
-        f"[transactions ENDPOINT START] representing={representing} (type={type(representing).__name__}), scope={scope}"
-    )
     # Extract and verify init data
     init_data_raw = _extract_init_data(authorization, x_telegram_init_data, body)
     parsed_data = UserService.verify_telegram_webapp_signature(
@@ -656,7 +769,7 @@ async def transactions_list(
         if not telegram_id:
             raise HTTPException(status_code=401, detail="No user ID in init data")
 
-        target_user, _ = await _resolve_target_user(db, telegram_id, representing)
+        target_user, _ = await _resolve_target_user(db, telegram_id, representing, selected_user_id)
         user_id = target_user.id
 
         # Get user's accounts for personal scope filtering
@@ -726,6 +839,7 @@ async def transactions_list(
 @router.post("/bills")
 async def get_bills(
     representing: bool | None = None,
+    selected_user_id: int | None = None,
     authorization: str | None = Header(None),  # noqa: B008
     x_telegram_init_data: str | None = Header(None),  # noqa: B008
     body: dict[str, Any] | None = Body(None),  # noqa: B008
@@ -751,9 +865,6 @@ async def get_bills(
     from src.models.property import Property
     from src.models.service_period import ServicePeriod
 
-    logger.info(
-        f"[bills ENDPOINT START] representing={representing} (type={type(representing).__name__})"
-    )
     # Extract and verify init data
     init_data_raw = _extract_init_data(authorization, x_telegram_init_data, body)
     parsed_data = UserService.verify_telegram_webapp_signature(
@@ -774,7 +885,7 @@ async def get_bills(
     try:
         from src.models.electricity_reading import ElectricityReading
 
-        target_user, _ = await _resolve_target_user(db, telegram_id, representing)
+        target_user, _ = await _resolve_target_user(db, telegram_id, representing, selected_user_id)
         target_user_id = target_user.id
 
         user_id = target_user_id
@@ -864,11 +975,6 @@ async def get_bills(
             }
             bills_response.append(bill_response)
 
-        logger.info(
-            f"[bills ENDPOINT] Found {len(bills_response)} bills for "
-            f"user={target_user.name} (telegram_id={telegram_id})"
-        )
-
         return {"bills": bills_response}
 
     except Exception as e:
@@ -890,7 +996,6 @@ class BalanceItem(BaseModel):
 
     owner_name: str
     balance: float
-    share_percentage: int | None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -906,6 +1011,7 @@ class BalancesResponse(BaseModel):
 @router.post("/balance", response_model=BalanceResponse)
 async def get_balance(
     representing: bool | None = None,
+    selected_user_id: int | None = None,
     authorization: str | None = Header(None),  # noqa: B008
     x_telegram_init_data: str | None = Header(None),  # noqa: B008
     session: AsyncSession = Depends(get_async_session),  # noqa: B008
@@ -932,17 +1038,15 @@ async def get_balance(
             raise HTTPException(status_code=401, detail="User ID not found in init data")
 
         # Resolve target user
-        target_user, switched = await _resolve_target_user(session, str(telegram_id), representing)
+        target_user, switched = await _resolve_target_user(
+            session, str(telegram_id), representing, selected_user_id
+        )
 
         # Calculate balance using service
         from src.services.balance_service import BalanceCalculationService
 
         balance_service = BalanceCalculationService(session)
         balance = await balance_service.calculate_user_balance(target_user.id)
-
-        logger.info(
-            f"[balance ENDPOINT] user={target_user.name} (id={target_user.id}), balance={balance}"
-        )
 
         return BalanceResponse(balance=balance)
 
@@ -1007,7 +1111,7 @@ async def get_all_balances(
 
         balance_service = BalanceCalculationService(session)
 
-        for owner_id, owner_name, is_stakeholder in owners_data:
+        for owner_id, owner_name, _is_stakeholder in owners_data:
             # Calculate balance using service
             balance = await balance_service.calculate_user_balance(owner_id)
 
@@ -1015,14 +1119,8 @@ async def get_all_balances(
                 BalanceItem(
                     owner_name=owner_name,
                     balance=balance,
-                    share_percentage=1.0 if is_stakeholder else 0.0,  # Use stakeholder status as proxy
                 )
             )
-
-        logger.info(
-            f"[balances ENDPOINT] Found {len(balances_list)} owners for "
-            f"user={authenticated_user.name} (id={authenticated_user.id})"
-        )
 
         return BalancesResponse(balances=balances_list)
 

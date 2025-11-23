@@ -3,7 +3,12 @@
 import pytest
 from pydantic import ValidationError
 
-from src.api.mini_app import TransactionResponse, UserStatusResponse
+from src.api.mini_app import (
+    TransactionResponse,
+    UserListItemResponse,
+    UserListResponse,
+    UserStatusResponse,
+)
 
 
 def test_mini_app_init_endpoint_exists():
@@ -207,3 +212,56 @@ def test_transaction_response_schema_different_account_pairs():
         response = TransactionResponse(**response_data)
         assert response.from_ac_name == from_name
         assert response.to_ac_name == to_name
+
+
+# User List Response Tests
+
+
+def test_user_list_item_response_schema_valid():
+    """Verify UserListItemResponse schema with valid data."""
+    response_data = {
+        "user_id": 123,
+        "name": "John Doe",
+        "telegram_id": "987654321",
+    }
+    response = UserListItemResponse(**response_data)
+    assert response.user_id == 123
+    assert response.name == "John Doe"
+    assert response.telegram_id == "987654321"
+
+
+def test_user_list_item_response_schema_null_telegram_id():
+    """Verify UserListItemResponse with null telegram_id."""
+    response_data = {
+        "user_id": 456,
+        "name": "Jane Smith",
+        "telegram_id": None,
+    }
+    response = UserListItemResponse(**response_data)
+    assert response.user_id == 456
+    assert response.name == "Jane Smith"
+    assert response.telegram_id is None
+
+
+def test_user_list_response_schema_valid():
+    """Verify UserListResponse schema with valid data."""
+    response_data = {
+        "users": [
+            {"user_id": 1, "name": "Alice", "telegram_id": "111"},
+            {"user_id": 2, "name": "Bob", "telegram_id": "222"},
+            {"user_id": 3, "name": "Charlie", "telegram_id": None},
+        ]
+    }
+    response = UserListResponse(**response_data)
+    assert len(response.users) == 3
+    assert response.users[0].name == "Alice"
+    assert response.users[1].user_id == 2
+    assert response.users[2].telegram_id is None
+
+
+def test_user_list_response_schema_empty():
+    """Verify UserListResponse with empty users list."""
+    response_data = {"users": []}
+    response = UserListResponse(**response_data)
+    assert len(response.users) == 0
+    assert response.users == []

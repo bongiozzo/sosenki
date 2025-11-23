@@ -65,10 +65,10 @@ async def main() -> int:
                 google_sheets_client,
                 google_sheet_id,
             )
-            
+
             # Output summary report
             logger.info("\n" + result.get_summary_report())
-            
+
             return 0 if result.success else 1
         finally:
             db.close()

@@ -121,6 +121,16 @@ class UserService:
         user = await self.get_by_telegram_id(telegram_id)
         return user is not None and user.is_administrator
 
+    async def get_all_users(self) -> list[User]:
+        """
+        Get all users ordered by name.
+
+        Returns:
+            List of all User objects sorted alphabetically by name
+        """
+        result = await self.session.execute(select(User).order_by(User.name))
+        return list(result.scalars().all())
+
     async def create_user(
         self,
         telegram_id: str,

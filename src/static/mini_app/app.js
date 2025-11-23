@@ -13,11 +13,85 @@ tg.ready();
 const appContainer = document.getElementById('app');
 
 // ---------------------------------------------------------------------------
+// Debug Console (temporary)
+// ---------------------------------------------------------------------------
+const debugConsole = document.getElementById('debug-console');
+const debugConsoleOutput = document.getElementById('debug-console-output');
+
+function addDebugLog(message) {
+    if (!debugConsole || !debugConsoleOutput) return;
+    
+    debugConsole.style.display = 'block';
+    const logDiv = document.createElement('div');
+    logDiv.style.marginBottom = '4px';
+    logDiv.style.wordBreak = 'break-all';
+    logDiv.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+    debugConsoleOutput.appendChild(logDiv);
+    debugConsoleOutput.scrollTop = debugConsoleOutput.scrollHeight;
+}
+
+// Override console.log and console.error
+const originalLog = console.log;
+const originalError = console.error;
+console.log = function(...args) {
+    originalLog.apply(console, args);
+    addDebugLog(args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' '));
+};
+console.error = function(...args) {
+    originalError.apply(console, args);
+    addDebugLog('ERROR: ' + args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' '));
+};
+
+// ---------------------------------------------------------------------------
 // Unified App Context (authenticated vs represented user)
 // ---------------------------------------------------------------------------
 let __appContext = null; // memoized context
+let __selectedUserId = null; // admin-selected user ID (takes precedence)
+let __authenticatedUserInfo = null; // Keep authenticated user info constant (name, isAdmin)
 
-async function getAppContext() {
+/**
+ * Get selected user ID from URL hash parameter
+ * @returns {number|null} User ID from hash or null
+ */
+function getSelectedUserIdFromUrl() {
+    const hash = window.location.hash;
+    const match = hash.match(/selected_user=(\d+)/);
+    return match ? parseInt(match[1], 10) : null;
+}
+
+/**
+ * Set selected user ID in URL hash parameter
+ * @param {number} userId - User ID to store in hash
+ */
+function setSelectedUserIdInUrl(userId) {
+    // Preserve existing tgWebAppData in hash, add/update selected_user parameter
+    const hash = window.location.hash;
+    const parts = hash.split('&');
+    
+    // Remove existing selected_user parameter
+    const filtered = parts.filter(p => !p.includes('selected_user='));
+    
+    // Add new selected_user parameter
+    filtered.push(`selected_user=${userId}`);
+    
+    window.location.hash = filtered.join('&');
+}
+
+async function getAppContext(selectedUserId = null) {
+    // If selectedUserId provided, always refresh context
+    if (selectedUserId !== null) {
+        __selectedUserId = selectedUserId;
+        __appContext = null;
+    }
+    
+    // On first load, check URL hash for persisted selection
+    if (__selectedUserId === null && __appContext === null) {
+        const urlSelectedUserId = getSelectedUserIdFromUrl();
+        if (urlSelectedUserId !== null) {
+            __selectedUserId = urlSelectedUserId;
+        }
+    }
+    
     if (__appContext) return __appContext;
     const initData = getInitData();
     if (!initData) {
@@ -25,7 +99,13 @@ async function getAppContext() {
         return null;
     }
     try {
-        const resp = await fetchWithTmaAuth('/api/mini-app/user-status', initData);
+        // Build URL with selected_user_id if present
+        let url = '/api/mini-app/user-status';
+        if (__selectedUserId !== null) {
+            url += `?selected_user_id=${__selectedUserId}`;
+        }
+        
+        const resp = await fetchWithTmaAuth(url, initData);
         if (!resp.ok) {
             console.error('[context] user-status failed', resp.status, resp.statusText);
             return null;
@@ -35,8 +115,12 @@ async function getAppContext() {
         const roles = (isRepresenting ? data.represented_user_roles : data.roles) || [];
         const sharePercentage = isRepresenting ? data.represented_user_share_percentage : data.share_percentage;
         const isOwner = sharePercentage !== null;
+        const isAdministrator = (data.roles || []).includes('administrator');
+        
         __appContext = {
             isRepresenting,
+            isAdministrator,
+            authenticatedUserId: data.user_id,
             roles,
             isOwner,
             sharePercentage,
@@ -44,6 +128,7 @@ async function getAppContext() {
             representativeOf: data.representative_of || null,
             greetingName: data.authenticated_user_name || data.authenticated_first_name || 'User'
         };
+        console.log('[getAppContext] Context retrieved:', __appContext);
         return __appContext;
     } catch (e) {
         console.error('[context] Exception', e);
@@ -300,8 +385,13 @@ async function loadTransactions(containerId = 'transactions-list', scope = 'pers
         }
 
         const isRepresenting = (typeof contextOrFlag === 'object') ? !!contextOrFlag.isRepresenting : !!contextOrFlag;
-        // Fetch transactions from backend with scope parameter and representing flag
-        const url = `/api/mini-app/transactions-list?scope=${scope}&representing=${isRepresenting}`;
+        
+        // Build URL with parameters
+        let url = `/api/mini-app/transactions-list?scope=${scope}&representing=${isRepresenting}`;
+        if (__selectedUserId !== null) {
+            url += `&selected_user_id=${__selectedUserId}`;
+        }
+        
         const response = await fetchWithTmaAuth(url, initData);
 
         if (!response.ok) {
@@ -397,8 +487,13 @@ async function loadBills(containerId = 'bills-list', contextOrFlag = false) {
         }
 
         const isRepresenting = (typeof contextOrFlag === 'object') ? !!contextOrFlag.isRepresenting : !!contextOrFlag;
-        // Fetch bills from backend with representing flag
-        const url = `/api/mini-app/bills?representing=${isRepresenting}`;
+        
+        // Build URL with parameters
+        let url = `/api/mini-app/bills?representing=${isRepresenting}`;
+        if (__selectedUserId !== null) {
+            url += `&selected_user_id=${__selectedUserId}`;
+        }
+        
         const response = await fetchWithTmaAuth(url, initData);
 
         if (!response.ok) {
@@ -597,6 +692,7 @@ async function loadUserStatus() { // legacy path retained; unified context used 
  * @param {number|null} sharePercentage - Share percentage (1 for signed owner, 0 for unsigned owner, null for non-owner)
  */
 function renderStakeholderLink(url, isOwner = false, sharePercentage = null) {
+    console.log('[renderStakeholderLink] url:', url, 'isOwner:', isOwner, 'sharePercentage:', sharePercentage);
     const container = document.getElementById('stakeholder-link-container');
     if (!container) {
         console.warn('Stakeholder link container not found');
@@ -678,6 +774,117 @@ function renderRepresentativeInfo(representativeOf) {
 }
 
 /**
+ * Fetch all users from backend (admin only)
+ * @returns {Promise<Array>} Array of user objects
+ */
+async function fetchAllUsers() {
+    try {
+        const initData = getInitData();
+        if (!initData) {
+            console.error('No init data for fetching users');
+            return [];
+        }
+        
+        const response = await fetchWithTmaAuth('/api/mini-app/users', initData);
+        
+        if (!response.ok) {
+            console.error('Failed to fetch users:', response.status);
+            return [];
+        }
+        
+        const data = await response.json();
+        return data.users || [];
+    } catch (error) {
+        console.error('Error fetching users:', error);
+        return [];
+    }
+}
+
+/**
+ * Render admin user selector dropdown
+ * @param {boolean} isAdministrator - Whether authenticated user is admin
+ * @param {number} authenticatedUserId - ID of authenticated user (for default selection)
+ */
+async function renderAdminUserSelector(isAdministrator, authenticatedUserId) {
+    const container = document.getElementById('representative-info-container');
+    if (!container) {
+        console.warn('Representative info container not found');
+        return;
+    }
+    
+    // Clear existing content
+    container.innerHTML = '';
+    
+    // Only render for administrators
+    if (!isAdministrator) {
+        container.style.display = 'none';
+        return;
+    }
+    
+    // Show container
+    container.style.display = 'flex';
+    
+    // Fetch all users
+    const users = await fetchAllUsers();
+    
+    if (users.length === 0) {
+        console.warn('No users available for admin selector');
+        container.style.display = 'none';
+        return;
+    }
+    
+    // Create dropdown wrapper
+    const selectorDiv = document.createElement('div');
+    selectorDiv.className = 'admin-user-selector';
+    
+    // Create label
+    const label = document.createElement('label');
+    label.textContent = 'View as:';
+    label.setAttribute('for', 'admin-user-select');
+    selectorDiv.appendChild(label);
+    
+    // Create select element
+    const select = document.createElement('select');
+    select.id = 'admin-user-select';
+    
+    // Add options
+    users.forEach(user => {
+        const option = document.createElement('option');
+        option.value = user.user_id;
+        option.textContent = user.name;
+        
+        // Pre-select current user (authenticated or admin-selected)
+        const currentUserId = __selectedUserId !== null ? __selectedUserId : authenticatedUserId;
+        if (user.user_id === currentUserId) {
+            option.selected = true;
+        }
+        
+        select.appendChild(option);
+    });
+    
+    // Add change handler
+    select.addEventListener('change', async (event) => {
+        const selectedUserId = parseInt(event.target.value, 10);
+        
+        // Update global selected user ID and persist in URL
+        __selectedUserId = selectedUserId;
+        setSelectedUserIdInUrl(selectedUserId);
+        refreshAppContext();
+        
+        // Get updated context for selected user
+        const updatedContext = await getAppContext(selectedUserId);
+        
+        if (updatedContext) {
+            // Reload all datasets with the new context
+            await reloadAllDatasets(updatedContext);
+        }
+    });
+    
+    selectorDiv.appendChild(select);
+    container.appendChild(selectorDiv);
+}
+
+/**
  * Handle menu item click
  */
 async function handleMenuAction(action) {
@@ -710,6 +917,39 @@ async function handleMenuAction(action) {
     tg.showAlert(`Feature "${action}" coming soon!`);
     
     // In future: POST to /api/mini-app/menu-action
+}
+
+/**
+ * Reload all datasets (statuses, stakeholder link, properties, balance, transactions, bills)
+ * Used when context changes (admin switch or representing user change)
+ * @param {Object} context - App context object with all user info
+ */
+async function reloadAllDatasets(context) {
+    if (!context) return;
+    
+    // Render static data first (no backend calls needed)
+    renderUserStatuses(context.roles);
+    renderStakeholderLink(context.stakeholderUrl, context.isOwner, context.sharePercentage);
+    
+    // Reload dynamic data from backend
+    if (context.isOwner) {
+        await loadProperties(context);
+        await loadBalance(context);
+    } else {
+        // Hide properties and balance if not owner
+        const propsContainer = document.getElementById('properties-container');
+        if (propsContainer) {
+            propsContainer.classList.remove('visible');
+        }
+        const balanceContainer = document.getElementById('balance-container');
+        if (balanceContainer) {
+            balanceContainer.classList.remove('visible');
+        }
+    }
+    
+    // Load transactions and bills
+    await loadTransactions('transactions-list', 'personal', context);
+    await loadBills('bills-list', context);
 }
 
 /**
@@ -757,8 +997,13 @@ async function loadBalance(contextOrFlag = false) {
         }
 
         const isRepresenting = (typeof contextOrFlag === 'object') ? !!contextOrFlag.isRepresenting : !!contextOrFlag;
-        // Fetch balance from backend with representing flag
-        const url = `/api/mini-app/balance?representing=${isRepresenting}`;
+        
+        // Build URL with parameters
+        let url = `/api/mini-app/balance?representing=${isRepresenting}`;
+        if (__selectedUserId !== null) {
+            url += `&selected_user_id=${__selectedUserId}`;
+        }
+        
         const response = await fetchWithTmaAuth(url, initData);
 
         if (!response.ok) {
@@ -893,13 +1138,6 @@ function renderBalancesPage(balances, containerId = 'balances-list') {
         nameEl.textContent = item.owner_name;
         infoDiv.appendChild(nameEl);
         
-        if (item.share_percentage !== null) {
-            const shareEl = document.createElement('div');
-            shareEl.className = 'balance-row-share';
-            shareEl.textContent = `${formatAmount(item.share_percentage)}%`;
-            infoDiv.appendChild(shareEl);
-        }
-        
         row.appendChild(infoDiv);
         
         // Balance amount (with color coding)
@@ -943,18 +1181,31 @@ async function initMiniApp() {
             // Render appropriate screen based on registration status
             if (data.isRegistered) {
                 renderWelcomeScreen(data);
-                // Unified context approach
+                
+                // Get initial context (will restore selected_user_id from URL if present)
                 const context = await getAppContext();
                 if (context) {
-                    renderUserStatuses(context.roles);
-                    renderRepresentativeInfo(context.representativeOf);
-                    renderStakeholderLink(context.stakeholderUrl, context.isOwner, context.sharePercentage);
-                    if (context.isOwner) {
-                        await loadProperties(context);
-                        await loadBalance(context);
+                    // Store authenticated user info (constant throughout session)
+                    // Note: context.isAdministrator is for the SELECTED user, we need the AUTH user's admin status
+                    // Get authenticated user's roles from the initial context
+                    const initAuthUserResponse = await fetchWithTmaAuth('/api/mini-app/user-status', initData);
+                    const authUserData = await initAuthUserResponse.json();
+                    const isAuthUserAdmin = (authUserData.roles || []).includes('administrator');
+                    
+                    __authenticatedUserInfo = {
+                        isAdministrator: isAuthUserAdmin,
+                        name: context.greetingName
+                    };
+                    
+                    // Render admin dropdown OR representative info (dropdown takes precedence, always shown if auth user is admin)
+                    if (__authenticatedUserInfo.isAdministrator) {
+                        await renderAdminUserSelector(__authenticatedUserInfo.isAdministrator, authUserData.user_id);
+                    } else {
+                        renderRepresentativeInfo(context.representativeOf);
                     }
-                    await loadTransactions('transactions-list', 'personal', context);
-                    await loadBills('bills-list', context);
+                    
+                    // Load all datasets with context (either selected user or authenticated user)
+                    await reloadAllDatasets(context);
                 }
             } else {
                 renderAccessDenied(data);
@@ -1125,8 +1376,13 @@ async function loadProperties(contextOrFlag = false) {
         }
 
         const isRepresenting = (typeof contextOrFlag === 'object') ? !!contextOrFlag.isRepresenting : !!contextOrFlag;
-        // Fetch properties from backend with representing flag
-        const url = `/api/mini-app/properties?representing=${isRepresenting}`;
+        
+        // Build URL with parameters
+        let url = `/api/mini-app/properties?representing=${isRepresenting}`;
+        if (__selectedUserId !== null) {
+            url += `&selected_user_id=${__selectedUserId}`;
+        }
+        
         const response = await fetchWithTmaAuth(url, initData);
 
         if (!response.ok) {

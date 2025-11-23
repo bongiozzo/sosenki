@@ -1,6 +1,4 @@
-# TODO feat: Switch to another user for Administrator
 # TODO refactor: Test Coverage Report and find dead code
-# TODO feat: Finalize seeding and Report summary
 # TODO fix: Fix wrapped tagline on wide monitors
 # TODO feat: Localization support
 # TODO feat: Invest part

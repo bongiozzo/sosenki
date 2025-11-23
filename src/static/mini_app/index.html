@@ -40,41 +40,44 @@
             <!-- Representative Info (if representing someone) -->
             <section id="representative-info-container" class="representative-info-section"></section>
             
-            <!-- User Status Badges -->
-            <section id="statuses-container" class="status-badges"></section>
-            
-            <!-- Stakeholder Link (owners only) -->
-            <div id="stakeholder-link-container" class="stakeholder-link-container"></div>
+            <!-- All Datasets Container (unified reload) -->
+            <div id="datasets-container">
+                <!-- User Status Badges -->
+                <section id="statuses-container" class="status-badges"></section>
+                
+                <!-- Stakeholder Link (owners only) -->
+                <div id="stakeholder-link-container" class="stakeholder-link-container"></div>
 
-            <!-- Properties Section (owners only) -->
-            <section id="properties-container" class="properties-section">
-                <h2>Properties</h2>
-                <div id="properties-list"></div>
-            </section>
+                <!-- Properties Section (owners only) -->
+                <section id="properties-container" class="properties-section">
+                    <h2>Properties</h2>
+                    <div id="properties-list"></div>
+                </section>
 
-            <!-- Balance Section (owners only) -->
-            <section id="balance-container" class="balance-section">
-                <div class="section-header">
-                    <h2>Balance</h2>
-                    <a href="#" class="view-all-link" onclick="navigateToBalances(event)">View All →</a>
-                </div>
-                <div class="balance-value">-₽0.00</div>
-            </section>
-            
-            <!-- Transaction List Section -->
-            <section id="transactions-section" class="transactions-section">
-                <div class="section-header">
-                    <h2>Transactions</h2>
-                    <a href="#" class="view-all-link" onclick="navigateToTransactions(event)">View All →</a>
-                </div>
-                <div id="transactions-list"></div>
-            </section>
-            
-            <!-- Bills Section (all types) -->
-            <section id="bills-container" class="bills-section">
-                <h2>Bills</h2>
-                <div id="bills-list"></div>
-            </section>
+                <!-- Balance Section (owners only) -->
+                <section id="balance-container" class="balance-section">
+                    <div class="section-header">
+                        <h2>Balance</h2>
+                        <a href="#" class="view-all-link" onclick="navigateToBalances(event)">View All →</a>
+                    </div>
+                    <div class="balance-value">-₽0.00</div>
+                </section>
+                
+                <!-- Transaction List Section -->
+                <section id="transactions-section" class="transactions-section">
+                    <div class="section-header">
+                        <h2>Transactions</h2>
+                        <a href="#" class="view-all-link" onclick="navigateToTransactions(event)">View All →</a>
+                    </div>
+                    <div id="transactions-list"></div>
+                </section>
+                
+                <!-- Bills Section (all types) -->
+                <section id="bills-container" class="bills-section">
+                    <h2>Bills</h2>
+                    <div id="bills-list"></div>
+                </section>
+            </div>
         </div>
     </template>
     
@@ -146,6 +149,12 @@
             </div>
         </div>
     </template>
+    
+    <!-- Debug Console Panel -->
+    <!-- <div id="debug-console" style="position: fixed; bottom: 0; left: 0; right: 0; background: #1a1a1a; color: #00ff00; font-family: monospace; font-size: 11px; max-height: 200px; overflow-y: auto; border-top: 2px solid #00ff00; z-index: 9999; padding: 8px; display: none;">
+        <div style="margin-bottom: 8px; font-weight: bold;">DEBUG CONSOLE</div>
+        <div id="debug-console-output"></div>
+    </div> -->
     
     <script src="app.js"></script>
 </body>

@@ -401,6 +401,56 @@ body {
     text-align: center;
 }
 
+/* Admin User Selector */
+.admin-user-selector {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-xs);
+    width: 100%;
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+.admin-user-selector label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.admin-user-selector select {
+    width: 100%;
+    padding: 10px 14px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--color-text);
+    background-color: var(--color-light-gray);
+    border: 1px solid #E5E5E7;
+    border-radius: 8px;
+    outline: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%236E6E73' d='M1.41 0L6 4.59 10.59 0 12 1.41l-6 6-6-6z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 40px;
+}
+
+.admin-user-selector select:hover {
+    border-color: var(--color-pine);
+    background-color: #EEEEEE;
+}
+
+.admin-user-selector select:focus {
+    border-color: var(--color-water);
+    box-shadow: 0 0 0 3px rgba(0, 153, 204, 0.1);
+}
+
 .representative-info {
     display: flex;
     flex-direction: column;
