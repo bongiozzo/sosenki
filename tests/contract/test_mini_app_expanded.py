@@ -89,9 +89,7 @@ class TestExtractInitData:
         """Test extracting init data from X-Telegram-Init-Data header."""
         raw_data = "header_raw_data_789"
 
-        result = _extract_init_data(
-            authorization=None, x_telegram_init_data=raw_data, body=None
-        )
+        result = _extract_init_data(authorization=None, x_telegram_init_data=raw_data, body=None)
 
         assert result == raw_data
 

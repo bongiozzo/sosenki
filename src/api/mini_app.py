@@ -15,6 +15,7 @@ from src.models.account import Account
 from src.models.transaction import Transaction
 from src.models.user import User
 from src.services import get_async_session
+from src.services.localizer import get_translations
 from src.services.user_service import UserService, UserStatusService
 
 logger = logging.getLogger(__name__)
@@ -199,6 +200,21 @@ async def get_config(
     except Exception as e:
         logger.error(f"Error in /api/mini-app/config: {e}", exc_info=True)
         return {"photoGalleryUrl": None}
+
+
+@router.get("/translations")
+async def get_translations_endpoint() -> dict[str, Any]:
+    """
+    Get all translations for the Mini App.
+
+    Returns the full translations dictionary (mini_app section only).
+    Public endpoint - no authentication required.
+
+    Returns:
+        Translations dictionary for mini_app namespace.
+    """
+    translations = get_translations()
+    return translations.get("mini_app", {})
 
 
 @router.post("/init")

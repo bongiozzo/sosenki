@@ -31,8 +31,9 @@ class TestVerifyRegistrationEndpoint:
 
     def test_invalid_signature_returns_401(self, client: TestClient):
         """Test when signature verification fails."""
-        with patch("src.api.mini_app.UserService.verify_telegram_webapp_signature",
-                   return_value=None):
+        with patch(
+            "src.api.mini_app.UserService.verify_telegram_webapp_signature", return_value=None
+        ):
             response = client.post(
                 "/api/mini-app/verify-registration",
                 headers={"Authorization": "tma invalid_signature"},
@@ -41,8 +42,10 @@ class TestVerifyRegistrationEndpoint:
 
     def test_invalid_user_id_format_in_user_data_returns_401(self, client: TestClient):
         """Test when user ID in parsed data cannot be parsed as integer."""
-        with patch("src.api.mini_app.UserService.verify_telegram_webapp_signature",
-                   return_value={"user": json.dumps({"id": "invalid_id", "username": "nouser"})}):
+        with patch(
+            "src.api.mini_app.UserService.verify_telegram_webapp_signature",
+            return_value={"user": json.dumps({"id": "invalid_id", "username": "nouser"})},
+        ):
             response = client.post(
                 "/api/mini-app/verify-registration",
                 headers={"Authorization": "tma test_data"},
@@ -65,8 +68,9 @@ class TestMenuActionEndpoint:
 
     def test_invalid_signature_returns_401(self, client: TestClient):
         """Test menu action with invalid signature."""
-        with patch("src.api.mini_app.UserService.verify_telegram_webapp_signature",
-                   return_value=None):
+        with patch(
+            "src.api.mini_app.UserService.verify_telegram_webapp_signature", return_value=None
+        ):
             response = client.post(
                 "/api/mini-app/menu-action",
                 headers={"X-Telegram-Init-Data": "invalid"},
@@ -80,8 +84,10 @@ class TestInitEndpoint:
 
     def test_signature_verification_exception_returns_500(self, client: TestClient):
         """Test server error handling when signature verification raises exception."""
-        with patch("src.api.mini_app.UserService.verify_telegram_webapp_signature",
-                   side_effect=Exception("Database error")):
+        with patch(
+            "src.api.mini_app.UserService.verify_telegram_webapp_signature",
+            side_effect=Exception("Database error"),
+        ):
             response = client.post(
                 "/api/mini-app/init",
                 headers={"Authorization": "tma test"},

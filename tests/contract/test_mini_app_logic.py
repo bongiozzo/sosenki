@@ -160,4 +160,3 @@ class TestMiniAppDataTypes:
         }
         assert isinstance(transaction_response["amount"], float)
         assert isinstance(transaction_response["date"], str)
-

@@ -7,6 +7,7 @@ from src.bot.handlers import (
     handle_admin_callback,
     handle_admin_response,
     handle_request_command,
+    handle_start_command,
 )
 
 # logger = logging.getLogger(__name__)
@@ -19,6 +20,8 @@ async def create_bot_app() -> Application:
     """
     app = Application.builder().token(bot_config.telegram_bot_token).build()
 
+    # /start command handler
+    app.add_handler(CommandHandler("start", handle_start_command))
     # T031/T032: Register /request command handler
     app.add_handler(CommandHandler("request", handle_request_command))
     # Unified admin response handler: handles both Approve and Reject replies

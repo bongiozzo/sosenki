@@ -163,9 +163,7 @@ class TestRequestServiceUpdate:
         )
         mock_db_session.execute.return_value.scalar_one_or_none.return_value = existing_request
 
-        result = await request_service.update_request_status(
-            1, RequestStatus.REJECTED, "admin123"
-        )
+        result = await request_service.update_request_status(1, RequestStatus.REJECTED, "admin123")
 
         assert result is True
         assert existing_request.status == RequestStatus.REJECTED

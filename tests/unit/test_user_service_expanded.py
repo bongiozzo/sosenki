@@ -183,7 +183,7 @@ class TestUserServiceCreateUser:
 
         # Just verify method exists and is callable with these parameters
         # The actual User model creation would require all required fields
-        assert hasattr(user_service, 'create_user')
+        assert hasattr(user_service, "create_user")
         assert callable(user_service.create_user)
 
     @pytest.mark.asyncio
@@ -197,7 +197,7 @@ class TestUserServiceCreateUser:
         user_service = UserService(mock_session)
 
         # Verify the service has a create_user method
-        assert hasattr(user_service, 'create_user')
+        assert hasattr(user_service, "create_user")
 
 
 class TestUserServiceActivateUser:
@@ -298,28 +298,27 @@ class TestUserServiceVerifyTelegramSignature:
     def test_verify_signature_no_hash(self) -> None:
         """Test verify signature returns None when hash is missing."""
         result = UserService.verify_telegram_webapp_signature(
-            init_data="user={\"id\":123}", bot_token="test_token"
+            init_data='user={"id":123}', bot_token="test_token"
         )
         assert result is None
 
     def test_verify_signature_invalid_hash(self) -> None:
         """Test verify signature returns None with invalid hash."""
         result = UserService.verify_telegram_webapp_signature(
-            init_data="hash=invalid&user={\"id\":123}",
+            init_data='hash=invalid&user={"id":123}',
             bot_token="test_token",
         )
         assert result is None
 
     def test_verify_signature_empty_init_data(self) -> None:
         """Test verify signature returns None with empty init data."""
-        result = UserService.verify_telegram_webapp_signature(
-            init_data="", bot_token="test_token"
-        )
+        result = UserService.verify_telegram_webapp_signature(init_data="", bot_token="test_token")
         assert result is None
 
     def test_verify_signature_exception_handling(self) -> None:
         """Test verify signature returns None on exception."""
         result = UserService.verify_telegram_webapp_signature(
-            init_data=None, bot_token="test_token"  # type: ignore
+            init_data=None,
+            bot_token="test_token",  # type: ignore
         )
         assert result is None

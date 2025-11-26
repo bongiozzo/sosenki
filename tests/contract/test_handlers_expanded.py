@@ -133,7 +133,9 @@ class TestHandleRequestCommand:
 
         # Use MagicMock (not AsyncMock) for db since db.close() is synchronous
         mock_db = MagicMock()
-        mock_db.execute = MagicMock(return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None)))
+        mock_db.execute = MagicMock(
+            return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None))
+        )
 
         with patch("src.bot.handlers.SessionLocal", return_value=mock_db):
             with patch("src.bot.handlers.RequestService") as mock_service_class:
@@ -163,7 +165,9 @@ class TestHandleRequestCommand:
 
         # Use MagicMock (not AsyncMock) for db since db.close() is synchronous
         mock_db = MagicMock()
-        mock_db.execute = MagicMock(return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None)))
+        mock_db.execute = MagicMock(
+            return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None))
+        )
 
         with patch("src.bot.handlers.SessionLocal", return_value=mock_db):
             with patch("src.bot.handlers.RequestService") as mock_service_class:
@@ -193,7 +197,9 @@ class TestHandleRequestCommand:
 
         # Use MagicMock (not AsyncMock) for db since db.close() is synchronous
         mock_db = MagicMock()
-        mock_db.execute = MagicMock(return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None)))
+        mock_db.execute = MagicMock(
+            return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None))
+        )
 
         with patch("src.bot.handlers.SessionLocal", return_value=mock_db):
             with patch("src.bot.handlers.RequestService") as mock_service_class:

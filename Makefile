@@ -1,4 +1,5 @@
-# TODO feat: Localization support
+# TODO feat: Localization support (fix)
+# TODO Balance for accounts
 # TODO feat: Align CSS and add Figma MCP to fix wrapping
 # - https://www.figma.com/community/file/1248595286803212338/telegram-graphics
 # TODO fix: Infinite loading due to Async misuse
@@ -32,6 +33,7 @@ help:
 	@echo "  make test-contract     Run Mini App contract tests only"
 	@echo "  make test-mini-app     Run Mini App tests (contract + integration)"
 	@echo "  make lint              Check code style with ruff"
+	@echo "  make check-i18n        Validate translation completeness"
 	@echo "  make format            Format code with ruff and prettier"
 	@echo "  make seed              Seed database from Google Sheets (OFFLINE ONLY)"
 	@echo "  make db-reset          Drop and recreate database (OFFLINE ONLY)"
@@ -59,6 +61,9 @@ test-seeding:
 
 lint:
 	uv run ruff check .
+
+check-i18n:
+	uv run python scripts/check_translations.py
 
 format:
 	uv run ruff check . --fix
@@ -116,11 +121,6 @@ coverage:
 sync-design:
 	@echo "Syncing design tokens from Figma..."
 	uv run python scripts/sync_figma_tokens.py
-
-# Localization check
-check-i18n:
-	@echo "Checking translation completeness..."
-	uv run python scripts/check_translations.py
 
 # Local Development with Webhook Mode
 

@@ -3,6 +3,8 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from telegram.ext import Application
 
+from src.services.localizer import t
+
 
 class NotificationService:
     """Service for sending Telegram messages to clients and admins."""
@@ -39,8 +41,7 @@ class NotificationService:
             message: Optional custom message (not used in MVP, using standard message)
         """
         # T029: Send standard confirmation message
-        confirmation_text = "Your request has been received and is pending review."
-        await self.send_message(requester_id, confirmation_text)
+        await self.send_message(requester_id, t("bot.request_received"))
 
     async def send_notification_to_admin(
         self,
@@ -73,12 +74,14 @@ class NotificationService:
 
             # T030: Send notification with [Approve] [Reject] reply keyboard
             # Include clickable link to requester's Telegram profile so admin can chat with them
-            requester_profile_link = f"tg://user?id={requester_id}"
-            notification_text = (
-                f"<b>Request #{request_id}</b>\n\n"
-                f"<a href='{requester_profile_link}'>{requester_username}</a> (ID: {requester_id})\n\n"
-                f"<b>Message:</b>\n{request_message or '(no message)'}\n\n"
-            )  # Get users without telegram_id or inactive to help admin identify who is requesting
+            notification_text = t(
+                "bot.admin_notification_request",
+                request_id=request_id,
+                requester_id=requester_id,
+                requester_username=requester_username,
+                request_message=request_message or "(no message)",
+            )
+            # Get users without telegram_id or inactive to help admin identify who is requesting
             users_without_telegram = (
                 db.execute(
                     select(User)
@@ -90,11 +93,11 @@ class NotificationService:
             )
 
             if users_without_telegram:
-                notification_text += "<b>Users without Telegram ID or inactive:</b>\n"
+                notification_text += t("bot.admin_users_without_telegram")
                 for user in users_without_telegram:
                     notification_text += f"{user.id}. {user.name}\n"
-                notification_text += "\nReply with user ID to approve and assign Telegram ID\n"
-                notification_text += "Or use the buttons below:\n"
+                notification_text += t("bot.admin_reply_with_id")
+                notification_text += t("bot.admin_or_use_buttons")
 
             # Note: Reply keyboard implementation requires storing request_id
             # in the message context for admin handlers to parse.
@@ -106,10 +109,10 @@ class NotificationService:
                 [
                     [
                         InlineKeyboardButton(
-                            text="✅ Approve", callback_data=f"approve:{request_id}"
+                            text=t("bot.approve"), callback_data=f"approve:{request_id}"
                         ),
                         InlineKeyboardButton(
-                            text="❌ Reject", callback_data=f"reject:{request_id}"
+                            text=t("bot.reject"), callback_data=f"reject:{request_id}"
                         ),
                     ]
                 ]
@@ -129,11 +132,7 @@ class NotificationService:
         from src.bot.config import bot_config
 
         # T041: Send welcome message after approval with Mini App button (US1)
-        welcome_text = (
-            "🎉 <b>Welcome to SOSenki!</b>\n\n"
-            "Your request has been approved and access has been granted.\n\n"
-            "Tap the button below to open the SOSenki app:"
-        )
+        welcome_text = t("bot.welcome_message")
 
         # Add Mini App button if MINI_APP_URL is configured
         keyboard = None
@@ -142,7 +141,8 @@ class NotificationService:
                 [
                     [
                         InlineKeyboardButton(
-                            text="📱 Open App", web_app=WebAppInfo(url=bot_config.mini_app_url)
+                            text=t("bot.open_app"),
+                            web_app=WebAppInfo(url=bot_config.mini_app_url),
                         )
                     ]
                 ]
@@ -157,11 +157,7 @@ class NotificationService:
             requester_id: Requester's Telegram ID
         """
         # T050: Send rejection message after rejection
-        rejection_text = (
-            "Your request for access to SOSenki has not been approved at this time. "
-            "Please contact support if you have questions."
-        )
-        await self.send_message(requester_id, rejection_text)
+        await self.send_message(requester_id, t("bot.rejection_message"))
 
 
 __all__ = ["NotificationService"]
