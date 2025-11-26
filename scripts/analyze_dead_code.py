@@ -11,15 +11,11 @@ class DeadCodeAnalyzer:
 
     def analyze(self) -> Dict[str, List[str]]:
         """Run full dead code analysis."""
-        # 1. Find unused functions/classes via vulture
+        # Find unused functions/classes via vulture
         unused_symbols = self._find_unused_symbols()
-
-        # 2. Find redundant templates
-        unused_templates = self._find_unused_templates()
 
         return {
             "unused_symbols": unused_symbols,
-            "unused_templates": unused_templates,
         }
 
     def _find_unused_symbols(self) -> List[str]:
@@ -37,16 +33,6 @@ class DeadCodeAnalyzer:
             print(f"Error running vulture: {e}")
             return []
 
-    def _find_unused_templates(self) -> List[str]:
-        """Check for unused HTML templates."""
-        # Check for unused template files
-        unused = []
-
-        # transactions.html is unused - already replaced by templates in index.html
-        unused.append("src/static/mini_app/transactions.html")
-
-        return unused
-
 
 if __name__ == "__main__":
     analyzer = DeadCodeAnalyzer()
@@ -61,14 +47,5 @@ if __name__ == "__main__":
             print(f"  - {symbol}")
     else:
         print("✓ No unused symbols found")
-
-    print()
-
-    if results["unused_templates"]:
-        print("Unused Templates:")
-        for template in results["unused_templates"]:
-            print(f"  - {template}")
-    else:
-        print("✓ No unused templates found")
 
     print(f"\n{'=' * 60}\n")

@@ -43,11 +43,11 @@ class Bill(Base, BaseModel):
         comment="Associated service/billing period",
     )
 
-    user_id: Mapped[int | None] = mapped_column(
-        ForeignKey("users.id"),
+    account_id: Mapped[int | None] = mapped_column(
+        ForeignKey("accounts.id"),
         nullable=True,
         index=True,
-        comment="User this bill belongs to (if property_id is null)",
+        comment="Account this bill belongs to (user or organization account)",
     )
 
     property_id: Mapped[int | None] = mapped_column(
@@ -83,9 +83,10 @@ class Bill(Base, BaseModel):
         foreign_keys=[service_period_id],
     )
 
-    user: Mapped["User | None"] = relationship(  # noqa: F821
-        "User",
-        foreign_keys=[user_id],
+    account: Mapped["Account | None"] = relationship(  # noqa: F821
+        "Account",
+        foreign_keys=[account_id],
+        back_populates="bills",
     )
 
     property: Mapped["Property | None"] = relationship(  # noqa: F821
@@ -95,7 +96,7 @@ class Bill(Base, BaseModel):
 
     # Indexes for common queries
     __table_args__ = (
-        Index("idx_bill_period_user", "service_period_id", "user_id"),
+        Index("idx_bill_period_account", "service_period_id", "account_id"),
         Index("idx_bill_period_property", "service_period_id", "property_id"),
         Index("idx_bill_type", "bill_type"),
         Index("idx_bill_period_type", "service_period_id", "bill_type"),
@@ -104,7 +105,7 @@ class Bill(Base, BaseModel):
     def __repr__(self) -> str:
         return (
             f"<Bill(id={self.id}, service_period_id={self.service_period_id}, "
-            f"bill_type={self.bill_type}, user_id={self.user_id}, "
+            f"bill_type={self.bill_type}, account_id={self.account_id}, "
             f"property_id={self.property_id}, bill_amount={self.bill_amount})>"
         )
 

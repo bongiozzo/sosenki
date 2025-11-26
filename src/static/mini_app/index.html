@@ -58,7 +58,7 @@
                 <section id="balance-container" class="balance-section">
                     <div class="section-header">
                         <h2 data-i18n="balance">Balance</h2>
-                        <a href="#" class="view-all-link" onclick="navigateToBalances(event)" data-i18n="view_all">View all →</a>
+                        <a href="#" class="view-all-link" onclick="navigateToAccounts(event)" data-i18n="view_all">View all →</a>
                     </div>
                     <div class="balance-value">-₽0.00</div>
                 </section>
@@ -97,18 +97,52 @@
         </div>
     </template>
     
-    <!-- Balances Page Template -->
-    <template id="balances-template">
+    <!-- Accounts Page Template -->
+    <template id="accounts-template">
         <div class="page-container">
             <header class="header">
                 <button class="back-button" onclick="goBackToWelcome()" data-i18n="back">← Back</button>
-                <h1 data-i18n="balances">Balances</h1>
+                <h1 data-i18n="accounts">Accounts</h1>
             </header>
             
-            <main class="balances-main">
-                <div id="balances-list" class="balances-list">
-                    <!-- Balances will be rendered here -->
+            <main class="accounts-main">
+                <div id="accounts-list" class="accounts-list">
+                    <!-- Accounts will be rendered here -->
                 </div>
+            </main>
+        </div>
+    </template>
+    
+    <!-- Account Details Page Template -->
+    <template id="account-details-template">
+        <div class="page-container">
+            <header class="header">
+                <button class="back-button" onclick="goBackFromAccountDetails()" data-i18n="back">← Back</button>
+                <h1 id="account-details-name">Account</h1>
+            </header>
+            
+            <main class="account-details-main">
+                <!-- Balance Section -->
+                <section id="account-balance-container" class="balance-section">
+                    <h2 data-i18n="balance">Balance</h2>
+                    <div class="balance-value" id="account-balance-value">₽0</div>
+                </section>
+                
+                <!-- Transactions Section -->
+                <section id="account-transactions-section" class="transactions-section">
+                    <h2 data-i18n="transactions">Transactions</h2>
+                    <div id="account-transactions-list" class="transactions-list">
+                        <!-- Transactions will be rendered here -->
+                    </div>
+                </section>
+                
+                <!-- Bills Section -->
+                <section id="account-bills-section" class="bills-section">
+                    <h2 data-i18n="bills">Bills</h2>
+                    <div id="account-bills-list" class="bills-list">
+                        <!-- Bills will be rendered here -->
+                    </div>
+                </section>
             </main>
         </div>
     </template>

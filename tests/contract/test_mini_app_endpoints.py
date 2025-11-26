@@ -107,6 +107,7 @@ class TestUserStatusResponseSchema:
         """Verify UserStatusResponse schema with complete valid data."""
         response_data = {
             "user_id": 123456,
+            "account_id": 1,
             "roles": ["investor", "owner"],
             "stakeholder_url": "https://example.com/stakeholders",
             "share_percentage": 1,
@@ -116,6 +117,7 @@ class TestUserStatusResponseSchema:
         }
         response = UserStatusResponse(**response_data)
         assert response.user_id == 123456
+        assert response.account_id == 1
         assert response.roles == ["investor", "owner"]
         assert response.stakeholder_url == "https://example.com/stakeholders"
         assert response.share_percentage == 1
@@ -124,23 +126,27 @@ class TestUserStatusResponseSchema:
         """Verify UserStatusResponse with investor-only role."""
         response_data = {
             "user_id": 789,
+            "account_id": 2,
             "roles": ["investor"],
             "stakeholder_url": None,
             "share_percentage": None,
         }
         response = UserStatusResponse(**response_data)
         assert response.user_id == 789
+        assert response.account_id == 2
         assert response.share_percentage is None
 
     def test_user_status_response_owner_role(self):
         """Verify UserStatusResponse with owner role and share percentage."""
         response_data = {
             "user_id": 456,
+            "account_id": 3,
             "roles": ["owner"],
             "stakeholder_url": "https://example.com/owner",
             "share_percentage": 50,
         }
         response = UserStatusResponse(**response_data)
+        assert response.account_id == 3
         assert response.share_percentage == 50
         assert "owner" in response.roles
 
@@ -178,14 +184,18 @@ class TestTransactionResponseSchema:
     def test_transaction_response_with_description(self):
         """Verify TransactionResponse schema with description."""
         response_data = {
+            "from_account_id": 1,
             "from_ac_name": "Checking",
+            "to_account_id": 2,
             "to_ac_name": "Savings",
             "amount": 100.50,
             "date": "2024-01-15",
             "description": "Transfer",
         }
         response = TransactionResponse(**response_data)
+        assert response.from_account_id == 1
         assert response.from_ac_name == "Checking"
+        assert response.to_account_id == 2
         assert response.to_ac_name == "Savings"
         assert response.amount == 100.50
         assert response.description == "Transfer"
@@ -193,7 +203,9 @@ class TestTransactionResponseSchema:
     def test_transaction_response_without_description(self):
         """Verify TransactionResponse without optional description."""
         response_data = {
+            "from_account_id": 1,
             "from_ac_name": "Checking",
+            "to_account_id": 2,
             "to_ac_name": "Savings",
             "amount": 200.00,
             "date": "2024-01-16",
@@ -206,7 +218,9 @@ class TestTransactionResponseSchema:
         test_amounts = [0.01, 1.00, 100.99, 1000000.50]
         for amount in test_amounts:
             response_data = {
+                "from_account_id": 1,
                 "from_ac_name": "A",
+                "to_account_id": 2,
                 "to_ac_name": "B",
                 "amount": amount,
                 "date": "2024-01-01",

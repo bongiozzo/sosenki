@@ -129,6 +129,8 @@ console.error = function(...args) {
 let __appContext = null; // memoized context
 let __selectedUserId = null; // admin-selected user ID (takes precedence)
 let __authenticatedUserInfo = null; // Keep authenticated user info constant (name, isAdmin)
+let __currentAccountId = null; // Current account ID for endpoint calls
+let __previousPage = 'welcome'; // Navigation stack: 'welcome', 'accounts', 'transactions'
 
 /**
  * Get selected user ID from URL hash parameter
@@ -198,6 +200,9 @@ async function getAppContext(selectedUserId = null) {
         const isOwner = sharePercentage !== null;
         const isAdministrator = (data.roles || []).includes('administrator');
         
+        // Extract and store account_id for endpoint calls
+        __currentAccountId = data.account_id || null;
+        
         __appContext = {
             isRepresenting,
             isAdministrator,
@@ -210,6 +215,7 @@ async function getAppContext(selectedUserId = null) {
             greetingName: data.authenticated_user_name || data.authenticated_first_name || 'User'
         };
         console.log('[getAppContext] Context retrieved:', __appContext);
+        console.log('[getAppContext] Current account ID:', __currentAccountId);
         return __appContext;
     } catch (e) {
         console.error('[context] Exception', e);
@@ -474,13 +480,13 @@ async function loadTransactions(containerId = 'transactions-list', scope = 'pers
             return;
         }
 
-        const isRepresenting = (typeof contextOrFlag === 'object') ? !!contextOrFlag.isRepresenting : !!contextOrFlag;
-        
-        // Build URL with parameters
-        let url = `/api/mini-app/transactions-list?scope=${scope}&representing=${isRepresenting}`;
-        if (__selectedUserId !== null) {
-            url += `&selected_user_id=${__selectedUserId}`;
+        if (!__currentAccountId) {
+            console.warn('Account ID not available, cannot load transactions');
+            return;
         }
+        
+        // Build URL with account_id parameter
+        let url = `/api/mini-app/transactions-list?account_id=${__currentAccountId}&scope=${scope}`;
         
         const response = await fetchWithTmaAuth(url, initData);
 
@@ -537,7 +543,39 @@ function renderTransactionsList(transactions, containerId = 'transactions-list')
         
         const accountEl = document.createElement('div');
         accountEl.className = 'transaction-item-account';
-        accountEl.textContent = `${transaction.from_ac_name} → ${transaction.to_ac_name}`;
+        
+        // Create clickable account links if account IDs are available
+        if (transaction.from_account_id && transaction.to_account_id) {
+            const fromLink = document.createElement('a');
+            fromLink.href = '#';
+            fromLink.className = 'account-link';
+            fromLink.textContent = transaction.from_ac_name;
+            fromLink.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                navigateToAccountDetails(transaction.from_account_id, transaction.from_ac_name, 'transactions');
+            };
+            
+            const arrowSpan = document.createElement('span');
+            arrowSpan.textContent = ' → ';
+            
+            const toLink = document.createElement('a');
+            toLink.href = '#';
+            toLink.className = 'account-link';
+            toLink.textContent = transaction.to_ac_name;
+            toLink.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                navigateToAccountDetails(transaction.to_account_id, transaction.to_ac_name, 'transactions');
+            };
+            
+            accountEl.appendChild(fromLink);
+            accountEl.appendChild(arrowSpan);
+            accountEl.appendChild(toLink);
+        } else {
+            // Fallback to plain text if IDs not available
+            accountEl.textContent = `${transaction.from_ac_name} → ${transaction.to_ac_name}`;
+        }
         
         leftDiv.appendChild(dateEl);
         leftDiv.appendChild(accountEl);
@@ -576,13 +614,13 @@ async function loadBills(containerId = 'bills-list', contextOrFlag = false) {
             return;
         }
 
-        const isRepresenting = (typeof contextOrFlag === 'object') ? !!contextOrFlag.isRepresenting : !!contextOrFlag;
-        
-        // Build URL with parameters
-        let url = `/api/mini-app/bills?representing=${isRepresenting}`;
-        if (__selectedUserId !== null) {
-            url += `&selected_user_id=${__selectedUserId}`;
+        if (!__currentAccountId) {
+            console.warn('Account ID not available, cannot load bills');
+            return;
         }
+        
+        // Build URL with account_id parameter
+        let url = `/api/mini-app/bills?account_id=${__currentAccountId}`;
         
         const response = await fetchWithTmaAuth(url, initData);
 
@@ -1047,6 +1085,7 @@ async function reloadAllDatasets(context) {
  */
 function navigateToTransactions(event) {
     event.preventDefault();
+    __previousPage = 'welcome';
     
     // Show transactions page
     const template = document.getElementById('transactions-template');
@@ -1075,6 +1114,107 @@ function goBackToWelcome() {
 }
 
 /**
+ * Navigate to account details page
+ * @param {number} accountId - Account ID to show details for
+ * @param {string} accountName - Account name for header
+ * @param {string} fromPage - Source page for back navigation ('welcome', 'accounts', 'transactions')
+ */
+function navigateToAccountDetails(accountId, accountName, fromPage = 'accounts') {
+    __previousPage = fromPage;
+    
+    // Show account details page
+    const template = document.getElementById('account-details-template');
+    if (!template) {
+        console.error('Account details template not found');
+        return;
+    }
+    
+    const content = template.content.cloneNode(true);
+    
+    // Set account name in header
+    const nameEl = content.getElementById('account-details-name');
+    if (nameEl) {
+        nameEl.textContent = accountName;
+    }
+    
+    appContainer.innerHTML = '';
+    appContainer.appendChild(content);
+    
+    // Apply translations to rendered template
+    applyTranslations();
+    
+    // Load account data
+    loadAccountDetails(accountId);
+}
+
+/**
+ * Go back from account details page
+ */
+function goBackFromAccountDetails() {
+    if (__previousPage === 'accounts') {
+        // Go back to accounts list
+        const event = { preventDefault: () => {} };
+        navigateToAccounts(event);
+    } else if (__previousPage === 'transactions') {
+        // Go back to transactions list
+        const event = { preventDefault: () => {} };
+        navigateToTransactions(event);
+    } else {
+        // Default: go back to welcome
+        goBackToWelcome();
+    }
+}
+
+/**
+ * Load all data for account details page
+ * @param {number} accountId - Account ID to load
+ */
+async function loadAccountDetails(accountId) {
+    try {
+        const initData = getInitData();
+        if (!initData) return;
+        
+        // Load balance
+        const balanceUrl = `/api/mini-app/balance?account_id=${accountId}`;
+        const balanceResp = await fetchWithTmaAuth(balanceUrl, initData);
+        if (balanceResp.ok) {
+            const balanceData = await balanceResp.json();
+            // Render balance with inversion for account details page
+            const displayBalance = balanceData.invert_for_display ? -balanceData.balance : balanceData.balance;
+            const balanceEl = document.getElementById('account-balance-value');
+            if (balanceEl) {
+                const formattedBalance = formatAmount(Math.abs(displayBalance));
+                const balanceClass = displayBalance >= 0 ? 'positive' : 'negative';
+                balanceEl.className = `balance-value ${balanceClass}`;
+                balanceEl.textContent = `${displayBalance >= 0 ? '+' : '-'}₽${formattedBalance}`;
+            }
+        }
+        
+        // Load transactions for this account
+        const transUrl = `/api/mini-app/transactions-list?account_id=${accountId}&scope=personal`;
+        const transResp = await fetchWithTmaAuth(transUrl, initData);
+        if (transResp.ok) {
+            const transData = await transResp.json();
+            if (transData.transactions && Array.isArray(transData.transactions)) {
+                renderTransactionsList(transData.transactions, 'account-transactions-list');
+            }
+        }
+        
+        // Load bills for this account
+        const billsUrl = `/api/mini-app/bills?account_id=${accountId}`;
+        const billsResp = await fetchWithTmaAuth(billsUrl, initData);
+        if (billsResp.ok) {
+            const billsData = await billsResp.json();
+            if (billsData.bills && Array.isArray(billsData.bills)) {
+                renderBills(billsData.bills, 'account-bills-list');
+            }
+        }
+    } catch (error) {
+        console.error('Error loading account details:', error);
+    }
+}
+
+/**
  * Initialize Mini App
  */
 /**
@@ -1089,13 +1229,13 @@ async function loadBalance(contextOrFlag = false) {
             return;
         }
 
-        const isRepresenting = (typeof contextOrFlag === 'object') ? !!contextOrFlag.isRepresenting : !!contextOrFlag;
-        
-        // Build URL with parameters
-        let url = `/api/mini-app/balance?representing=${isRepresenting}`;
-        if (__selectedUserId !== null) {
-            url += `&selected_user_id=${__selectedUserId}`;
+        if (!__currentAccountId) {
+            console.warn('Account ID not available, cannot load balance');
+            return;
         }
+        
+        // Build URL with account_id parameter
+        let url = `/api/mini-app/balance?account_id=${__currentAccountId}`;
         
         const response = await fetchWithTmaAuth(url, initData);
 
@@ -1106,7 +1246,7 @@ async function loadBalance(contextOrFlag = false) {
         const data = await response.json();
         
         if (data.balance !== undefined) {
-            renderBalance(data.balance);
+            renderBalance(data.balance, data.invert_for_display || false);
         }
         
     } catch (error) {
@@ -1116,37 +1256,43 @@ async function loadBalance(contextOrFlag = false) {
 
 /**
  * Render balance into the balance-container
- * @param {number} balance - Balance amount (transactions - bills)
+ * @param {number} balance - Balance amount (raw value)
+ * @param {boolean} invert - Whether to invert the display value (for OWNER accounts)
+ * @param {string} containerId - Optional container ID (defaults to 'balance-container')
  */
-function renderBalance(balance) {
-    const container = document.getElementById('balance-container');
+function renderBalance(balance, invert = false, containerId = 'balance-container') {
+    const container = document.getElementById(containerId);
     
     if (!container) {
-        console.warn('Balance container not found');
+        console.warn('Balance container not found:', containerId);
         return;
     }
     
     // Show the balance section
     container.classList.add('visible');
     
+    // Apply inversion for display (OWNER accounts show inverted balance)
+    const displayBalance = invert ? -balance : balance;
+    
     // Find the balance-value element and update it
-    const balanceValue = container.querySelector('.balance-value');
+    const balanceValue = container.querySelector('.balance-value') || document.getElementById(containerId.replace('-container', '-value'));
     if (balanceValue) {
-        const formattedBalance = formatAmount(Math.abs(balance));
-        const balanceClass = balance >= 0 ? 'positive' : 'negative';
+        const formattedBalance = formatAmount(Math.abs(displayBalance));
+        const balanceClass = displayBalance >= 0 ? 'positive' : 'negative';
         balanceValue.className = `balance-value ${balanceClass}`;
-        balanceValue.textContent = `${balance >= 0 ? '+' : '-'}₽${formattedBalance}`;
+        balanceValue.textContent = `${displayBalance >= 0 ? '+' : '-'}₽${formattedBalance}`;
     }
 }
 
 /**
- * Navigate to balances page
+ * Navigate to accounts page
  */
-function navigateToBalances(event) {
+function navigateToAccounts(event) {
     event.preventDefault();
-    
-    // Show balances page
-    const template = document.getElementById('balances-template');
+    __previousPage = 'welcome';
+
+    // Show accounts page
+    const template = document.getElementById('accounts-template');
     if (!template) {
         return;
     }
@@ -1158,15 +1304,15 @@ function navigateToBalances(event) {
     // Apply translations to rendered template
     applyTranslations();
     
-    // Load all balances
-    loadBalances('balances-list');
+    // Load all accounts
+    loadAccounts('accounts-list');
 }
 
 /**
- * Load and render balances from backend
- * @param {string} containerId - ID of container to render balances into
+ * Load and render accounts from backend
+ * @param {string} containerId - ID of container to render accounts into
  */
-function loadBalances(containerId = 'balances-list') {
+function loadAccounts(containerId = 'accounts-list') {
     try {
         const initData = getInitData();
         
@@ -1174,8 +1320,8 @@ function loadBalances(containerId = 'balances-list') {
             return;
         }
 
-        // Fetch balances from backend (all users, info available to any owner)
-        const url = `/api/mini-app/balances`;
+        // Fetch accounts from backend (all users, info available to any owner)
+        const url = `/api/mini-app/accounts`;
         
         fetchWithTmaAuth(url, initData)
             .then(response => {
@@ -1188,7 +1334,7 @@ function loadBalances(containerId = 'balances-list') {
                 return response.json();
             })
             .then(data => {
-                renderBalancesPage(data.balances || [], containerId);
+                renderAccountsPage(data.accounts || [], containerId);
             })
             .catch(error => {
                 // Error silently handled
@@ -1200,11 +1346,11 @@ function loadBalances(containerId = 'balances-list') {
 }
 
 /**
- * Render balances page with list of owners and their balances
- * @param {Array} balances - Array of balance items {owner_name, balance, share_percentage}
+ * Render accounts page with list of accounts and their balances
+ * @param {Array} accounts - Array of account items {account_name, account_type, balance}
  * @param {string} containerId - ID of container to render into
  */
-function renderBalancesPage(balances, containerId = 'balances-list') {
+function renderAccountsPage(accounts, containerId = 'accounts-list') {
     const container = document.getElementById(containerId);
     
     if (!container) {
@@ -1213,35 +1359,74 @@ function renderBalancesPage(balances, containerId = 'balances-list') {
     
     container.innerHTML = '';
     
-    if (!balances || balances.length === 0) {
-        container.innerHTML = `<div class="balance-empty">${t('no_balances')}</div>`;
+    if (!accounts || accounts.length === 0) {
+        container.innerHTML = `<div class="account-empty">${t('no_accounts')}</div>`;
         return;
     }
     
-    // Sort by balance (most negative first - biggest debt first)
-    const sorted = [...balances].sort((a, b) => a.balance - b.balance);
+    // Sort: Owners first (biggest debt), then Organization, then Staff
+    const sorted = [...accounts].sort((a, b) => {
+        // Define type priority: owner (0), organization (1), staff (2)
+        const typePriority = { 'owner': 0, 'organization': 1, 'staff': 2 };
+        const aPriority = typePriority[a.account_type] ?? 3;
+        const bPriority = typePriority[b.account_type] ?? 3;
+        
+        // First, sort by type priority
+        if (aPriority !== bPriority) {
+            return aPriority - bPriority;
+        }
+        
+        // Within same type, for owners sort by biggest debt (most positive balance after inversion)
+        // For others, sort by balance descending (most positive first)
+        if (a.account_type === 'owner') {
+            // For owners: invert_for_display means we show -balance, so sort by raw balance descending (most positive = most debt when displayed)
+            return b.balance - a.balance;
+        }
+        
+        // For organization and staff, sort by balance descending
+        return b.balance - a.balance;
+    });
     
     sorted.forEach((item, index) => {
         const row = document.createElement('div');
-        row.className = 'balance-row';
+        row.className = 'account-row clickable';
+        row.style.cursor = 'pointer';
         
-        // Owner info (name + share percentage)
+        // Make row clickable to navigate to account details
+        row.onclick = () => {
+            navigateToAccountDetails(item.account_id, item.account_name, 'accounts');
+        };
+        
+        // Account info (icon + name)
         const infoDiv = document.createElement('div');
-        infoDiv.className = 'balance-row-info';
+        infoDiv.className = 'account-row-info';
+        
+        // Type icon based on account type (organization, owner, staff)
+        const iconEl = document.createElement('span');
+        iconEl.className = 'account-row-icon';
+        if (item.account_type === 'organization') {
+            iconEl.textContent = '🏦';
+        } else if (item.account_type === 'staff') {
+            iconEl.textContent = '👷';
+        } else {
+            iconEl.textContent = '👤';
+        }
+        infoDiv.appendChild(iconEl);
         
         const nameEl = document.createElement('div');
-        nameEl.className = 'balance-row-name';
-        nameEl.textContent = item.owner_name;
+        nameEl.className = 'account-row-name';
+        nameEl.textContent = item.account_name;
         infoDiv.appendChild(nameEl);
         
         row.appendChild(infoDiv);
         
-        // Balance amount (with color coding)
+        // Balance amount (with color coding and inversion for owner accounts)
+        const displayBalance = item.invert_for_display ? -item.balance : item.balance;
         const amountEl = document.createElement('div');
-        const formattedAmount = formatAmount(Math.abs(item.balance));
-        const balanceClass = item.balance >= 0 ? 'positive' : 'negative';
-        amountEl.className = `balance-row-amount ${balanceClass}`;
-        amountEl.textContent = `${item.balance >= 0 ? '+' : '-'}₽${formattedAmount}`;
+        const formattedAmount = formatAmount(Math.abs(displayBalance));
+        const balanceClass = displayBalance >= 0 ? 'positive' : 'negative';
+        amountEl.className = `account-row-amount ${balanceClass}`;
+        amountEl.textContent = `${displayBalance >= 0 ? '+' : '-'}₽${formattedAmount}`;
         
         row.appendChild(amountEl);
         container.appendChild(row);

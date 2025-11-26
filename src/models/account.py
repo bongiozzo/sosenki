@@ -11,8 +11,11 @@ from src.models import Base, BaseModel
 class AccountType(str, Enum):
     """Account classification."""
 
-    USER = "user"
-    """Personal account linked to a User (1:1 relationship)."""
+    OWNER = "owner"
+    """Personal account for property owner (is_owner=True)."""
+
+    STAFF = "staff"
+    """Personal account for staff member (is_staff=True, not owner)."""
 
     ORGANIZATION = "organization"
     """Shared organization/fund account (no User link)."""
@@ -21,11 +24,12 @@ class AccountType(str, Enum):
 class Account(Base, BaseModel):
     """Model representing a payment account.
 
-    Polymorphic account supporting both user personal accounts and shared
+    Polymorphic account supporting user personal accounts and shared
     organization accounts. All transactions flow between accounts (from_account → to_account).
 
     Account types:
-    - USER: Personal account for a community member (1:1 with User)
+    - OWNER: Personal account for property owner (is_owner=True)
+    - STAFF: Personal account for staff member (is_staff=True, not owner)
     - ORGANIZATION: Shared fund account (e.g., "Взносы", "Reserve")
     """
 
@@ -43,15 +47,15 @@ class Account(Base, BaseModel):
         String(50),
         nullable=False,
         default=AccountType.ORGANIZATION,
-        comment="Account type: 'user' for personal, 'organization' for shared fund",
+        comment="Account type: 'owner', 'staff', or 'organization'",
     )
 
-    # User link (only for account_type='user')
+    # User link (only for account_type='owner' or 'staff')
     user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id"),
         nullable=True,
         index=True,
-        comment="FK to User if account_type='user' (1:1 relationship)",
+        comment="FK to User if account_type='owner' or 'staff' (1:1 relationship)",
     )
 
     # Relationships
@@ -74,6 +78,12 @@ class Account(Base, BaseModel):
         back_populates="to_account",
         foreign_keys="Transaction.to_account_id",
         cascade="all, delete-orphan",
+    )
+
+    bills: Mapped[list["Bill"]] = relationship(  # noqa: F821
+        "Bill",
+        back_populates="account",
+        foreign_keys="Bill.account_id",
     )
 
     # Indexes

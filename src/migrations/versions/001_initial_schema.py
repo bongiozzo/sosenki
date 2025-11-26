@@ -144,7 +144,7 @@ def upgrade() -> None:
         sa.Index("idx_status", "status"),
     )
 
-    # Create accounts table (polymorphic: user and community accounts)
+    # Create accounts table (polymorphic: owner, staff, and organization accounts)
     op.create_table(
         "accounts",
         sa.Column("id", sa.Integer(), nullable=False),
@@ -153,14 +153,14 @@ def upgrade() -> None:
             "account_type",
             sa.String(length=50),
             nullable=False,
-            server_default="community",
-            comment="Account type: 'user' for personal, 'community' for shared",
+            server_default="organization",
+            comment="Account type: 'owner', 'staff', or 'organization'",
         ),
         sa.Column(
             "user_id",
             sa.Integer(),
             nullable=True,
-            comment="FK to User if account_type='user' (1:1 relationship)",
+            comment="FK to User if account_type='owner' or 'staff' (1:1 relationship)",
         ),
         sa.Column(
             "created_at",
@@ -351,16 +351,16 @@ def upgrade() -> None:
             comment="FK to ServicePeriod",
         ),
         sa.Column(
-            "user_id",
+            "account_id",
             sa.Integer(),
             nullable=True,
-            comment="FK to User for user-level bills (polymorphic with property_id)",
+            comment="FK to Account (user or organization account)",
         ),
         sa.Column(
             "property_id",
             sa.Integer(),
             nullable=True,
-            comment="FK to Property for property-level bills (polymorphic with user_id)",
+            comment="FK to Property for property-level bills",
         ),
         sa.Column(
             "bill_type",
@@ -393,10 +393,10 @@ def upgrade() -> None:
             server_default=sa.func.current_timestamp(),
         ),
         sa.ForeignKeyConstraint(["service_period_id"], ["service_periods.id"]),
-        sa.ForeignKeyConstraint(["user_id"], ["users.id"]),
+        sa.ForeignKeyConstraint(["account_id"], ["accounts.id"]),
         sa.ForeignKeyConstraint(["property_id"], ["properties.id"]),
         sa.PrimaryKeyConstraint("id"),
-        sa.Index("idx_bill_period_user", "service_period_id", "user_id"),
+        sa.Index("idx_bill_period_account", "service_period_id", "account_id"),
         sa.Index("idx_bill_period_property", "service_period_id", "property_id"),
         sa.Index("idx_bill_type", "bill_type"),
         sa.Index("idx_bill_period_type", "service_period_id", "bill_type"),

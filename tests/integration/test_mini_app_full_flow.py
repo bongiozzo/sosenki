@@ -96,12 +96,11 @@ def test_user_with_data():
         user_account = Account(
             user_id=user_id,
             name="User Account",
-            account_type="personal",
+            account_type="user",
         )
         community_account = Account(
-            user_id=user_id,
             name="Community Account",
-            account_type="community",
+            account_type="organization",  # Organization account has no user_id
         )
         session.add_all([user_account, community_account])
         session.flush()
@@ -150,6 +149,7 @@ def test_user_with_data():
         return {
             "user_id": user_id,
             "telegram_id": "12345678",
+            "account_id": user_account_id,
             "property_id": prop_id,
             "user_account_id": user_account_id,
             "community_account_id": community_account_id,
@@ -165,12 +165,13 @@ class TestTransactionsEndpoint:
     def test_transactions_list_successful_response(self, client: TestClient, test_user_with_data):
         """Test /transactions-list returns 200 with realistic data."""
         telegram_id = test_user_with_data["telegram_id"]
+        account_id = test_user_with_data["account_id"]
 
         with patch("src.api.mini_app.UserService.verify_telegram_webapp_signature") as mock_verify:
             mock_verify.return_value = {"user": f'{{"id": {telegram_id}}}'}
 
             response = client.post(
-                "/api/mini-app/transactions-list",
+                f"/api/mini-app/transactions-list?account_id={account_id}",
                 headers={"Authorization": f"tma {telegram_id}"},
                 json={},
             )
@@ -183,12 +184,13 @@ class TestTransactionsEndpoint:
     def test_transactions_list_response_structure(self, client: TestClient, test_user_with_data):
         """Test /transactions-list response contains expected fields."""
         telegram_id = test_user_with_data["telegram_id"]
+        account_id = test_user_with_data["account_id"]
 
         with patch("src.api.mini_app.UserService.verify_telegram_webapp_signature") as mock_verify:
             mock_verify.return_value = {"user": f'{{"id": {telegram_id}}}'}
 
             response = client.post(
-                "/api/mini-app/transactions-list",
+                f"/api/mini-app/transactions-list?account_id={account_id}",
                 headers={"Authorization": f"tma {telegram_id}"},
                 json={},
             )
@@ -207,12 +209,13 @@ class TestBillsEndpoint:
     def test_bills_successful_response(self, client: TestClient, test_user_with_data):
         """Test /bills returns 200 with realistic data."""
         telegram_id = test_user_with_data["telegram_id"]
+        account_id = test_user_with_data["account_id"]
 
         with patch("src.api.mini_app.UserService.verify_telegram_webapp_signature") as mock_verify:
             mock_verify.return_value = {"user": f'{{"id": {telegram_id}}}'}
 
             response = client.post(
-                "/api/mini-app/bills",
+                f"/api/mini-app/bills?account_id={account_id}",
                 headers={"Authorization": f"tma {telegram_id}"},
                 json={},
             )
@@ -226,12 +229,13 @@ class TestBillsEndpoint:
     def test_bills_response_structure(self, client: TestClient, test_user_with_data):
         """Test /bills response contains bill information."""
         telegram_id = test_user_with_data["telegram_id"]
+        account_id = test_user_with_data["account_id"]
 
         with patch("src.api.mini_app.UserService.verify_telegram_webapp_signature") as mock_verify:
             mock_verify.return_value = {"user": f'{{"id": {telegram_id}}}'}
 
             response = client.post(
-                "/api/mini-app/bills",
+                f"/api/mini-app/bills?account_id={account_id}",
                 headers={"Authorization": f"tma {telegram_id}"},
                 json={},
             )
@@ -248,12 +252,13 @@ class TestBalanceEndpoint:
     def test_balance_successful_response(self, client: TestClient, test_user_with_data):
         """Test /balance returns 200 with realistic data."""
         telegram_id = test_user_with_data["telegram_id"]
+        account_id = test_user_with_data["account_id"]
 
         with patch("src.api.mini_app.UserService.verify_telegram_webapp_signature") as mock_verify:
             mock_verify.return_value = {"user": f'{{"id": {telegram_id}}}'}
 
             response = client.post(
-                "/api/mini-app/balance",
+                f"/api/mini-app/balance?account_id={account_id}",
                 headers={"Authorization": f"tma {telegram_id}"},
                 json={},
             )
@@ -267,12 +272,13 @@ class TestBalanceEndpoint:
     def test_balance_response_structure(self, client: TestClient, test_user_with_data):
         """Test /balance response contains expected fields."""
         telegram_id = test_user_with_data["telegram_id"]
+        account_id = test_user_with_data["account_id"]
 
         with patch("src.api.mini_app.UserService.verify_telegram_webapp_signature") as mock_verify:
             mock_verify.return_value = {"user": f'{{"id": {telegram_id}}}'}
 
             response = client.post(
-                "/api/mini-app/balance",
+                f"/api/mini-app/balance?account_id={account_id}",
                 headers={"Authorization": f"tma {telegram_id}"},
                 json={},
             )
@@ -341,10 +347,10 @@ class TestBalancesEndpoint:
             mock_verify.return_value = {"user": f'{{"id": {telegram_id}}}'}
 
             response = client.post(
-                "/api/mini-app/balances",
+                "/api/mini-app/accounts",
                 headers={"Authorization": f"tma {telegram_id}"},
                 json={},
             )
 
-            # Admin should get access to balances
+            # Admin should get access to accounts
             assert response.status_code in [200, 403]

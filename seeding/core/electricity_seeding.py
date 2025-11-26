@@ -106,6 +106,83 @@ def _find_property_by_name_or_type(
         )
 
 
+def _create_electricity_reading_if_not_exists(
+    session: Session,
+    user_id: int,
+    property_id: int | None,
+    reading_value: float,
+    reading_date: date,
+) -> bool:
+    """Create electricity reading if it doesn't already exist.
+
+    Returns True if created, False if already existed.
+    """
+    from src.models.electricity_reading import ElectricityReading
+
+    query = session.query(ElectricityReading).filter(
+        ElectricityReading.reading_date == reading_date,
+        ElectricityReading.user_id == user_id,
+    )
+    if property_id:
+        query = query.filter(ElectricityReading.property_id == property_id)
+
+    if query.first():
+        return False
+
+    reading = ElectricityReading(
+        user_id=user_id,
+        property_id=property_id,
+        reading_value=reading_value,
+        reading_date=reading_date,
+    )
+    session.add(reading)
+    session.flush()
+    return True
+
+
+def _create_electricity_bill_if_not_exists(
+    session: Session,
+    account_id: int,
+    service_period_id: int,
+    property_id: int | None,
+    bill_amount: float,
+    property_obj,
+    property_name: str,
+) -> bool:
+    """Create electricity bill if it doesn't already exist.
+
+    Returns True if created, False if already existed.
+    """
+    from src.models.bill import Bill, BillType
+
+    existing = (
+        session.query(Bill)
+        .filter(
+            Bill.service_period_id == service_period_id,
+            Bill.account_id == account_id,
+            Bill.property_id == property_id,
+            Bill.bill_type == BillType.ELECTRICITY,
+        )
+        .first()
+    )
+
+    if existing:
+        return False
+
+    comment = property_name if not property_obj else None
+    bill = Bill(
+        service_period_id=service_period_id,
+        account_id=account_id,
+        property_id=property_id,
+        bill_type=BillType.ELECTRICITY,
+        bill_amount=bill_amount,
+        comment=comment,
+    )
+    session.add(bill)
+    session.flush()
+    return True
+
+
 def create_electricity_readings_and_bills(
     session: Session,
     reading_dicts: List[Dict],
@@ -116,23 +193,8 @@ def create_electricity_readings_and_bills(
 ) -> tuple[int, int]:
     """Create electricity reading and bill records from parsed data.
 
-    Creates:
-    - Two readings per user/property (start and end dates)
-    - One bill per user/property for the service period
-
-    Args:
-        session: SQLAlchemy session
-        reading_dicts: List of dicts from parse_electricity_row()
-        user_map: User name -> User object mapping
-        service_period_id: ID of the service period
-        period_start_date: Start date for first reading
-        period_end_date: End date for second reading
-
-    Returns:
-        Tuple of (readings_created, bills_created)
+    Creates two readings per user/property (start/end dates) and one bill.
     """
-    from src.models.bill import Bill, BillType
-    from src.models.electricity_reading import ElectricityReading
 
     logger = logging.getLogger("sosenki.seeding.electricity")
     readings_created = 0
@@ -145,129 +207,52 @@ def create_electricity_readings_and_bills(
         end_reading = reading_dict["end_reading"]
         bill_amount = reading_dict["bill_amount"]
 
-        # Find user
         user = user_map.get(user_name)
         if not user:
             logger.warning(f"User not found: {user_name}, skipping reading")
             continue
 
-        # Find property by type and owner
-        # The property_name in electricity data is actually the property type
-        # (e.g., "Большой", "Малый", "Баня")
-        # If property_name is numeric, search by Property.property_name; otherwise by Property.type
         property_obj = _find_property_by_name_or_type(session, user.id, property_name)
+        property_id = property_obj.id if property_obj else None
+        user_id = user.id
 
         try:
-            # Determine if we have a property match
-            property_id = property_obj.id if property_obj else None
-            user_id = user.id  # Always assign user_id
-
-            # Create first reading (start date with start reading value)
-            # Check if reading already exists for this property/user and date
-            query_start = session.query(ElectricityReading).filter(
-                ElectricityReading.reading_date == period_start_date,
-                ElectricityReading.user_id == user_id,
-            )
-            if property_id:
-                query_start = query_start.filter(ElectricityReading.property_id == property_id)
-
-            existing_start = query_start.first()
-
-            if not existing_start:
-                reading_start = ElectricityReading(
-                    user_id=user_id,
-                    property_id=property_id,
-                    reading_value=start_reading,
-                    reading_date=period_start_date,
-                )
-                session.add(reading_start)
-                session.flush()  # Flush to make the reading queryable
+            # Create start reading
+            if _create_electricity_reading_if_not_exists(
+                session, user_id, property_id, start_reading, period_start_date
+            ):
                 readings_created += 1
                 logger.debug(
-                    f"Created electricity reading: "
-                    f"{'property=' + str(property_id) if property_id else 'user=' + str(user_id)} "
-                    f"= {start_reading} on {period_start_date}"
-                )
-            else:
-                logger.debug(
-                    f"Skipped duplicate electricity reading: "
-                    f"{'property=' + str(property_id) if property_id else 'user=' + str(user_id)} "
-                    f"on {period_start_date}"
+                    f"Created electricity reading: {user_id}/{property_id} = {start_reading}"
                 )
 
-            # Create second reading (end date with end reading value)
-            # Check if reading already exists for this property/user and date
-            query_end = session.query(ElectricityReading).filter(
-                ElectricityReading.reading_date == period_end_date,
-                ElectricityReading.user_id == user_id,
-            )
-            if property_id:
-                query_end = query_end.filter(ElectricityReading.property_id == property_id)
-
-            existing_end = query_end.first()
-
-            if not existing_end:
-                reading_end = ElectricityReading(
-                    user_id=user_id,
-                    property_id=property_id,
-                    reading_value=end_reading,
-                    reading_date=period_end_date,
-                )
-                session.add(reading_end)
-                session.flush()  # Flush to make the reading queryable
+            # Create end reading
+            if _create_electricity_reading_if_not_exists(
+                session, user_id, property_id, end_reading, period_end_date
+            ):
                 readings_created += 1
                 logger.debug(
-                    f"Created electricity reading: "
-                    f"{'property=' + str(property_id) if property_id else 'user=' + str(user_id)} "
-                    f"= {end_reading} on {period_end_date}"
-                )
-            else:
-                logger.debug(
-                    f"Skipped duplicate electricity reading: "
-                    f"{'property=' + str(property_id) if property_id else 'user=' + str(user_id)} "
-                    f"on {period_end_date}"
+                    f"Created electricity reading: {user_id}/{property_id} = {end_reading}"
                 )
 
-            # Create bill with optional comment if property not found
-            # Check if bill already exists for this service period, user/property combo
-            existing_bill = (
-                session.query(Bill)
-                .filter(
-                    Bill.service_period_id == service_period_id,
-                    Bill.user_id == user_id,
-                    Bill.property_id == property_id,
-                    Bill.bill_type == BillType.ELECTRICITY,
-                )
-                .first()
-            )
+            # Create bill
+            account_id = user.account.id if user.account else None
+            if not account_id:
+                logger.warning(f"User {user_name} has no account, skipping bill")
+                continue
 
-            if not existing_bill:
-                comment = None
-                if not property_obj:
-                    comment = property_name
-                    logger.info(f"Bill created with user_id (property not found): {property_name}")
-
-                bill = Bill(
-                    service_period_id=service_period_id,
-                    user_id=user_id,
-                    property_id=property_id,
-                    bill_type=BillType.ELECTRICITY,
-                    bill_amount=bill_amount,
-                    comment=comment,
-                )
-                session.add(bill)
-                session.flush()  # Flush to make bill queryable
+            if _create_electricity_bill_if_not_exists(
+                session,
+                account_id,
+                service_period_id,
+                property_id,
+                bill_amount,
+                property_obj,
+                property_name,
+            ):
                 bills_created += 1
                 logger.debug(
-                    f"Created electricity bill: "
-                    f"{'property=' + str(property_id) if property_id else 'user=' + str(user_id)} "
-                    f"= {bill_amount} rubles"
-                )
-            else:
-                logger.debug(
-                    f"Skipped duplicate electricity bill: "
-                    f"{'property=' + str(property_id) if property_id else 'user=' + str(user_id)} "
-                    f"= {bill_amount} rubles"
+                    f"Created electricity bill: {account_id}/{property_id} = {bill_amount}"
                 )
 
         except Exception as e:

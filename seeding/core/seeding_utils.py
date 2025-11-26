@@ -108,11 +108,20 @@ def get_or_create_user(session: Session, name: str, user_attrs: Optional[Dict] =
         session.flush()  # Get the ID before full commit
 
         # Auto-create personal account for the user
+        # Determine account type based on user flags: OWNER > STAFF
         from src.models.account import Account, AccountType
+
+        if user.is_owner:
+            account_type = AccountType.OWNER
+        elif user.is_staff:
+            account_type = AccountType.STAFF
+        else:
+            # Default to OWNER for users without explicit flags
+            account_type = AccountType.OWNER
 
         user_account = Account(
             name=name,
-            account_type=AccountType.USER,
+            account_type=account_type,
             user_id=user.id,
         )
         session.add(user_account)
@@ -122,7 +131,7 @@ def get_or_create_user(session: Session, name: str, user_attrs: Optional[Dict] =
             f"Created new user: {name} "
             f"(investor={user.is_investor}, stakeholder={user.is_stakeholder})"
         )
-        logger.info(f"Created personal account for user: {name}")
+        logger.info(f"Created personal account for user: {name} (type={account_type.value})")
         return user
 
     except Exception as e:

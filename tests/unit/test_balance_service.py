@@ -1,11 +1,26 @@
-"""Unit tests for BalanceCalculationService."""
+"""Unit tests for BalanceCalculationService.
+
+Balance Formula (Unified):
+- All accounts: Balance = Incoming(To) - Outgoing(From) + Bills
+
+For user accounts with outgoing payments and bills:
+- Incoming = 0 (users don't receive payments TO their account)
+- Outgoing = payments made (FROM account)
+- Bills = bills owed
+
+So: Balance = 0 - Payments + Bills = Bills - Payments
+- Positive = user owes money (bills > payments)
+- Negative = user has credit (payments > bills, overpaid)
+
+Note: OWNER accounts display inverted values (use calculate_account_balance_with_display)
+"""
 
 from datetime import date
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.models.account import Account
+from src.models.account import Account, AccountType
 from src.models.bill import Bill, BillType
 from src.models.transaction import Transaction
 from src.models.user import User
@@ -23,50 +38,42 @@ async def test_balance_zero_when_no_transactions_and_no_bills(
 
 
 @pytest.mark.asyncio
-async def test_balance_equals_transactions_when_no_bills(
+async def test_user_balance_negative_when_payments_exceed_bills(
     session: AsyncSession, sample_user: User, sample_account: Account
 ):
-    """Test balance equals transaction sum when no bills exist."""
-    # Create transactions
+    """Test user balance is negative (credit) when payments exceed bills.
+
+    For accounts: Balance = Incoming - Outgoing + Bills
+    When Outgoing (payments) > Bills: Balance is negative (user has credit)
+    """
+    # Create a destination account (community fund where user pays TO)
+    community_fund = Account(
+        name="Community Fund",
+        account_type=AccountType.ORGANIZATION,
+    )
+    session.add(community_fund)
+    await session.commit()
+
+    # Create outgoing transactions (user pays to community) = 200
     trans1 = Transaction(
-        from_account_id=sample_account.id,
-        to_account_id=sample_account.id,
+        from_account_id=sample_account.id,  # FROM user
+        to_account_id=community_fund.id,  # TO community
         amount=100.0,
         transaction_date=date(2024, 1, 1),
     )
     trans2 = Transaction(
         from_account_id=sample_account.id,
-        to_account_id=sample_account.id,
-        amount=50.0,
+        to_account_id=community_fund.id,
+        amount=100.0,
         transaction_date=date(2024, 1, 2),
     )
     session.add_all([trans1, trans2])
     await session.commit()
 
-    service = BalanceCalculationService(session)
-    balance = await service.calculate_user_balance(sample_user.id)
-    assert balance == 150.0
-
-
-@pytest.mark.asyncio
-async def test_balance_negative_when_bills_exceed_transactions(
-    session: AsyncSession, sample_user: User, sample_account: Account
-):
-    """Test balance is negative when bills exceed transactions."""
-    # Create transaction: +100
-    trans = Transaction(
-        from_account_id=sample_account.id,
-        to_account_id=sample_account.id,
-        amount=100.0,
-        transaction_date=date(2024, 1, 1),
-    )
-    session.add(trans)
-    await session.commit()
-
-    # Create bill: -150 (more than transactions)
+    # Create bills = 150 (less than payments)
     bill = Bill(
-        user_id=sample_user.id,
-        service_period_id=1,  # Assuming this exists from fixtures
+        account_id=sample_account.id,
+        service_period_id=1,
         bill_amount=150.0,
         bill_type=BillType.ELECTRICITY,
     )
@@ -75,25 +82,76 @@ async def test_balance_negative_when_bills_exceed_transactions(
 
     service = BalanceCalculationService(session)
     balance = await service.calculate_user_balance(sample_user.id)
-    # Balance = 100 - 150 = -50
+    # Balance = 0 (incoming) - 200 (outgoing) + 150 (bills) = -50 (credit)
     assert balance == -50.0
 
 
 @pytest.mark.asyncio
-async def test_balance_formula_transactions_minus_bills(
+async def test_user_balance_positive_when_bills_exceed_payments(
     session: AsyncSession, sample_user: User, sample_account: Account
 ):
-    """Test balance calculation: transactions - bills."""
-    # Create transactions: 200 + 100 = 300
+    """Test user balance is positive (debt) when bills exceed payments.
+
+    For accounts: Balance = Incoming - Outgoing + Bills
+    When Bills > Outgoing (payments): Balance is positive (user owes money)
+    """
+    # Create a destination account
+    community_fund = Account(
+        name="Community Fund",
+        account_type=AccountType.ORGANIZATION,
+    )
+    session.add(community_fund)
+    await session.commit()
+
+    # Create outgoing transaction (user pays) = 100
+    trans = Transaction(
+        from_account_id=sample_account.id,
+        to_account_id=community_fund.id,
+        amount=100.0,
+        transaction_date=date(2024, 1, 1),
+    )
+    session.add(trans)
+    await session.commit()
+
+    # Create bill = 150 (more than payments)
+    bill = Bill(
+        account_id=sample_account.id,
+        service_period_id=1,
+        bill_amount=150.0,
+        bill_type=BillType.ELECTRICITY,
+    )
+    session.add(bill)
+    await session.commit()
+
+    service = BalanceCalculationService(session)
+    balance = await service.calculate_user_balance(sample_user.id)
+    # Balance = 0 (incoming) - 100 (outgoing) + 150 (bills) = +50 (debt)
+    assert balance == 50.0
+
+
+@pytest.mark.asyncio
+async def test_user_balance_formula_bills_minus_payments(
+    session: AsyncSession, sample_user: User, sample_account: Account
+):
+    """Test user balance formula: Incoming - Outgoing + Bills."""
+    # Create a destination account
+    community_fund = Account(
+        name="Community Fund",
+        account_type=AccountType.ORGANIZATION,
+    )
+    session.add(community_fund)
+    await session.commit()
+
+    # Create outgoing transactions (payments): 200 + 100 = 300
     trans1 = Transaction(
         from_account_id=sample_account.id,
-        to_account_id=sample_account.id,
+        to_account_id=community_fund.id,
         amount=200.0,
         transaction_date=date(2024, 1, 1),
     )
     trans2 = Transaction(
         from_account_id=sample_account.id,
-        to_account_id=sample_account.id,
+        to_account_id=community_fund.id,
         amount=100.0,
         transaction_date=date(2024, 1, 2),
     )
@@ -102,13 +160,13 @@ async def test_balance_formula_transactions_minus_bills(
 
     # Create bills: 80 + 40 = 120
     bill1 = Bill(
-        user_id=sample_user.id,
+        account_id=sample_account.id,
         service_period_id=1,
         bill_amount=80.0,
         bill_type=BillType.ELECTRICITY,
     )
     bill2 = Bill(
-        user_id=sample_user.id,
+        account_id=sample_account.id,
         service_period_id=1,
         bill_amount=40.0,
         bill_type=BillType.ELECTRICITY,
@@ -118,29 +176,38 @@ async def test_balance_formula_transactions_minus_bills(
 
     service = BalanceCalculationService(session)
     balance = await service.calculate_user_balance(sample_user.id)
-    # Balance = 300 - 120 = 180
-    assert balance == 180.0
+    # Balance = 0 (incoming) - 300 (outgoing) + 120 (bills) = -180 (credit)
+    assert balance == -180.0
 
 
 @pytest.mark.asyncio
-async def test_balance_zero_bills_graceful_when_bills_table_missing(
+async def test_user_balance_equals_negative_payments_when_no_bills(
     session: AsyncSession, sample_user: User, sample_account: Account
 ):
-    """Test balance calculation gracefully handles missing bills table."""
-    # Create transaction
+    """Test user balance equals negative payments when no bills exist."""
+    # Create a destination account
+    community_fund = Account(
+        name="Community Fund",
+        account_type=AccountType.ORGANIZATION,
+    )
+    session.add(community_fund)
+    await session.commit()
+
+    # Create outgoing transaction (user pays) = 100
     trans = Transaction(
         from_account_id=sample_account.id,
-        to_account_id=sample_account.id,
+        to_account_id=community_fund.id,
         amount=100.0,
         transaction_date=date(2024, 1, 1),
     )
     session.add(trans)
     await session.commit()
 
-    # Don't add any bills - service should handle gracefully
+    # No bills - balance should equal negative payments
     service = BalanceCalculationService(session)
     balance = await service.calculate_user_balance(sample_user.id)
-    assert balance == 100.0
+    # Balance = 0 (incoming) - 100 (outgoing) + 0 (bills) = -100 (credit)
+    assert balance == -100.0
 
 
 @pytest.mark.asyncio
@@ -151,10 +218,18 @@ async def test_multiple_user_balances(
     another_user: User,
 ):
     """Test calculating balances for multiple users."""
-    # User 1: 100 transactions, 30 bills = 70 balance
+    # Create a destination account
+    community_fund = Account(
+        name="Community Fund",
+        account_type=AccountType.ORGANIZATION,
+    )
+    session.add(community_fund)
+    await session.commit()
+
+    # User 1: 100 payments, 30 bills = -70 balance (credit: payments > bills)
     trans1 = Transaction(
         from_account_id=sample_account.id,
-        to_account_id=sample_account.id,
+        to_account_id=community_fund.id,
         amount=100.0,
         transaction_date=date(2024, 1, 1),
     )
@@ -162,7 +237,7 @@ async def test_multiple_user_balances(
     await session.commit()
 
     bill1 = Bill(
-        user_id=sample_user.id,
+        account_id=sample_account.id,
         service_period_id=1,
         bill_amount=30.0,
         bill_type=BillType.ELECTRICITY,
@@ -171,39 +246,53 @@ async def test_multiple_user_balances(
     await session.commit()
 
     # User 2: 0 transactions, 0 bills = 0 balance
-    # (another_user has no accounts or transactions)
 
     service = BalanceCalculationService(session)
     balances = await service.calculate_multiple_user_balances([sample_user.id, another_user.id])
 
-    assert balances[sample_user.id] == 70.0
+    # Balance = 0 (incoming) - 100 (outgoing) + 30 (bills) = -70 (credit)
+    assert balances[sample_user.id] == -70.0
     assert balances[another_user.id] == 0.0
 
 
 @pytest.mark.asyncio
-async def test_balance_positive_and_negative_values(
+async def test_user_balance_credit_and_debt_states(
     session: AsyncSession, sample_user: User, sample_account: Account
 ):
-    """Test balance correctly represents credit (positive) and debt (negative)."""
+    """Test balance correctly represents credit (negative) and debt (positive).
+
+    With unified formula: Balance = Incoming - Outgoing + Bills
+    - Negative = user has credit (overpaid: payments > bills)
+    - Positive = user owes money (debt: bills > payments)
+    """
+    # Create a destination account
+    community_fund = Account(
+        name="Community Fund",
+        account_type=AccountType.ORGANIZATION,
+    )
+    session.add(community_fund)
+    await session.commit()
+
     service = BalanceCalculationService(session)
 
-    # Create transactions and bills
+    # Create outgoing transaction (payment)
     trans = Transaction(
         from_account_id=sample_account.id,
-        to_account_id=sample_account.id,
+        to_account_id=community_fund.id,
         amount=100.0,
         transaction_date=date(2024, 1, 1),
     )
     session.add(trans)
     await session.commit()
 
-    # Scenario 1: Balance positive (credit)
+    # Scenario 1: Balance negative (credit) - paid 100, no bills
+    # Balance = 0 - 100 + 0 = -100
     balance = await service.calculate_user_balance(sample_user.id)
-    assert balance > 0, "Credit balance should be positive"
+    assert balance < 0, "Credit balance should be negative (overpaid)"
 
-    # Add bills that exceed transactions
+    # Add bills that exceed payments
     bill = Bill(
-        user_id=sample_user.id,
+        account_id=sample_account.id,
         service_period_id=1,
         bill_amount=200.0,
         bill_type=BillType.ELECTRICITY,
@@ -211,6 +300,7 @@ async def test_balance_positive_and_negative_values(
     session.add(bill)
     await session.commit()
 
-    # Scenario 2: Balance negative (debt)
+    # Scenario 2: Balance positive (debt) - paid 100, bills 200
+    # Balance = 0 - 100 + 200 = 100
     balance = await service.calculate_user_balance(sample_user.id)
-    assert balance < 0, "Debt balance should be negative"
+    assert balance > 0, "Debt balance should be positive (owes money)"

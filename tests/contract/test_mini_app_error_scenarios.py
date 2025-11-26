@@ -309,7 +309,7 @@ class TestTransactionsListErrorScenarios:
 
     def test_transactions_list_missing_authorization(self, client: TestClient):
         """Test /transactions-list without authorization."""
-        response = client.post("/api/mini-app/transactions-list")
+        response = client.post("/api/mini-app/transactions-list?account_id=1")
         assert response.status_code == 401
 
     def test_transactions_list_invalid_signature(self, client: TestClient):
@@ -318,7 +318,7 @@ class TestTransactionsListErrorScenarios:
             "src.api.mini_app.UserService.verify_telegram_webapp_signature", return_value=None
         ):
             response = client.post(
-                "/api/mini-app/transactions-list",
+                "/api/mini-app/transactions-list?account_id=1",
                 headers={"Authorization": "tma invalid"},
             )
             assert response.status_code == 401
@@ -329,7 +329,7 @@ class TestTransactionsListErrorScenarios:
             "src.api.mini_app.UserService.verify_telegram_webapp_signature", return_value=None
         ):
             response = client.post(
-                "/api/mini-app/transactions-list",
+                "/api/mini-app/transactions-list?account_id=1",
                 headers={"Authorization": "tma test"},
             )
             assert response.status_code == 401
@@ -340,7 +340,7 @@ class TestBillsEndpointErrorScenarios:
 
     def test_bills_missing_authorization(self, client: TestClient):
         """Test /bills without authorization."""
-        response = client.post("/api/mini-app/bills")
+        response = client.post("/api/mini-app/bills?account_id=1")
         assert response.status_code == 401
 
     def test_bills_invalid_signature(self, client: TestClient):
@@ -349,7 +349,7 @@ class TestBillsEndpointErrorScenarios:
             "src.api.mini_app.UserService.verify_telegram_webapp_signature", return_value=None
         ):
             response = client.post(
-                "/api/mini-app/bills",
+                "/api/mini-app/bills?account_id=1",
                 headers={"Authorization": "tma invalid"},
             )
             assert response.status_code == 401
@@ -360,7 +360,7 @@ class TestBillsEndpointErrorScenarios:
             "src.api.mini_app.UserService.verify_telegram_webapp_signature", return_value=None
         ):
             response = client.post(
-                "/api/mini-app/bills",
+                "/api/mini-app/bills?account_id=1",
                 headers={"Authorization": "tma test"},
             )
             assert response.status_code == 401
@@ -371,9 +371,9 @@ class TestBalanceEndpointErrorScenarios:
 
     def test_balance_missing_authorization(self, client: TestClient):
         """Test /balance without authorization."""
-        response = client.post("/api/mini-app/balance")
-        # Missing body may return 422 or 400 depending on endpoint
-        assert response.status_code in [400, 401, 422]
+        response = client.post("/api/mini-app/balance?account_id=1")
+        # When init data is missing, endpoint returns 400 before checking signature
+        assert response.status_code == 400
 
     def test_balance_invalid_signature(self, client: TestClient):
         """Test /balance with invalid signature."""
@@ -381,7 +381,7 @@ class TestBalanceEndpointErrorScenarios:
             "src.api.mini_app.UserService.verify_telegram_webapp_signature", return_value=None
         ):
             response = client.post(
-                "/api/mini-app/balance",
+                "/api/mini-app/balance?account_id=1",
                 headers={"Authorization": "tma invalid"},
             )
             assert response.status_code == 401
@@ -393,40 +393,40 @@ class TestBalanceEndpointErrorScenarios:
             side_effect=Exception("Verification failed"),
         ):
             response = client.post(
-                "/api/mini-app/balance",
+                "/api/mini-app/balance?account_id=1",
                 headers={"Authorization": "tma test"},
             )
             assert response.status_code == 500
 
 
 class TestBalancesEndpointErrorScenarios:
-    """Test error scenarios for /api/mini-app/balances endpoint."""
+    """Test error scenarios for /api/mini-app/accounts endpoint."""
 
     def test_balances_missing_authorization(self, client: TestClient):
-        """Test /balances without authorization."""
-        response = client.post("/api/mini-app/balances")
+        """Test /accounts without authorization."""
+        response = client.post("/api/mini-app/accounts")
         # Missing body may return 422 or 400 depending on endpoint
         assert response.status_code in [400, 401, 422]
 
     def test_balances_invalid_signature(self, client: TestClient):
-        """Test /balances with invalid signature."""
+        """Test /accounts with invalid signature."""
         with patch(
             "src.api.mini_app.UserService.verify_telegram_webapp_signature", return_value=None
         ):
             response = client.post(
-                "/api/mini-app/balances",
+                "/api/mini-app/accounts",
                 headers={"Authorization": "tma invalid"},
             )
             assert response.status_code == 401
 
     def test_balances_verification_exception(self, client: TestClient):
-        """Test /balances when verification raises exception."""
+        """Test /accounts when verification raises exception."""
         with patch(
             "src.api.mini_app.UserService.verify_telegram_webapp_signature",
             side_effect=Exception("Verification failed"),
         ):
             response = client.post(
-                "/api/mini-app/balances",
+                "/api/mini-app/accounts",
                 headers={"Authorization": "tma test"},
             )
             assert response.status_code == 500

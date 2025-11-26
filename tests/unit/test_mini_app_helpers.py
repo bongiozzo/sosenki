@@ -156,6 +156,7 @@ class TestResponseSchemas:
 
         response_data = {
             "user_id": 123456,
+            "account_id": 1,
             "roles": ["member"],
             "stakeholder_url": None,
             "share_percentage": None,
@@ -165,6 +166,7 @@ class TestResponseSchemas:
         }
         response = UserStatusResponse(**response_data)
         assert response.user_id == 123456
+        assert response.account_id == 1
         assert response.roles == ["member"]
 
     def test_user_list_response_schema_multiple_users(self):
@@ -182,13 +184,17 @@ class TestResponseSchemas:
         from src.api.mini_app import TransactionResponse
 
         response_data = {
+            "from_account_id": 1,
             "from_ac_name": "Account A",
+            "to_account_id": 2,
             "to_ac_name": "Account B",
             "amount": 150.50,
             "date": "2025-11-15T10:30:00",
             "description": "Monthly transfer",
         }
         response = TransactionResponse(**response_data)
+        assert response.from_account_id == 1
+        assert response.to_account_id == 2
         assert response.amount == 150.50
         assert response.description == "Monthly transfer"
 

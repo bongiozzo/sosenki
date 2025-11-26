@@ -574,6 +574,20 @@ body {
     color: var(--color-text);
 }
 
+.transaction-item-account .account-link {
+    color: var(--color-pine);
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.transaction-item-account .account-link:hover {
+    text-decoration: underline;
+}
+
+.transaction-item-account .account-link:active {
+    opacity: 0.7;
+}
+
 .transaction-item-amount {
     font-size: 16px;
     font-weight: 600;
@@ -1050,21 +1064,21 @@ body {
     background: #FADBD8;
 }
 
-/* Balances Page */
-.balances-main {
+/* Accounts Page */
+.accounts-main {
     flex: 1;
     padding: var(--spacing-md) 0;
     display: flex;
     flex-direction: column;
 }
 
-.balances-list {
+.accounts-list {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-sm);
 }
 
-.balance-row {
+.account-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -1075,29 +1089,38 @@ body {
     transition: background-color 0.2s ease;
 }
 
-.balance-row:active {
+.account-row.clickable:hover {
     background-color: #EFEFEF;
 }
 
-.balance-row-info {
+.account-row:active {
+    background-color: #E5E5E5;
+}
+
+.account-row-info {
     flex: 1;
     display: flex;
     flex-direction: column;
     gap: 4px;
 }
 
-.balance-row-name {
+.account-row-icon {
+    font-size: 18px;
+    margin-right: 8px;
+}
+
+.account-row-name {
     font-size: 14px;
     font-weight: 600;
     color: var(--color-text);
 }
 
-.balance-row-share {
+.account-row-share {
     font-size: 12px;
     color: var(--color-text-secondary);
 }
 
-.balance-row-amount {
+.account-row-amount {
     font-size: 16px;
     font-weight: 700;
     font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
@@ -1106,15 +1129,15 @@ body {
     white-space: nowrap;
 }
 
-.balance-row-amount.positive {
+.account-row-amount.positive {
     color: #27AE60;
 }
 
-.balance-row-amount.negative {
+.account-row-amount.negative {
     color: #E74C3C;
 }
 
-.balance-empty {
+.account-empty {
     padding: var(--spacing-md);
     text-align: center;
     color: var(--color-text-secondary);

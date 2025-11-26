@@ -115,6 +115,7 @@ class UserStatusResponse(BaseModel):
     """Response schema for user status endpoint."""
 
     user_id: int
+    account_id: int  # Account ID for the authenticated or represented user
     roles: list[str]  # e.g., ["investor", "owner", "stakeholder"]
     stakeholder_url: str | None  # URL from environment, may be null
     share_percentage: int | None  # 1 (signed), 0 (unsigned owner), None (non-owner)
@@ -493,8 +494,18 @@ async def get_user_status(
                     represented_user
                 )
 
+        # Get target user's account ID
+        account_stmt = select(Account).where(Account.user_id == target_user.id)
+        account_result = await session.execute(account_stmt)
+        target_account = account_result.scalar_one_or_none()
+        account_id = target_account.id if target_account else None
+
+        if not account_id:
+            raise HTTPException(status_code=500, detail="Account not found for user")
+
         return UserStatusResponse(
             user_id=target_user.id,
+            account_id=account_id,
             roles=roles,
             stakeholder_url=stakeholder_url,
             share_percentage=share_percentage,
@@ -675,14 +686,99 @@ async def get_properties(
         raise HTTPException(status_code=500, detail="Server error") from e
 
 
+# Helper functions for bills endpoint
+def _build_electricity_reading_subqueries(
+    reading_date_comparison: str,
+) -> tuple:
+    """Build start and end reading subqueries for electricity bills.
+
+    Args:
+        reading_date_comparison: Either "start" or "end" to build appropriate query
+
+    Returns:
+        Tuple of (start_reading_alias, end_reading_alias) scalar subqueries
+    """
+    from src.models.bill import Bill
+    from src.models.electricity_reading import ElectricityReading
+    from src.models.service_period import ServicePeriod
+
+    start_reading_alias = (
+        select(ElectricityReading.reading_value)
+        .join(Account, Account.user_id == ElectricityReading.user_id)
+        .where(
+            (Account.id == Bill.account_id)
+            & (ElectricityReading.property_id == Bill.property_id)
+            & (ElectricityReading.reading_date <= ServicePeriod.start_date)
+        )
+        .order_by(ElectricityReading.reading_date.desc())
+        .limit(1)
+        .correlate(Bill, ServicePeriod)
+        .scalar_subquery()
+    )
+
+    end_reading_alias = (
+        select(ElectricityReading.reading_value)
+        .join(Account, Account.user_id == ElectricityReading.user_id)
+        .where(
+            (Account.id == Bill.account_id)
+            & (ElectricityReading.property_id == Bill.property_id)
+            & (ElectricityReading.reading_date <= ServicePeriod.end_date)
+        )
+        .order_by(ElectricityReading.reading_date.desc())
+        .limit(1)
+        .correlate(Bill, ServicePeriod)
+        .scalar_subquery()
+    )
+
+    return start_reading_alias, end_reading_alias
+
+
+def _format_bill_response(bill, service_period, property_obj, start_reading, end_reading) -> dict:
+    """Format bill data into response dict.
+
+    Args:
+        bill: Bill model instance
+        service_period: ServicePeriod model instance
+        property_obj: Property model instance or None
+        start_reading: Start meter reading value or None
+        end_reading: End meter reading value or None
+
+    Returns:
+        Formatted bill response dictionary
+    """
+    consumption = None
+    if start_reading is not None and end_reading is not None and end_reading >= start_reading:
+        consumption = end_reading - start_reading
+
+    return {
+        "period_name": service_period.name,
+        "period_start_date": service_period.start_date.isoformat(),
+        "period_end_date": service_period.end_date.isoformat(),
+        "property_name": property_obj.property_name if property_obj else None,
+        "property_type": property_obj.type if property_obj else None,
+        "comment": bill.comment,
+        "bill_amount": float(bill.bill_amount),
+        "bill_type": bill.bill_type.value,
+        "start_reading": start_reading,
+        "end_reading": end_reading,
+        "consumption": consumption,
+    }
+
+
 # Transaction Response Models
 class TransactionResponse(BaseModel):
     """Response model for a single transaction."""
 
     model_config = ConfigDict(from_attributes=True)
 
+    from_account_id: int
+    """Account ID the transaction is from."""
+
     from_ac_name: str
     """Account name the transaction is from."""
+
+    to_account_id: int
+    """Account ID the transaction is to."""
 
     to_ac_name: str
     """Account name the transaction is to."""
@@ -742,32 +838,35 @@ class ElectricityBillResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class ElectricityBillsListResponse(BaseModel):
-    """Response for electricity bills list."""
+class BillsListResponse(BaseModel):
+    """Response for bills list (all bill types: electricity, shared electricity, conservation, main)."""
 
     bills: list[ElectricityBillResponse]
 
 
 @router.post("/transactions-list")
 async def transactions_list(
-    representing: bool | None = None,
-    selected_user_id: int | None = None,
+    account_id: int,
     scope: str = "all",
     authorization: str | None = Header(None),  # noqa: B008
     x_telegram_init_data: str | None = Header(None),  # noqa: B008
     body: dict[str, Any] | None = Body(None),  # noqa: B008
     db: AsyncSession = Depends(get_async_session),  # noqa: B008
 ) -> TransactionListResponse:
-    """Get list of transactions.
+    """Get list of transactions for a specific account.
 
     Args:
-        scope: Filter scope - 'personal' returns only user's transactions,
-               'all' (default) returns all organization transactions.
-        representing: If True, return transactions for represented user instead of authenticated user.
+        account_id: Account ID to fetch transactions for (required, extracted during page initialization).
+        scope: Filter scope - 'personal' returns only account's transactions,
+               'all' (default) returns all organization transactions visible to account.
 
-    Returns all transactions or user's transactions based on scope parameter.
+    Returns all transactions or account's transactions based on scope parameter.
     """
-    # Extract and verify init data
+    # Validate account_id
+    if not account_id or account_id <= 0:
+        raise HTTPException(status_code=400, detail="Valid account_id required")
+
+    # Extract and verify init data (for authentication only)
     init_data_raw = _extract_init_data(authorization, x_telegram_init_data, body)
     parsed_data = UserService.verify_telegram_webapp_signature(
         init_data=init_data_raw or "", bot_token=bot_config.telegram_bot_token
@@ -778,24 +877,13 @@ async def transactions_list(
         raise HTTPException(status_code=401, detail="Invalid Telegram signature")
 
     try:
-        # Extract telegram_id from parsed data
-        user_data = json.loads(parsed_data.get("user", "{}"))
-        telegram_id = str(user_data.get("id"))
+        # Verify account exists
+        account_stmt = select(Account).where(Account.id == account_id)
+        account_result = await db.execute(account_stmt)
+        account = account_result.scalar_one_or_none()
 
-        if not telegram_id:
-            raise HTTPException(status_code=401, detail="No user ID in init data")
-
-        target_user, _ = await _resolve_target_user(db, telegram_id, representing, selected_user_id)
-        user_id = target_user.id
-
-        # Get user's accounts for personal scope filtering
-        user_accounts_stmt = select(Account).where(Account.user_id == user_id)
-        result = await db.execute(user_accounts_stmt)
-        user_accounts = result.scalars().all()
-        account_ids = [acc.id for acc in user_accounts]
-
-        if not account_ids and scope == "personal":
-            return TransactionListResponse(transactions=[])
+        if not account:
+            raise HTTPException(status_code=404, detail="Account not found")
 
         from_account_alias = (
             select(Account.name.label("from_ac_name"))
@@ -812,14 +900,16 @@ async def transactions_list(
         )
 
         where_clause = []
-        if scope == "personal" and account_ids:
+        if scope == "personal":
             where_clause = [
-                (Transaction.from_account_id.in_(account_ids))
-                | (Transaction.to_account_id.in_(account_ids))
+                (Transaction.from_account_id == account_id)
+                | (Transaction.to_account_id == account_id)
             ]
 
         trans_stmt = select(
+            Transaction.from_account_id,
             from_account_alias.label("from_ac_name"),
+            Transaction.to_account_id,
             to_account_alias.label("to_ac_name"),
             Transaction.amount,
             Transaction.transaction_date,
@@ -834,11 +924,13 @@ async def transactions_list(
 
         transactions_list_data = [
             TransactionResponse(
-                from_ac_name=row[0] or "Unknown",
-                to_ac_name=row[1] or "Unknown",
-                amount=float(row[2]),
-                date=row[3].isoformat() if row[3] else "",
-                description=row[4],
+                from_account_id=row[0],
+                from_ac_name=row[1] or "Unknown",
+                to_account_id=row[2],
+                to_ac_name=row[3] or "Unknown",
+                amount=float(row[4]),
+                date=row[5].isoformat() if row[5] else "",
+                description=row[6],
             )
             for row in transactions_data
         ]
@@ -854,34 +946,38 @@ async def transactions_list(
 
 @router.post("/bills")
 async def get_bills(
-    representing: bool | None = None,
-    selected_user_id: int | None = None,
+    account_id: int,
     authorization: str | None = Header(None),  # noqa: B008
     x_telegram_init_data: str | None = Header(None),  # noqa: B008
     body: dict[str, Any] | None = Body(None),  # noqa: B008
     db: AsyncSession = Depends(get_async_session),  # noqa: B008
-) -> ElectricityBillsListResponse:
-    """Get list of all bills (electricity, shared electricity, conservation, main) for authenticated user.
+) -> BillsListResponse:
+    """Get list of all bills (electricity, shared electricity, conservation, main) for a specific account.
 
-    Returns bills for properties owned by the user or bills directly assigned to the user.
+    Returns bills for the account itself and for properties owned by the account owner.
     Each bill includes period information, bill type, and amount.
 
     Args:
-        representing: If True, return bills for represented user instead of authenticated user.
+        account_id: Account ID to fetch bills for (required, extracted during page initialization).
 
     Returns:
-        ElectricityBillsListResponse with list of bills sorted by period (most recent first).
+        BillsListResponse with list of bills sorted by period (most recent first).
 
     Raises:
+        400: Missing or invalid account_id
         401: Invalid Telegram signature
-        403: User not registered or inactive
+        404: Account not found
         500: Server error
     """
     from src.models.bill import Bill
     from src.models.property import Property
     from src.models.service_period import ServicePeriod
 
-    # Extract and verify init data
+    # Validate account_id
+    if not account_id or account_id <= 0:
+        raise HTTPException(status_code=400, detail="Valid account_id required")
+
+    # Extract and verify init data (for authentication only)
     init_data_raw = _extract_init_data(authorization, x_telegram_init_data, body)
     parsed_data = UserService.verify_telegram_webapp_signature(
         init_data=init_data_raw or "", bot_token=bot_config.telegram_bot_token
@@ -891,61 +987,40 @@ async def get_bills(
         logger.warning("Invalid Telegram signature in /api/mini-app/bills")
         raise HTTPException(status_code=401, detail="Invalid Telegram signature")
 
-    # Extract telegram_id from parsed data
-    user_data = json.loads(parsed_data.get("user", "{}"))
-    telegram_id = str(user_data.get("id"))
-
-    if not telegram_id:
-        raise HTTPException(status_code=401, detail="No user ID in init data")
-
     try:
-        from src.models.electricity_reading import ElectricityReading
+        # Verify account exists and get its user_id
+        account_stmt = select(Account).where(Account.id == account_id)
+        account_result = await db.execute(account_stmt)
+        account = account_result.scalar_one_or_none()
 
-        target_user, _ = await _resolve_target_user(db, telegram_id, representing, selected_user_id)
-        target_user_id = target_user.id
+        if not account:
+            raise HTTPException(status_code=404, detail="Account not found")
 
-        user_id = target_user_id
+        # Get properties owned by account's user
+        user_property_ids = []
+        if account.user_id:
+            user_properties_stmt = select(Property.id).where(Property.owner_id == account.user_id)
+            result = await db.execute(user_properties_stmt)
+            user_property_ids = [row[0] for row in result.all()]
 
-        # Get user's property IDs
-        user_properties_stmt = select(Property.id).where(Property.owner_id == user_id)
-        result = await db.execute(user_properties_stmt)
-        user_property_ids = [row[0] for row in result.all()]
+        # Build reading subqueries
+        start_reading_alias, end_reading_alias = _build_electricity_reading_subqueries("both")
 
-        # Query bills with dual joins for start and end electricity readings
-        # For ELECTRICITY bills: join with readings at period start_date and end_date
-        # IMPORTANT: Match readings by BOTH user_id AND property_id to avoid cross-property mixing
-        start_reading_alias = (
-            select(ElectricityReading.reading_value)
-            .where(
-                (ElectricityReading.user_id == Bill.user_id)
-                & (ElectricityReading.property_id == Bill.property_id)
-                & (ElectricityReading.reading_date <= ServicePeriod.start_date)
-            )
-            .order_by(ElectricityReading.reading_date.desc())
-            .limit(1)
-            .correlate(Bill, ServicePeriod)
-            .scalar_subquery()
-        )
+        # Build where clause for account and owner properties
+        where_clause = [Bill.account_id == account_id]
+        if user_property_ids:
+            from sqlalchemy import or_
 
-        end_reading_alias = (
-            select(ElectricityReading.reading_value)
-            .where(
-                (ElectricityReading.user_id == Bill.user_id)
-                & (ElectricityReading.property_id == Bill.property_id)
-                & (ElectricityReading.reading_date <= ServicePeriod.end_date)
-            )
-            .order_by(ElectricityReading.reading_date.desc())
-            .limit(1)
-            .correlate(Bill, ServicePeriod)
-            .scalar_subquery()
-        )
+            where_clause = [
+                or_(Bill.account_id == account_id, Bill.property_id.in_(user_property_ids))
+            ]
 
-        # Query bills for user or user's properties
+        # Query bills
         bills_stmt = (
             select(Bill, ServicePeriod, Property, start_reading_alias, end_reading_alias)
             .join(ServicePeriod, Bill.service_period_id == ServicePeriod.id)
             .outerjoin(Property, Bill.property_id == Property.id)
-            .where((Bill.user_id == user_id) | (Bill.property_id.in_(user_property_ids)))
+            .where(*where_clause)
             .order_by(ServicePeriod.start_date.desc())
         )
 
@@ -954,45 +1029,26 @@ async def get_bills(
 
         # Build response list
         bills_response = []
-
         for row_data in bills_data:
             bill = row_data[0]
             service_period = row_data[1]
             property_obj = row_data[2]
+
             start_reading = None
             end_reading = None
-            consumption = None
-
             if bill.bill_type.value == "electricity":
-                # Extract readings from query result
                 start_reading = float(row_data[3]) if row_data[3] else None
                 end_reading = float(row_data[4]) if row_data[4] else None
 
-                # Calculate consumption if both readings exist
-                if (
-                    start_reading is not None
-                    and end_reading is not None
-                    and end_reading >= start_reading
-                ):
-                    consumption = end_reading - start_reading
-
-            bill_response = {
-                "period_name": service_period.name,
-                "period_start_date": service_period.start_date.isoformat(),
-                "period_end_date": service_period.end_date.isoformat(),
-                "property_name": property_obj.property_name if property_obj else None,
-                "property_type": property_obj.type if property_obj else None,
-                "comment": bill.comment,
-                "bill_amount": float(bill.bill_amount),
-                "bill_type": bill.bill_type.value,
-                "start_reading": start_reading,
-                "end_reading": end_reading,
-                "consumption": consumption,
-            }
+            bill_response = _format_bill_response(
+                bill, service_period, property_obj, start_reading, end_reading
+            )
             bills_response.append(bill_response)
 
         return {"bills": bills_response}
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error in /api/mini-app/bills: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Server error") from e
@@ -1002,40 +1058,60 @@ async def get_bills(
 class BalanceResponse(BaseModel):
     """Response schema for single user balance endpoint."""
 
-    balance: float  # Positive = credit, Negative = debt
+    balance: float  # Raw balance value
+    invert_for_display: bool = False  # True for OWNER accounts (display negated value)
 
     model_config = ConfigDict(from_attributes=True)
 
 
-class BalanceItem(BaseModel):
-    """Response schema for a single owner's balance item."""
+class AccountItem(BaseModel):
+    """Response schema for a single account's info item."""
 
-    owner_name: str
+    account_id: int  # Account ID for navigation
+    account_name: str
+    account_type: str  # 'owner', 'staff', or 'organization'
     balance: float
+    invert_for_display: bool = False  # True for OWNER accounts
 
     model_config = ConfigDict(from_attributes=True)
 
 
-class BalancesResponse(BaseModel):
-    """Response schema for balances endpoint."""
+class AccountsResponse(BaseModel):
+    """Response schema for accounts endpoint."""
 
-    balances: list[BalanceItem]
+    accounts: list[AccountItem]
 
     model_config = ConfigDict(from_attributes=True)
 
 
 @router.post("/balance", response_model=BalanceResponse)
 async def get_balance(
-    representing: bool | None = None,
-    selected_user_id: int | None = None,
+    account_id: int,
     authorization: str | None = Header(None),  # noqa: B008
     x_telegram_init_data: str | None = Header(None),  # noqa: B008
     session: AsyncSession = Depends(get_async_session),  # noqa: B008
     body: dict[str, Any] | None = Body(None),  # noqa: B008
 ) -> BalanceResponse:
-    """Get balance (transactions - bills) for authenticated or represented user."""
+    """Get balance (payments - bills) for a specific account.
+
+    Args:
+        account_id: Account ID to calculate balance for (required, extracted during page initialization).
+
+    Returns:
+        BalanceResponse with balance value (positive = credit, negative = debt).
+
+    Raises:
+        400: Missing or invalid account_id
+        401: Invalid Telegram signature
+        404: Account not found
+        500: Server error
+    """
+    # Validate account_id
+    if not account_id or account_id <= 0:
+        raise HTTPException(status_code=400, detail="Valid account_id required")
+
     try:
-        # Extract init data
+        # Extract init data (for authentication only)
         raw_init_data = _extract_init_data(authorization, x_telegram_init_data, body)
         if not raw_init_data:
             raise HTTPException(status_code=400, detail="Missing init data")
@@ -1047,24 +1123,21 @@ async def get_balance(
         if not parsed_data:
             raise HTTPException(status_code=401, detail="Invalid Telegram signature")
 
-        # Extract telegram_id from parsed data
-        user_data = json.loads(parsed_data.get("user", "{}"))
-        telegram_id = str(user_data.get("id"))
-        if not telegram_id:
-            raise HTTPException(status_code=401, detail="User ID not found in init data")
+        # Verify account exists
+        account_stmt = select(Account).where(Account.id == account_id)
+        account_result = await session.execute(account_stmt)
+        account = account_result.scalar_one_or_none()
 
-        # Resolve target user
-        target_user, switched = await _resolve_target_user(
-            session, str(telegram_id), representing, selected_user_id
-        )
+        if not account:
+            raise HTTPException(status_code=404, detail="Account not found")
 
         # Calculate balance using service
         from src.services.balance_service import BalanceCalculationService
 
         balance_service = BalanceCalculationService(session)
-        balance = await balance_service.calculate_user_balance(target_user.id)
+        result = await balance_service.calculate_account_balance_with_display(account_id)
 
-        return BalanceResponse(balance=balance)
+        return BalanceResponse(balance=result.balance, invert_for_display=result.invert_for_display)
 
     except HTTPException:
         raise
@@ -1073,14 +1146,14 @@ async def get_balance(
         raise HTTPException(status_code=500, detail="Server error") from e
 
 
-@router.post("/balances", response_model=BalancesResponse)
-async def get_all_balances(
+@router.post("/accounts", response_model=AccountsResponse)
+async def get_all_accounts(
     authorization: str | None = Header(None),  # noqa: B008
     x_telegram_init_data: str | None = Header(None),  # noqa: B008
     session: AsyncSession = Depends(get_async_session),  # noqa: B008
     body: dict[str, Any] | None = Body(None),  # noqa: B008
-) -> BalancesResponse:
-    """Get balances for all owners (info available to any owner)."""
+) -> AccountsResponse:
+    """Get accounts for all owners (info available to any owner)."""
     try:
         # Extract init data
         raw_init_data = _extract_init_data(authorization, x_telegram_init_data, body)
@@ -1107,43 +1180,45 @@ async def get_all_balances(
         if not authenticated_user:
             raise HTTPException(status_code=401, detail="User not found")
 
-        # Get all distinct owners from properties
-        # (All owners are available to view balances - info is not restricted)
-        from sqlalchemy import distinct
-
-        from src.models.property import Property
-
-        stmt = (
-            select(distinct(User.id), User.name, User.is_stakeholder)
-            .select_from(Property)
-            .join(User, User.id == Property.owner_id)
-        )
-        result = await session.execute(stmt)
-        owners_data = result.all()
-
-        balances_list = []
-
+        # Get all accounts (user + organization) for balance display
+        # All owners can view all account balances - info is not restricted
+        from src.models.account import Account
         from src.services.balance_service import BalanceCalculationService
 
+        stmt = select(Account)
+        result = await session.execute(stmt)
+        accounts = result.scalars().all()
+
+        accounts_list = []
         balance_service = BalanceCalculationService(session)
 
-        for owner_id, owner_name, _is_stakeholder in owners_data:
-            # Calculate balance using service
-            balance = await balance_service.calculate_user_balance(owner_id)
+        for account in accounts:
+            # Calculate balance using service with display info
+            result = await balance_service.calculate_account_balance_with_display(account.id)
 
-            balances_list.append(
-                BalanceItem(
-                    owner_name=owner_name,
-                    balance=balance,
+            # Handle account_type as either Enum or string
+            account_type_str = (
+                account.account_type.value
+                if hasattr(account.account_type, "value")
+                else str(account.account_type)
+            )
+
+            accounts_list.append(
+                AccountItem(
+                    account_id=account.id,
+                    account_name=account.name,
+                    account_type=account_type_str,
+                    balance=result.balance,
+                    invert_for_display=result.invert_for_display,
                 )
             )
 
-        return BalancesResponse(balances=balances_list)
+        return AccountsResponse(accounts=accounts_list)
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error in /api/mini-app/balances: {e}", exc_info=True)
+        logger.error(f"Error in /api/mini-app/accounts: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Server error") from e
 
 

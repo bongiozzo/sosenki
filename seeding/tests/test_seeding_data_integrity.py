@@ -40,8 +40,8 @@ from src.models import (
 EXPECTED_DATA_COUNTS = {
     "users": 19,
     "properties": 72,
-    "accounts": 30,
-    "transactions": 67,
+    "accounts": 28,
+    "transactions": 72,
     "service_periods": 3,
     "electricity_readings": 77,
     "bills": 142,
@@ -136,12 +136,14 @@ class TestSeedingDataIntegrity:
         )
 
     def test_no_orphaned_bills(self, db: Session) -> None:
-        """Verify all bills have valid user or property references."""
-        # Bills must have either user_id or property_id (or both), not neither
+        """Verify all bills have valid account or property references."""
+        # Bills must have either account_id or property_id (or both), not neither
         orphaned = (
-            db.query(Bill).filter((Bill.user_id.is_(None)) & (Bill.property_id.is_(None))).count()
+            db.query(Bill)
+            .filter((Bill.account_id.is_(None)) & (Bill.property_id.is_(None)))
+            .count()
         )
-        assert orphaned == 0, f"Found {orphaned} bills with neither user_id nor property_id"
+        assert orphaned == 0, f"Found {orphaned} bills with neither account_id nor property_id"
 
     def test_no_orphaned_electricity_readings(self, db: Session) -> None:
         """Verify all electricity readings have valid property references."""

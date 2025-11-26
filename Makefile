@@ -1,12 +1,10 @@
-# TODO feat: Localization support (fix)
-# TODO Balance for accounts
 # TODO feat: Align CSS and add Figma MCP to fix wrapping
 # - https://www.figma.com/community/file/1248595286803212338/telegram-graphics
-# TODO fix: Infinite loading due to Async misuse
-# TODO feat: Invest part
-# TODO feat: User management from bot - MCP server
-# TODO refactor: Make git-filter-repo to clean history
+# TODO refactor: Access rights - Account details for Administrator
+# TODO feat: Management from bot - MCP server for query and Endpoints for actions, 
 # TODO feat: Production from branch main and Dev from dev
+# TODO refactor: Make git-filter-repo to clean history
+# TODO feat: Invest part
 # TODO feat: Rule part with Job descriptions
 
 # ============================================================================
@@ -30,24 +28,25 @@ help:
 	@echo "  make help              Show this help message"
 	@echo "  make install           Install dependencies via uv"
 	@echo "  make test              Run all tests (contract, integration, unit)"
-	@echo "  make test-contract     Run Mini App contract tests only"
-	@echo "  make test-mini-app     Run Mini App tests (contract + integration)"
+	@echo "  make test-seeding      Run seeding tests only"
 	@echo "  make lint              Check code style with ruff"
-	@echo "  make check-i18n        Validate translation completeness"
 	@echo "  make format            Format code with ruff and prettier"
+	@echo "  make check-i18n        Validate translation completeness"
+	@echo "  make dead-code         Analyze dead code with vulture and custom scripts"
+	@echo "  make coverage          Generate coverage report for src/ tests"
+	@echo "  make sync-design       Sync design tokens from Figma"
+	@echo ""
+	@echo "Database Seeding & Management:"
 	@echo "  make seed              Seed database from Google Sheets (OFFLINE ONLY)"
+	@echo "                         Idempotent: running twice = identical database state"
 	@echo "  make db-reset          Drop and recreate database (OFFLINE ONLY)"
-	@echo "  make clean             Remove generated artifacts (coverage, cache, logs)"
+	@echo "                         Deletes all data and recreates fresh schema"
 	@echo ""
 	@echo "Local Development:"
 	@echo "  make serve             Run bot + mini app with webhook (starts ngrok if needed)"
 	@echo ""
-	@echo "Database Seeding:"
-	@echo "  make seed              Synchronize local SQLite with canonical Google Sheet"
-	@echo "                         Must run when application is OFFLINE"
-	@echo "                         Idempotent: running twice = identical database state"
-	@echo "  make db-reset          Drop and recreate database from scratch"
-	@echo "                         Must run when application is OFFLINE"
+	@echo "Maintenance:"
+	@echo "  make clean             Remove generated artifacts (coverage, cache, logs)"
 	@echo ""
 
 install:
@@ -104,6 +103,10 @@ db-reset:
 	@echo "Database reset complete! Ready for seeding with 'make seed'"
 
 # Dead code detection
+# Identifies unused variables, functions, and code paths using two tools:
+# - vulture: Static analysis with confidence threshold (80%)
+# - analyze_dead_code.py: Custom analysis script for project-specific patterns
+# Output helps identify refactoring opportunities and code cleanup targets
 dead-code:
 	@echo "Analyzing dead code..."
 	uv run vulture src/ --min-confidence 80

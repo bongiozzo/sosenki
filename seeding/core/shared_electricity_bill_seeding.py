@@ -67,7 +67,7 @@ def parse_shared_electricity_bill_row(
             for split_user_name, coefficient in coefficients.items():
                 # Find user
                 user = user_map.get(split_user_name)
-                if not user:
+                if not user or not user.account:
                     continue
 
                 # Calculate proportional amount
@@ -75,7 +75,7 @@ def parse_shared_electricity_bill_row(
 
                 bill = Bill(
                     service_period_id=service_period.id,
-                    user_id=user.id,
+                    account_id=user.account.id,
                     bill_type=BillType.SHARED_ELECTRICITY,
                     bill_amount=proportional_amount,
                     comment=comment,
@@ -86,12 +86,12 @@ def parse_shared_electricity_bill_row(
 
         # Handle single user name (no '/')
         user = user_map.get(user_name)
-        if not user:
+        if not user or not user.account:
             return None
 
         bill = Bill(
             service_period_id=service_period.id,
-            user_id=user.id,
+            account_id=user.account.id,
             bill_type=BillType.SHARED_ELECTRICITY,
             bill_amount=total_amount,
             comment=comment,
@@ -133,12 +133,12 @@ def create_shared_electricity_bills(
         if bills:
             for bill in bills:
                 try:
-                    # Check for existing bill (unique constraint on service_period_id, user_id, bill_type)
+                    # Check for existing bill (unique constraint on service_period_id, account_id, bill_type)
                     existing = (
                         session.query(Bill)
                         .filter(
                             Bill.service_period_id == service_period.id,
-                            Bill.user_id == bill.user_id,
+                            Bill.account_id == bill.account_id,
                             Bill.bill_type == BillType.SHARED_ELECTRICITY,
                         )
                         .first()

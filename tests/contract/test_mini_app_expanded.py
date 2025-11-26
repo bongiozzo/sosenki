@@ -432,18 +432,18 @@ class TestMiniAppBalanceEndpoint:
 
 
 class TestMiniAppBalancesEndpoint:
-    """Tests for /api/mini-app/balances endpoint."""
+    """Tests for /api/mini-app/accounts endpoint."""
 
     def test_balances_endpoint_exists(self, client):
-        """Test balances endpoint is available."""
-        response = client.post("/api/mini-app/balances", json={})
+        """Test accounts endpoint is available."""
+        response = client.post("/api/mini-app/accounts", json={})
 
         # Should not be 404
         assert response.status_code != 404
 
     def test_balances_endpoint_returns_multiple_balances(self, client):
-        """Test balances endpoint returns multiple balances."""
-        response = client.post("/api/mini-app/balances", json={})
+        """Test accounts endpoint returns multiple accounts."""
+        response = client.post("/api/mini-app/accounts", json={})
 
         # Should have content type
         assert response.headers.get("content-type") is not None

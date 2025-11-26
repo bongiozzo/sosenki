@@ -113,7 +113,7 @@ def get_or_create_budget_item(
         ) from e
 
 
-def get_or_create_community_account(session: Session, name: str) -> Account | None:
+def get_or_create_account(session: Session, name: str) -> Account | None:
     """Get existing organization account or create new one.
 
     Args:
@@ -134,18 +134,15 @@ def get_or_create_community_account(session: Session, name: str) -> Account | No
         return None
 
     try:
-        # Query for existing account
-        account = (
-            session.query(Account)
-            .filter(Account.name == name, Account.account_type == AccountType.ORGANIZATION)
-            .first()
-        )
+        # Query for existing account by name
+        # (Account names are unique; type is determined by existence of user_id)
+        account = session.query(Account).filter(Account.name == name).first()
 
         if account:
-            logger.debug(f"Found existing organization account: {name}")
+            logger.debug(f"Found existing account: {name}")
             return account
 
-        # Create new account
+        # Create new organization account
         account = Account(
             name=name,
             account_type=AccountType.ORGANIZATION,
@@ -203,7 +200,7 @@ def create_debit_transactions(
 
             # Get organization account
             account_name = debit_dict.pop("account_name", None) or default_account_name
-            community_account = get_or_create_community_account(session, account_name)
+            community_account = get_or_create_account(session, account_name)
 
             if not community_account:
                 logger.warning(f"Account is Skip marker: {account_name}, skipping debit")
@@ -259,7 +256,7 @@ def create_credit_transactions(
 
     try:
         created_count = 0
-        community_account = get_or_create_community_account(session, default_account_name)
+        community_account = get_or_create_account(session, default_account_name)
 
         if not community_account:
             raise DataValidationError(f"Default account '{default_account_name}' is marked as Skip")
@@ -283,7 +280,7 @@ def create_credit_transactions(
                 if organization_account_for_payer:
                     # Use payer as from_account (account-to-account transaction)
                     account_name = credit_dict.pop("account_name", None) or default_account_name
-                    to_organization_account = get_or_create_community_account(session, account_name)
+                    to_organization_account = get_or_create_account(session, account_name)
 
                     if not to_organization_account:
                         logger.warning(
@@ -326,7 +323,7 @@ def create_credit_transactions(
 
             # Get or use account name from parsed data
             account_name = credit_dict.pop("account_name", None) or default_account_name
-            organization_account = get_or_create_community_account(session, account_name)
+            organization_account = get_or_create_account(session, account_name)
 
             if not organization_account:
                 logger.warning(f"Account is Skip marker: {account_name}, skipping credit")
@@ -369,7 +366,7 @@ def create_credit_transactions(
 
 __all__ = [
     "get_or_create_service_period",
-    "get_or_create_community_account",
+    "get_or_create_account",
     "get_or_create_budget_item",
     "create_debit_transactions",
     "create_credit_transactions",
