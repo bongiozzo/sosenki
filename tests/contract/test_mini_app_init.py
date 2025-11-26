@@ -55,4 +55,3 @@ def test_mini_app_init_unregistered_user():
 
             # Response status depends on implementation - could be 400, 401, or 500
             assert response.status_code in [200, 400, 401, 500]
-

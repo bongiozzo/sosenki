@@ -38,10 +38,7 @@ class TestInitEndpointBasics:
     def test_init_no_body_or_headers_returns_401(self, client: TestClient):
         """Ensure different ways to miss init data all return 401"""
         # No Authorization header, no X-Telegram-Init-Data, no body
-        response = client.post(
-            "/api/mini-app/init",
-            json={}
-        )
+        response = client.post("/api/mini-app/init", json={})
         assert response.status_code == 401
 
 
@@ -55,10 +52,7 @@ class TestUserStatusEndpointBasics:
 
     def test_user_status_empty_headers_returns_401(self, client: TestClient):
         """Empty authorization header also returns 401"""
-        response = client.post(
-            "/api/mini-app/user-status",
-            headers={"Authorization": ""}
-        )
+        response = client.post("/api/mini-app/user-status", headers={"Authorization": ""})
         assert response.status_code == 401
 
 

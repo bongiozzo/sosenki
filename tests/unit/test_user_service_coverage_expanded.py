@@ -81,17 +81,13 @@ class TestUserStatusServiceGetSharePercentage:
 
     def test_share_percentage_owner_signed(self):
         """Verify owner with signed contract returns 1."""
-        user = User(
-            name="Signed Owner", is_owner=True, is_stakeholder=True, is_active=True
-        )
+        user = User(name="Signed Owner", is_owner=True, is_stakeholder=True, is_active=True)
         percentage = UserStatusService.get_share_percentage(user)
         assert percentage == 1
 
     def test_share_percentage_owner_unsigned(self):
         """Verify owner without signed contract returns 0."""
-        user = User(
-            name="Unsigned Owner", is_owner=True, is_stakeholder=False, is_active=True
-        )
+        user = User(name="Unsigned Owner", is_owner=True, is_stakeholder=False, is_active=True)
         percentage = UserStatusService.get_share_percentage(user)
         assert percentage == 0
 
@@ -159,9 +155,7 @@ class TestUserServiceMethods:
 
     async def test_can_access_invest_investor(self, user_service_async):
         """Verify investor can access invest features."""
-        user = User(
-            name="Investor", telegram_id="666", is_active=True, is_investor=True
-        )
+        user = User(name="Investor", telegram_id="666", is_active=True, is_investor=True)
         user_service_async.session.add(user)
         await user_service_async.session.commit()
 
@@ -170,9 +164,7 @@ class TestUserServiceMethods:
 
     async def test_can_access_invest_non_investor(self, user_service_async):
         """Verify non-investor cannot access invest features."""
-        user = User(
-            name="Non-Investor", telegram_id="777", is_active=True, is_investor=False
-        )
+        user = User(name="Non-Investor", telegram_id="777", is_active=True, is_investor=False)
         user_service_async.session.add(user)
         await user_service_async.session.commit()
 
@@ -181,9 +173,7 @@ class TestUserServiceMethods:
 
     async def test_is_administrator_true(self, user_service_async):
         """Verify administrator check."""
-        user = User(
-            name="Admin", telegram_id="888", is_active=True, is_administrator=True
-        )
+        user = User(name="Admin", telegram_id="888", is_active=True, is_administrator=True)
         user_service_async.session.add(user)
         await user_service_async.session.commit()
 
@@ -192,9 +182,7 @@ class TestUserServiceMethods:
 
     async def test_is_administrator_false(self, user_service_async):
         """Verify non-administrator check."""
-        user = User(
-            name="Regular", telegram_id="999", is_active=True, is_administrator=False
-        )
+        user = User(name="Regular", telegram_id="999", is_active=True, is_administrator=False)
         user_service_async.session.add(user)
         await user_service_async.session.commit()
 

@@ -1,6 +1,6 @@
 """Unit tests for bot initialization."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 

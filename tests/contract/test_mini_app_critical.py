@@ -125,7 +125,7 @@ async def representative_user(session: AsyncSession, represented_user: User) -> 
 
 class TestExtractInitData:
     """Test _extract_init_data() helper function.
-    
+
     This function extracts Telegram init data from multiple transport options:
     1. Authorization header (priority)
     2. X-Telegram-Init-Data header
@@ -136,90 +136,68 @@ class TestExtractInitData:
     def test_extract_from_authorization_header_with_tma_prefix(self):
         """Line 36-40: Extract from 'Authorization: tma <raw>'"""
         result = _extract_init_data(
-            authorization="tma test123raw",
-            x_telegram_init_data=None,
-            body=None
+            authorization="tma test123raw", x_telegram_init_data=None, body=None
         )
         assert result == "test123raw"
 
     def test_extract_from_authorization_case_insensitive(self):
         """Line 38: Should handle 'TMA' prefix (uppercase)"""
         result = _extract_init_data(
-            authorization="TMA test456raw",
-            x_telegram_init_data=None,
-            body=None
+            authorization="TMA test456raw", x_telegram_init_data=None, body=None
         )
         assert result == "test456raw"
 
     def test_extract_from_authorization_with_whitespace(self):
         """Line 36-40: Should strip whitespace in Authorization header"""
         result = _extract_init_data(
-            authorization="  tma   test789raw  ",
-            x_telegram_init_data=None,
-            body=None
+            authorization="  tma   test789raw  ", x_telegram_init_data=None, body=None
         )
         assert result == "test789raw"
 
     def test_extract_from_x_telegram_header_when_authorization_missing(self):
         """Line 45: Use X-Telegram-Init-Data header if Authorization missing"""
         result = _extract_init_data(
-            authorization=None,
-            x_telegram_init_data="header_data_value",
-            body=None
+            authorization=None, x_telegram_init_data="header_data_value", body=None
         )
         assert result == "header_data_value"
 
     def test_extract_from_json_body_initDataRaw_field(self):
         """Line 48-52: Extract from body.initDataRaw"""
         result = _extract_init_data(
-            authorization=None,
-            x_telegram_init_data=None,
-            body={"initDataRaw": "body_raw_data"}
+            authorization=None, x_telegram_init_data=None, body={"initDataRaw": "body_raw_data"}
         )
         assert result == "body_raw_data"
 
     def test_extract_from_json_body_initData_field(self):
         """Line 48-52: Extract from body.initData"""
         result = _extract_init_data(
-            authorization=None,
-            x_telegram_init_data=None,
-            body={"initData": "body_init_data"}
+            authorization=None, x_telegram_init_data=None, body={"initData": "body_init_data"}
         )
         assert result == "body_init_data"
 
     def test_extract_from_json_body_init_data_raw_field(self):
         """Line 48-52: Extract from body.init_data_raw"""
         result = _extract_init_data(
-            authorization=None,
-            x_telegram_init_data=None,
-            body={"init_data_raw": "snake_case_raw"}
+            authorization=None, x_telegram_init_data=None, body={"init_data_raw": "snake_case_raw"}
         )
         assert result == "snake_case_raw"
 
     def test_extract_from_json_body_init_data_field(self):
         """Line 48-52: Extract from body.init_data"""
         result = _extract_init_data(
-            authorization=None,
-            x_telegram_init_data=None,
-            body={"init_data": "snake_case_data"}
+            authorization=None, x_telegram_init_data=None, body={"init_data": "snake_case_data"}
         )
         assert result == "snake_case_data"
 
     def test_extract_returns_none_when_no_init_data(self):
         """Line 54: Return None when no init data in any transport"""
-        result = _extract_init_data(
-            authorization=None,
-            x_telegram_init_data=None,
-            body=None
-        )
+        result = _extract_init_data(authorization=None, x_telegram_init_data=None, body=None)
         assert result is None
 
     def test_extract_authorization_has_priority_over_header(self):
         """Line 36-45: Authorization header has priority over X-header"""
         result = _extract_init_data(
-            authorization="tma from_auth",
-            x_telegram_init_data="from_header",
-            body=None
+            authorization="tma from_auth", x_telegram_init_data="from_header", body=None
         )
         assert result == "from_auth"
 
@@ -228,7 +206,7 @@ class TestExtractInitData:
         result = _extract_init_data(
             authorization=None,
             x_telegram_init_data="from_header",
-            body={"initDataRaw": "from_body"}
+            body={"initDataRaw": "from_body"},
         )
         assert result == "from_header"
 
@@ -237,7 +215,7 @@ class TestExtractInitData:
         result = _extract_init_data(
             authorization=None,
             x_telegram_init_data=None,
-            body={"initDataRaw": "", "initData": "valid_data"}
+            body={"initDataRaw": "", "initData": "valid_data"},
         )
         assert result == "valid_data"
 
@@ -246,7 +224,7 @@ class TestExtractInitData:
         result = _extract_init_data(
             authorization=None,
             x_telegram_init_data=None,
-            body={"initDataRaw": 123, "initData": "valid_data"}
+            body={"initDataRaw": 123, "initData": "valid_data"},
         )
         assert result == "valid_data"
 
@@ -258,7 +236,7 @@ class TestExtractInitData:
 
 class TestResolveTargetUser:
     """Test _resolve_target_user() helper function.
-    
+
     This function resolves which user's data to show:
     - Authenticated user (default)
     - Admin-selected user (if admin)
@@ -270,10 +248,7 @@ class TestResolveTargetUser:
         """Line 73-77: Raise 403 when user doesn't exist"""
         with pytest.raises(HTTPException) as exc_info:
             await _resolve_target_user(
-                session,
-                telegram_id="999999999",
-                representing=None,
-                selected_user_id=None
+                session, telegram_id="999999999", representing=None, selected_user_id=None
             )
         assert exc_info.value.status_code == 403
         assert "not registered" in exc_info.value.detail.lower()
@@ -288,7 +263,7 @@ class TestResolveTargetUser:
                 session,
                 telegram_id=inactive_user.telegram_id,
                 representing=None,
-                selected_user_id=None
+                selected_user_id=None,
             )
         assert exc_info.value.status_code == 403
         assert "inactive" in exc_info.value.detail.lower()
@@ -299,10 +274,7 @@ class TestResolveTargetUser:
     ):
         """Line 108: Return active user with switched=False"""
         target_user, switched = await _resolve_target_user(
-            session,
-            telegram_id=active_user.telegram_id,
-            representing=None,
-            selected_user_id=None
+            session, telegram_id=active_user.telegram_id, representing=None, selected_user_id=None
         )
         assert target_user.id == active_user.id
         assert switched is False
@@ -316,7 +288,7 @@ class TestResolveTargetUser:
             session,
             telegram_id=admin_user.telegram_id,
             representing=None,
-            selected_user_id=active_user.id
+            selected_user_id=active_user.id,
         )
         assert target_user.id == active_user.id
         assert switched is True
@@ -331,7 +303,7 @@ class TestResolveTargetUser:
                 session,
                 telegram_id=admin_user.telegram_id,
                 representing=None,
-                selected_user_id=999999
+                selected_user_id=999999,
             )
         assert exc_info.value.status_code == 404
         assert "not found" in exc_info.value.detail.lower()
@@ -346,7 +318,7 @@ class TestResolveTargetUser:
             session,
             telegram_id=active_user.telegram_id,
             representing=None,
-            selected_user_id=inactive_user.id
+            selected_user_id=inactive_user.id,
         )
         # Should still get active_user, not inactive_user
         assert target_user.id == active_user.id
@@ -361,7 +333,7 @@ class TestResolveTargetUser:
             session,
             telegram_id=representative_user.telegram_id,
             representing=True,  # Explicitly request representation
-            selected_user_id=None
+            selected_user_id=None,
         )
         assert target_user.id == represented_user.id
         assert switched is True
@@ -376,7 +348,7 @@ class TestResolveTargetUser:
             session,
             telegram_id=representative_user.telegram_id,
             representing=False,  # Explicitly disable representation
-            selected_user_id=None
+            selected_user_id=None,
         )
         assert target_user.id == representative_user.id
         assert switched is False
@@ -390,7 +362,7 @@ class TestResolveTargetUser:
             session,
             telegram_id=representative_user.telegram_id,
             representing=None,  # Default behavior
-            selected_user_id=None
+            selected_user_id=None,
         )
         # Should use represented user because representing_id exists
         assert target_user.id == represented_user.id

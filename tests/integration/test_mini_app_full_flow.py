@@ -162,9 +162,7 @@ def test_user_with_data():
 class TestTransactionsEndpoint:
     """Tests for /transactions-list endpoint."""
 
-    def test_transactions_list_successful_response(
-        self, client: TestClient, test_user_with_data
-    ):
+    def test_transactions_list_successful_response(self, client: TestClient, test_user_with_data):
         """Test /transactions-list returns 200 with realistic data."""
         telegram_id = test_user_with_data["telegram_id"]
 
@@ -182,9 +180,7 @@ class TestTransactionsEndpoint:
             data = response.json()
             assert "transactions" in data
 
-    def test_transactions_list_response_structure(
-        self, client: TestClient, test_user_with_data
-    ):
+    def test_transactions_list_response_structure(self, client: TestClient, test_user_with_data):
         """Test /transactions-list response contains expected fields."""
         telegram_id = test_user_with_data["telegram_id"]
 

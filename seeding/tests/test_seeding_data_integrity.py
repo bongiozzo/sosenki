@@ -38,10 +38,10 @@ from src.models import (
 
 # Baseline counts from Google Sheets canonical data
 EXPECTED_DATA_COUNTS = {
-    "users": 18,
+    "users": 19,
     "properties": 72,
-    "accounts": 29,
-    "transactions": 66,
+    "accounts": 30,
+    "transactions": 67,
     "service_periods": 3,
     "electricity_readings": 77,
     "bills": 142,
@@ -59,32 +59,28 @@ class TestSeedingDataIntegrity:
         user_count = db.query(func.count(User.id)).scalar() or 0
         if user_count == 0:
             pytest.skip(
-                "Database has no seeded data. "
-                "Run 'make seed' before running integrity tests."
+                "Database has no seeded data. Run 'make seed' before running integrity tests."
             )
 
     def test_all_users_imported(self, db: Session) -> None:
         """Verify all 18 users are imported from Google Sheets."""
         user_count = db.query(func.count(User.id)).scalar()
         assert user_count == EXPECTED_DATA_COUNTS["users"], (
-            f"Expected {EXPECTED_DATA_COUNTS['users']} users, "
-            f"but found {user_count}"
+            f"Expected {EXPECTED_DATA_COUNTS['users']} users, but found {user_count}"
         )
 
     def test_all_properties_imported(self, db: Session) -> None:
         """Verify all 72 properties are imported from Google Sheets."""
         property_count = db.query(func.count(Property.id)).scalar()
         assert property_count == EXPECTED_DATA_COUNTS["properties"], (
-            f"Expected {EXPECTED_DATA_COUNTS['properties']} properties, "
-            f"but found {property_count}"
+            f"Expected {EXPECTED_DATA_COUNTS['properties']} properties, but found {property_count}"
         )
 
     def test_all_accounts_imported(self, db: Session) -> None:
         """Verify all 29 accounts are imported from Google Sheets."""
         account_count = db.query(func.count(Account.id)).scalar()
         assert account_count == EXPECTED_DATA_COUNTS["accounts"], (
-            f"Expected {EXPECTED_DATA_COUNTS['accounts']} accounts, "
-            f"but found {account_count}"
+            f"Expected {EXPECTED_DATA_COUNTS['accounts']} accounts, but found {account_count}"
         )
 
     def test_all_transactions_imported(self, db: Session) -> None:
@@ -115,27 +111,26 @@ class TestSeedingDataIntegrity:
         """Verify all 142 bills are imported from Google Sheets."""
         bill_count = db.query(func.count(Bill.id)).scalar()
         assert bill_count == EXPECTED_DATA_COUNTS["bills"], (
-            f"Expected {EXPECTED_DATA_COUNTS['bills']} bills, "
-            f"but found {bill_count}"
+            f"Expected {EXPECTED_DATA_COUNTS['bills']} bills, but found {bill_count}"
         )
 
     def test_all_budget_items_imported(self, db: Session) -> None:
         """Verify all 3 budget items are imported from Google Sheets."""
         item_count = db.query(func.count(BudgetItem.id)).scalar()
         assert item_count == EXPECTED_DATA_COUNTS["budget_items"], (
-            f"Expected {EXPECTED_DATA_COUNTS['budget_items']} budget items, "
-            f"but found {item_count}"
+            f"Expected {EXPECTED_DATA_COUNTS['budget_items']} budget items, but found {item_count}"
         )
 
     def test_no_orphaned_transactions(self, db: Session) -> None:
         """Verify all transactions have valid from_account and to_account references."""
-        orphaned = db.query(Transaction).filter(
-            (Transaction.from_account_id.notin_(
-                db.query(Account.id)
-            )) | (Transaction.to_account_id.notin_(
-                db.query(Account.id)
-            ))
-        ).count()
+        orphaned = (
+            db.query(Transaction)
+            .filter(
+                (Transaction.from_account_id.notin_(db.query(Account.id)))
+                | (Transaction.to_account_id.notin_(db.query(Account.id)))
+            )
+            .count()
+        )
         assert orphaned == 0, (
             f"Found {orphaned} transactions with invalid from_account_id or to_account_id"
         )
@@ -143,42 +138,32 @@ class TestSeedingDataIntegrity:
     def test_no_orphaned_bills(self, db: Session) -> None:
         """Verify all bills have valid user or property references."""
         # Bills must have either user_id or property_id (or both), not neither
-        orphaned = db.query(Bill).filter(
-            (Bill.user_id.is_(None)) & (Bill.property_id.is_(None))
-        ).count()
-        assert orphaned == 0, (
-            f"Found {orphaned} bills with neither user_id nor property_id"
+        orphaned = (
+            db.query(Bill).filter((Bill.user_id.is_(None)) & (Bill.property_id.is_(None))).count()
         )
+        assert orphaned == 0, f"Found {orphaned} bills with neither user_id nor property_id"
 
     def test_no_orphaned_electricity_readings(self, db: Session) -> None:
         """Verify all electricity readings have valid property references."""
-        orphaned = db.query(ElectricityReading).filter(
-            ElectricityReading.property_id.notin_(
-                db.query(Property.id)
-            )
-        ).count()
-        assert orphaned == 0, (
-            f"Found {orphaned} electricity readings with invalid property_id"
+        orphaned = (
+            db.query(ElectricityReading)
+            .filter(ElectricityReading.property_id.notin_(db.query(Property.id)))
+            .count()
         )
+        assert orphaned == 0, f"Found {orphaned} electricity readings with invalid property_id"
 
     def test_all_accounts_have_valid_users(self, db: Session) -> None:
         """Verify all accounts reference existing users."""
-        orphaned_accounts = db.query(Account).filter(
-            Account.user_id.notin_(
-                db.query(User.id)
-            )
-        ).count()
-        assert orphaned_accounts == 0, (
-            f"Found {orphaned_accounts} accounts with invalid user_id"
+        orphaned_accounts = (
+            db.query(Account).filter(Account.user_id.notin_(db.query(User.id))).count()
         )
+        assert orphaned_accounts == 0, f"Found {orphaned_accounts} accounts with invalid user_id"
 
     def test_all_properties_have_valid_users(self, db: Session) -> None:
         """Verify all properties reference existing users."""
-        orphaned_properties = db.query(Property).filter(
-            Property.owner_id.notin_(
-                db.query(User.id)
-            )
-        ).count()
+        orphaned_properties = (
+            db.query(Property).filter(Property.owner_id.notin_(db.query(User.id))).count()
+        )
         assert orphaned_properties == 0, (
             f"Found {orphaned_properties} properties with invalid owner_id"
         )
@@ -193,8 +178,7 @@ class TestSeedingIdempotency:
         user_count = db.query(func.count(User.id)).scalar() or 0
         if user_count == 0:
             pytest.skip(
-                "Database has no seeded data. "
-                "Run 'make seed' before running integrity tests."
+                "Database has no seeded data. Run 'make seed' before running integrity tests."
             )
 
     def test_seeding_is_idempotent(self, db: Session) -> None:
@@ -236,23 +220,19 @@ class TestSeedingIdempotency:
 
         # Verify counts match
         assert initial_counts == final_counts, (
-            f"Seeding is not idempotent!\n"
-            f"Initial: {initial_counts}\n"
-            f"Final: {final_counts}"
+            f"Seeding is not idempotent!\nInitial: {initial_counts}\nFinal: {final_counts}"
         )
 
     def test_no_duplicate_users(self, db: Session) -> None:
         """Verify no duplicate users by Telegram ID."""
-        duplicate_count = db.query(
-            func.count(User.telegram_id)
-        ).filter(
-            User.telegram_id.isnot(None)
-        ).group_by(User.telegram_id).having(
-            func.count(User.telegram_id) > 1
-        ).count()
-        assert duplicate_count == 0, (
-            f"Found {duplicate_count} duplicate users by telegram_id"
+        duplicate_count = (
+            db.query(func.count(User.telegram_id))
+            .filter(User.telegram_id.isnot(None))
+            .group_by(User.telegram_id)
+            .having(func.count(User.telegram_id) > 1)
+            .count()
         )
+        assert duplicate_count == 0, f"Found {duplicate_count} duplicate users by telegram_id"
 
 
 class TestDataQualityChecks:
@@ -264,44 +244,37 @@ class TestDataQualityChecks:
         user_count = db.query(func.count(User.id)).scalar() or 0
         if user_count == 0:
             pytest.skip(
-                "Database has no seeded data. "
-                "Run 'make seed' before running integrity tests."
+                "Database has no seeded data. Run 'make seed' before running integrity tests."
             )
 
     def test_users_have_required_fields(self, db: Session) -> None:
         """Verify critical users have telegram_id (key stakeholders need contact info)."""
         # Not all users are required to have telegram_id - only those who are stakeholders/investors
         # For now, just verify that at least some users have telegram_id
-        users_with_telegram = db.query(User).filter(
-            User.telegram_id.isnot(None)
-        ).count()
+        users_with_telegram = db.query(User).filter(User.telegram_id.isnot(None)).count()
         assert users_with_telegram > 0, (
             "At least some users should have telegram_id for stakeholder communication"
         )
 
     def test_properties_have_required_fields(self, db: Session) -> None:
         """Verify all properties have required fields."""
-        properties_without_name = db.query(Property).filter(
-            Property.property_name.is_(None)
-        ).count()
+        properties_without_name = (
+            db.query(Property).filter(Property.property_name.is_(None)).count()
+        )
         assert properties_without_name == 0, (
             f"Found {properties_without_name} properties without property_name"
         )
 
     def test_accounts_have_required_fields(self, db: Session) -> None:
         """Verify all accounts have required fields."""
-        accounts_without_type = db.query(Account).filter(
-            Account.account_type.is_(None)
-        ).count()
+        accounts_without_type = db.query(Account).filter(Account.account_type.is_(None)).count()
         assert accounts_without_type == 0, (
             f"Found {accounts_without_type} accounts without account_type"
         )
 
     def test_transactions_have_positive_amounts(self, db: Session) -> None:
         """Verify all transactions have valid amounts."""
-        invalid_transactions = db.query(Transaction).filter(
-            Transaction.amount.is_(None)
-        ).count()
+        invalid_transactions = db.query(Transaction).filter(Transaction.amount.is_(None)).count()
         assert invalid_transactions == 0, (
             f"Found {invalid_transactions} transactions without amount"
         )

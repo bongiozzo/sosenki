@@ -1,5 +1,86 @@
 // SOSenki Mini App Client Logic
 
+// ---------------------------------------------------------------------------
+// Translations
+// ---------------------------------------------------------------------------
+let __translations = null;
+
+/**
+ * Load translations from backend API
+ * @returns {Promise<Object>} Translations dictionary
+ */
+async function loadTranslations() {
+    if (__translations) return __translations;
+    
+    try {
+        const response = await fetch('/api/mini-app/translations');
+        if (response.ok) {
+            __translations = await response.json();
+        } else {
+            console.error('Failed to load translations:', response.status);
+            __translations = {};
+        }
+    } catch (error) {
+        console.error('Error loading translations:', error);
+        __translations = {};
+    }
+    return __translations;
+}
+
+/**
+ * Get translation for a key with optional placeholder substitution.
+ * Falls back to key if translation not found.
+ * @param {string} key - Translation key (e.g., "loading", "welcome_back")
+ * @param {Object} params - Placeholder values for string formatting
+ * @returns {string} Translated string
+ */
+function t(key, params = {}) {
+    if (!__translations) {
+        console.warn('Translations not loaded yet, using key as fallback:', key);
+        return key;
+    }
+    
+    let value = __translations[key];
+    if (value === undefined) {
+        console.warn('Translation key not found:', key);
+        return key;
+    }
+    
+    // Replace placeholders like {user_name} with provided values
+    if (params && typeof value === 'string') {
+        for (const [paramKey, paramValue] of Object.entries(params)) {
+            value = value.replace(new RegExp(`\\{${paramKey}\\}`, 'g'), paramValue);
+        }
+    }
+    
+    return value;
+}
+
+/**
+ * Apply translations to all DOM elements with data-i18n attributes.
+ * Call this after any template is rendered to the DOM.
+ */
+function applyTranslations() {
+    // Handle data-i18n (text content)
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        const translated = t(key);
+        // Only update if translation exists (not returning the key as fallback)
+        if (translated !== key) {
+            el.textContent = translated;
+        }
+    });
+    
+    // Handle data-i18n-html (innerHTML for elements with HTML content like <code>)
+    document.querySelectorAll('[data-i18n-html]').forEach(el => {
+        const key = el.getAttribute('data-i18n-html');
+        const translated = t(key);
+        if (translated !== key) {
+            el.innerHTML = translated;
+        }
+    });
+}
+
 // Initialize Telegram WebApp
 const tg = window.Telegram.WebApp;
 
@@ -226,6 +307,9 @@ function renderWelcomeScreen(data) {
     // Clear and render
     appContainer.innerHTML = '';
     appContainer.appendChild(content);
+    
+    // Apply translations to rendered template
+    applyTranslations();
 }
 
 /**
@@ -238,6 +322,9 @@ function renderAccessDenied(data) {
     // Clear and render
     appContainer.innerHTML = '';
     appContainer.appendChild(content);
+    
+    // Apply translations to rendered template
+    applyTranslations();
 }
 
 /**
@@ -295,6 +382,9 @@ function renderError(message, error = null) {
     // Clear and render
     appContainer.innerHTML = '';
     appContainer.appendChild(content);
+    
+    // Apply translations to rendered template
+    applyTranslations();
 }
 
 /**
@@ -302,15 +392,15 @@ function renderError(message, error = null) {
  */
 function copyDebugInfo() {
     if (!window.currentDebugInfo) {
-        alert('No debug info available');
+        alert(t('no_data'));
         return;
     }
     
     navigator.clipboard.writeText(window.currentDebugInfo).then(() => {
-        alert('Debug info copied to clipboard');
+        alert(t('copied'));
     }).catch(err => {
         console.error('Failed to copy:', err);
-        alert('Failed to copy debug info');
+        alert(t('copy_failed'));
     });
 }
 
@@ -426,7 +516,7 @@ function renderTransactionsList(transactions, containerId = 'transactions-list')
     container.innerHTML = '';
     
     if (!transactions || transactions.length === 0) {
-        container.innerHTML = '<div class="transaction-empty">No transactions yet</div>';
+        container.innerHTML = `<div class="transaction-empty">${t('no_transactions')}</div>`;
         return;
     }
     
@@ -528,7 +618,7 @@ function renderBills(bills, containerId = 'bills-list') {
     container.innerHTML = '';
     
     if (!bills || bills.length === 0) {
-        container.innerHTML = '<div class="bill-empty">No bills yet</div>';
+        container.innerHTML = `<div class="bill-empty">${t('no_bills')}</div>`;
         return;
     }
     
@@ -622,10 +712,10 @@ function renderBills(bills, containerId = 'bills-list') {
 function formatBillType(billType) {
     const normalized = billType.toUpperCase();
     const typeMap = {
-        'ELECTRICITY': '⚡ Electricity',
-        'SHARED_ELECTRICITY': '🔌 Shared Electricity',
-        'CONSERVATION': '🏘️ Conservation',
-        'MAIN': '📋 Main'
+        'ELECTRICITY': t('bill_electricity'),
+        'SHARED_ELECTRICITY': t('bill_shared_electricity'),
+        'CONSERVATION': t('bill_conservation'),
+        'MAIN': t('bill_main')
     };
     return typeMap[normalized] || billType;
 }
@@ -718,11 +808,11 @@ function renderStakeholderLink(url, isOwner = false, sharePercentage = null) {
     if (sharePercentage === 1) {
         // Signed owner
         statusDiv.classList.add('signed');
-        statusDiv.textContent = 'Signed';
+        statusDiv.textContent = t('signed');
     } else if (sharePercentage === 0) {
         // Unsigned owner
         statusDiv.classList.add('not-signed');
-        statusDiv.textContent = 'Not Signed';
+        statusDiv.textContent = t('not_signed');
     }
     
     section.appendChild(statusDiv);
@@ -734,7 +824,7 @@ function renderStakeholderLink(url, isOwner = false, sharePercentage = null) {
         link.target = '_blank';
         link.rel = 'noopener noreferrer';
         link.className = 'stakeholder-link';
-        link.textContent = 'View Stakeholder Shares';
+        link.textContent = t('view_stakeholder_shares');
         section.appendChild(link);
     }
     
@@ -768,7 +858,7 @@ function renderRepresentativeInfo(representativeOf) {
     // Create one-liner: "Represents [Name]"
     const representsText = document.createElement('div');
     representsText.className = 'representative-info-text';
-    representsText.textContent = `Represents ${representativeOf.name}`;
+    representsText.textContent = t('represents', { name: representativeOf.name });
     
     container.appendChild(representsText);
 }
@@ -839,7 +929,7 @@ async function renderAdminUserSelector(isAdministrator, authenticatedUserId) {
     
     // Create label
     const label = document.createElement('label');
-    label.textContent = 'View as:';
+    label.textContent = t('view_as');
     label.setAttribute('for', 'admin-user-select');
     selectorDiv.appendChild(label);
     
@@ -892,7 +982,7 @@ async function handleMenuAction(action) {
         try {
             const initData = getInitData();
             if (!initData) {
-                tg.showAlert('Unable to verify Telegram WebApp data');
+                tg.showAlert(t('auth_failed'));
                 return;
             }
             
@@ -904,17 +994,17 @@ async function handleMenuAction(action) {
                 // Open external browser with photo gallery URL
                 tg.openLink(data.photoGalleryUrl);
             } else {
-                tg.showAlert('Photo gallery URL not configured');
+                tg.showAlert(t('gallery_not_configured'));
             }
         } catch (error) {
             console.error('Error fetching config:', error);
-            tg.showAlert('Error opening photo gallery');
+            tg.showAlert(t('gallery_error'));
         }
         return;
     }
     
     // Show Telegram alert for other features (placeholder)
-    tg.showAlert(`Feature "${action}" coming soon!`);
+    tg.showAlert(t('feature_coming_soon', { action: action }));
     
     // In future: POST to /api/mini-app/menu-action
 }
@@ -968,6 +1058,9 @@ function navigateToTransactions(event) {
     const content = template.content.cloneNode(true);
     appContainer.innerHTML = '';
     appContainer.appendChild(content);
+    
+    // Apply translations to rendered template
+    applyTranslations();
     
     // Load all organization transactions
     loadTransactions('transactions-list', 'all');
@@ -1062,6 +1155,9 @@ function navigateToBalances(event) {
     appContainer.innerHTML = '';
     appContainer.appendChild(content);
     
+    // Apply translations to rendered template
+    applyTranslations();
+    
     // Load all balances
     loadBalances('balances-list');
 }
@@ -1118,7 +1214,7 @@ function renderBalancesPage(balances, containerId = 'balances-list') {
     container.innerHTML = '';
     
     if (!balances || balances.length === 0) {
-        container.innerHTML = '<div class="balance-empty">No balances available</div>';
+        container.innerHTML = `<div class="balance-empty">${t('no_balances')}</div>`;
         return;
     }
     
@@ -1154,11 +1250,14 @@ function renderBalancesPage(balances, containerId = 'balances-list') {
 
 async function initMiniApp() {
     try {
+        // Load translations first
+        await loadTranslations();
+        
         // Get init data from Telegram WebApp (supports both desktop and iOS)
         const initData = getInitData();
         
         if (!initData) {
-            renderError('Could not verify Telegram authentication. Please open this app from Telegram.');
+            renderError(t('auth_failed'));
             return;
         }
         
@@ -1169,9 +1268,9 @@ async function initMiniApp() {
             if (!response.ok) {
                 const errorText = await response.text();
                 if (response.status === 401) {
-                    renderError('Authentication failed. Please restart the app.');
+                    renderError(t('auth_restart'));
                 } else {
-                    renderError('Server error. Please try again later.');
+                    renderError(t('server_error'));
                 }
                 return;
             }
@@ -1216,7 +1315,7 @@ async function initMiniApp() {
         }
         
     } catch (error) {
-        renderError('Network error. Please check your connection and try again.');
+        renderError(t('network_error'));
     }
 }
 
@@ -1298,21 +1397,21 @@ function renderProperties(properties) {
         if (!property.is_ready) {
             const readyBadge = document.createElement('span');
             readyBadge.className = 'property-badge not-ready';
-            readyBadge.textContent = 'Not Ready';
+            readyBadge.textContent = t('not_ready');
             metaEl.appendChild(readyBadge);
         }
 
         if (property.is_for_tenant) {
             const tenantBadge = document.createElement('span');
             tenantBadge.className = 'property-badge tenant';
-            tenantBadge.textContent = 'Tenant';
+            tenantBadge.textContent = t('tenant');
             metaEl.appendChild(tenantBadge);
         }
 
         if (property.share_weight) {
             const weightBadge = document.createElement('span');
             weightBadge.className = 'property-badge';
-            weightBadge.textContent = `Weight: ${property.share_weight}`;
+            weightBadge.textContent = `${t('weight')}: ${property.share_weight}`;
             metaEl.appendChild(weightBadge);
         }
 
@@ -1339,7 +1438,7 @@ function renderProperties(properties) {
             linkEl.href = property.photo_link;
             linkEl.target = '_blank';
             linkEl.rel = 'noopener noreferrer';
-            linkEl.textContent = 'View Photos';
+            linkEl.textContent = t('view_photos');
             photoLinkEl.appendChild(linkEl);
             info.appendChild(photoLinkEl);
         }
