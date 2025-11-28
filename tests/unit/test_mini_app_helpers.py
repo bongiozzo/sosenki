@@ -150,34 +150,29 @@ class TestExtractInitData:
 class TestResponseSchemas:
     """Test response schema classes."""
 
-    def test_user_status_response_schema_minimal(self):
-        """Verify UserStatusResponse with minimal required fields."""
-        from src.api.mini_app import UserStatusResponse
+    def test_user_context_response_schema_minimal(self):
+        """Verify UserContextResponse with minimal required fields."""
+        from src.api.mini_app import UserContextResponse
 
         response_data = {
             "user_id": 123456,
+            "name": "Test User",
             "account_id": 1,
             "roles": ["member"],
-            "stakeholder_url": None,
-            "share_percentage": None,
-            "representative_of": None,
-            "represented_user_roles": None,
-            "represented_user_share_percentage": None,
         }
-        response = UserStatusResponse(**response_data)
+        response = UserContextResponse(**response_data)
         assert response.user_id == 123456
         assert response.account_id == 1
         assert response.roles == ["member"]
 
-    def test_user_list_response_schema_multiple_users(self):
-        """Verify UserListResponse with multiple users."""
-        from src.api.mini_app import UserListItemResponse, UserListResponse
+    def test_user_list_item_response_schema_multiple_users(self):
+        """Verify UserListItemResponse with multiple users."""
+        from src.api.mini_app import UserListItemResponse
 
-        user1 = UserListItemResponse(user_id=1, name="Alice", telegram_id="111")
-        user2 = UserListItemResponse(user_id=2, name="Bob", telegram_id="222")
-        response = UserListResponse(users=[user1, user2])
-        assert len(response.users) == 2
-        assert response.users[0].name == "Alice"
+        user1 = UserListItemResponse(user_id=1, name="Alice")
+        user2 = UserListItemResponse(user_id=2, name="Bob")
+        assert user1.name == "Alice"
+        assert user2.user_id == 2
 
     def test_transaction_response_schema_full_fields(self):
         """Verify TransactionResponse with all fields."""

@@ -25,7 +25,7 @@ def upgrade() -> None:
     op.create_table(
         "users",
         sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("telegram_id", sa.String(length=50), nullable=True),
+        sa.Column("telegram_id", sa.Integer(), nullable=True),
         sa.Column("username", sa.String(length=255), nullable=True),
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("is_investor", sa.Boolean(), nullable=False, server_default="0"),
@@ -111,7 +111,7 @@ def upgrade() -> None:
     op.create_table(
         "access_requests",
         sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("user_telegram_id", sa.String(length=50), nullable=False, index=True),
+        sa.Column("user_telegram_id", sa.Integer(), nullable=False, index=True),
         sa.Column("user_telegram_username", sa.String(length=255), nullable=True),
         sa.Column("request_message", sa.Text(), nullable=False),
         sa.Column(
@@ -121,7 +121,7 @@ def upgrade() -> None:
             server_default="pending",
             index=True,
         ),
-        sa.Column("admin_telegram_id", sa.String(length=50), nullable=True, index=True),
+        sa.Column("admin_telegram_id", sa.Integer(), nullable=True, index=True),
         sa.Column("admin_response", sa.Text(), nullable=True),
         sa.Column(
             "created_at",

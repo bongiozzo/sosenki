@@ -1,11 +1,11 @@
-"""Unit tests for mini_app.py helper functions with focused coverage."""
+"""Unit tests for auth_service helper functions with focused coverage."""
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.api.mini_app import _extract_init_data, _resolve_target_user
 from src.models.user import User
+from src.services.auth_service import _extract_init_data, resolve_target_user
 
 
 class TestExtractInitData:
@@ -73,7 +73,7 @@ class TestExtractInitData:
 
 
 class TestResolveTargetUser:
-    """Test cases for _resolve_target_user helper - using mocking to avoid DB calls."""
+    """Test cases for resolve_target_user helper - using mocking to avoid DB calls."""
 
     @pytest.mark.asyncio
     async def test_resolve_active_user_no_representation(self):
@@ -81,11 +81,11 @@ class TestResolveTargetUser:
         mock_session = AsyncMock()
         mock_user = User(id=1, telegram_id="123", is_active=True, is_administrator=False)
 
-        with patch("src.api.mini_app.UserService") as mock_service_class:
+        with patch("src.services.auth_service.UserService") as mock_service_class:
             mock_service = MagicMock()
             mock_service.get_by_telegram_id = AsyncMock(return_value=mock_user)
             mock_service_class.return_value = mock_service
 
-            target, switched = await _resolve_target_user(mock_session, "123")
+            target, switched = await resolve_target_user(mock_session, mock_user)
             assert target == mock_user
             assert switched is False

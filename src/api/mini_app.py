@@ -1,21 +1,28 @@
 """Mini App API endpoints."""
 
+import hashlib
 import json
 import logging
 import os
 from typing import Any
 
-from fastapi import APIRouter, Body, Depends, Header, HTTPException
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Response
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.bot.config import bot_config
 from src.models.account import Account
 from src.models.transaction import Transaction
 from src.models.user import User
 from src.services import get_async_session
-from src.services.localizer import get_translations
+from src.services.auth_service import (
+    _extract_init_data,
+    authorize_account_access,
+    authorize_account_access_for_roles,
+    authorize_user_context_access,
+    get_authenticated_user,
+    verify_telegram_auth,
+)
 from src.services.user_service import UserService, UserStatusService
 
 logger = logging.getLogger(__name__)
@@ -24,108 +31,24 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/mini-app", tags=["mini-app"])
 
 
-# Helpers
-def _extract_init_data(
-    authorization: str | None,
-    x_telegram_init_data: str | None,
-    body: dict[str, Any] | None,
-) -> str | None:
-    """Extract raw init data from multiple transport options.
+# Error response model
+class ErrorResponse(BaseModel):
+    """Standard error response."""
 
-    Priority:
-    1) Authorization: "tma <raw>"
-    2) X-Telegram-Init-Data header
-    3) JSON body fields: initDataRaw | initData | init_data_raw | init_data
-    """
-    # 1) Authorization: tma <raw>
-    if authorization:
-        auth = authorization.strip()
-        if auth.lower().startswith("tma "):
-            return auth[4:].strip()
+    error: str
+    detail: str | None = None
 
-    # 2) Custom header
-    if x_telegram_init_data:
-        return x_telegram_init_data
-
-    # 3) JSON body (POST)
-    if body and isinstance(body, dict):
-        for key in ("initDataRaw", "initData", "init_data_raw", "init_data"):
-            raw = body.get(key)
-            if isinstance(raw, str) and raw.strip():
-                return raw.strip()
-
-    return None
-
-
-async def _resolve_target_user(
-    session: AsyncSession,
-    telegram_id: str,
-    representing: bool | None = None,
-    selected_user_id: int | None = None,
-) -> tuple[User, bool]:
-    """
-    Resolve the target user (authenticated vs represented) for dataset endpoints.
-
-    Args:
-        session: Database session
-        telegram_id: Telegram ID of the authenticated user
-        representing: Whether to consider representation (legacy parameter)
-        selected_user_id: User ID selected by admin (takes precedence if admin)
-
-    Returns:
-        Tuple of (target_user, switched) where switched indicates context change
-    """
-    user_service = UserService(session)
-    user = await user_service.get_by_telegram_id(telegram_id)
-
-    if not user or not user.is_active:
-        logger.warning(f"Unauthorized access attempt: telegram_id={telegram_id}")
-        raise HTTPException(status_code=403, detail="User not registered or inactive")
-
-    target_user = user
-    switched = False
-
-    # Admin override: if selected_user_id provided and user is admin, use selected user
-    if selected_user_id is not None and user.is_administrator:
-        selected_user = await session.get(User, selected_user_id)
-        if selected_user:
-            target_user = selected_user
-            switched = True
-        else:
-            logger.warning(f"Admin {telegram_id} requested invalid user_id: {selected_user_id}")
-            raise HTTPException(status_code=404, detail="Selected user not found")
-    else:
-        # Fallback to legacy representation logic (only if no admin selection)
-        consider_represented = representing is True or (
-            representing is None and user.representative_id is not None
-        )
-
-        if consider_represented and user.representative_id:
-            user_status_service = UserStatusService(session)
-            represented_user = await user_status_service.get_represented_user(user.id)
-            if represented_user:
-                target_user = represented_user
-                switched = True
-
-    return target_user, switched
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Response schemas
-class UserStatusResponse(BaseModel):
-    """Response schema for user status endpoint."""
+class UserContextResponse(BaseModel):
+    """Response schema for user context (used in /init and /user-context)."""
 
-    user_id: int
-    account_id: int  # Account ID for the authenticated or represented user
-    roles: list[str]  # e.g., ["investor", "owner", "stakeholder"]
-    stakeholder_url: str | None  # URL from environment, may be null
-    share_percentage: int | None  # 1 (signed), 0 (unsigned owner), None (non-owner)
-    representative_of: dict[str, int | str | None] | None = None  # User being represented, if any
-    represented_user_roles: list[str] | None = (
-        None  # Roles of represented user if representing someone
-    )
-    represented_user_share_percentage: int | None = (
-        None  # Share percentage of represented user if representing someone
-    )
+    user_id: int  # Target user's internal ID
+    name: str  # Target user's name
+    account_id: int  # Target user's account ID
+    roles: list[str]  # Target user's roles (e.g., ["investor", "owner", "stakeholder"])
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -135,17 +58,80 @@ class UserListItemResponse(BaseModel):
 
     user_id: int
     name: str
-    telegram_id: str | None
 
     model_config = ConfigDict(from_attributes=True)
 
 
-class UserListResponse(BaseModel):
-    """Response schema for users list endpoint."""
+class InitResponse(BaseModel):
+    """Response schema for /init endpoint."""
 
-    users: list[UserListItemResponse]
+    # Root-level auth info (for registered users)
+    name: str  # Authenticated user's display name
+    is_administrator: bool = False
+    representative_id: int | None = None  # Authenticated user's representative_id
+
+    # Nested user context (target user data)
+    user_context: UserContextResponse | None = None
+
+    # Users list for admin dropdown (admin only)
+    users: list[UserListItemResponse] | None = None
+
+    # Static configuration (only in /init)
+    stakeholder_url: str | None = None
+    photo_gallery_url: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+async def _init_build_response(
+    session: AsyncSession,
+    authenticated_user: User,
+    target_user: User,
+) -> InitResponse:
+    """Build the InitResponse for authenticated user.
+
+    Args:
+        session: Database session
+        authenticated_user: The user making the request
+        target_user: The user whose data is being accessed (may differ if admin/representation)
+
+    Returns:
+        InitResponse with authenticated and target user context
+    """
+    user_service = UserService(session)
+
+    # Build user context for target user
+    user_context = await _build_user_context_data(session, target_user)
+
+    # Get users list for admin dropdown (admin only)
+    users_list: list[UserListItemResponse] | None = None
+    if authenticated_user.is_administrator:
+        all_users = await user_service.get_all_users()
+        users_list = [
+            UserListItemResponse(
+                user_id=u.id,
+                name=u.name,
+            )
+            for u in all_users
+        ]
+
+    # Static configuration
+    photo_gallery_url = os.getenv("PHOTO_GALLERY_URL")
+    stakeholder_url = (
+        os.getenv("STAKEHOLDER_SHARES_URL")
+        if (authenticated_user.is_owner or authenticated_user.is_administrator)
+        else None
+    )
+
+    return InitResponse(
+        name=authenticated_user.name,
+        is_administrator=authenticated_user.is_administrator,
+        representative_id=authenticated_user.representative_id,
+        user_context=user_context,
+        users=users_list,
+        stakeholder_url=stakeholder_url,
+        photo_gallery_url=photo_gallery_url,
+    )
 
 
 class PropertyResponse(BaseModel):
@@ -164,7 +150,7 @@ class PropertyResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class PropertyListResponse(BaseModel):
+class PropertiesResponse(BaseModel):
     """Response schema for properties list endpoint."""
 
     properties: list[PropertyResponse]
@@ -173,130 +159,128 @@ class PropertyListResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-@router.post("/config")
-async def get_config(
-    authorization: str | None = Header(None, alias="Authorization"),  # noqa: B008
-    body: dict[str, Any] | None = Body(None),  # noqa: B008
-) -> dict[str, Any]:
-    """
-    Get Mini App configuration from environment variables.
-
-    Returns public configuration values like photo gallery URL.
-
-    Args:
-        authorization: Authorization header with Telegram initData ("tma <raw>").
-        body: Optional JSON body with initData if not in header.
-
-    Returns:
-        {"photoGalleryUrl": str | null}
-    """
-    # Extract initData (signature verification not strictly needed for config, but maintains consistency)
-    init_data_raw = _extract_init_data(authorization, None, body)
-    if not init_data_raw:
-        raise HTTPException(status_code=401, detail="Missing init data")
-
-    try:
-        photo_gallery_url = os.getenv("PHOTO_GALLERY_URL")
-        return {"photoGalleryUrl": photo_gallery_url}
-    except Exception as e:
-        logger.error(f"Error in /api/mini-app/config: {e}", exc_info=True)
-        return {"photoGalleryUrl": None}
-
-
 @router.get("/translations")
-async def get_translations_endpoint() -> dict[str, Any]:
+async def get_translations(if_none_match: str | None = Header(None)) -> Response:
     """
     Get all translations for the Mini App.
 
     Returns the full translations dictionary (mini_app section only).
     Public endpoint - no authentication required.
+    Response is cacheable with 1-hour expiration and ETag validation.
+
+    Supports HTTP 304 Not Modified when If-None-Match header matches current ETag.
+
+    Args:
+        if_none_match: ETag value from client for cache validation (If-None-Match header)
 
     Returns:
-        Translations dictionary for mini_app namespace.
+        Response with translations dictionary or 304 Not Modified.
     """
-    translations = get_translations()
-    return translations.get("mini_app", {})
+    from src.services.localizer import get_translations as fetch_translations
+
+    translations = fetch_translations()
+    data = translations.get("mini_app", {})
+
+    # Compute ETag from translations JSON
+    data_json = json.dumps(data, sort_keys=True, separators=(",", ":"))
+    etag = f'"{hashlib.md5(data_json.encode()).hexdigest()}"'
+
+    # Return 304 Not Modified if client has current version
+    if if_none_match and if_none_match == etag:
+        return Response(status_code=304, headers={"ETag": etag})
+
+    # Return 200 OK with full data and cache headers
+    return Response(
+        content=json.dumps(data),
+        status_code=200,
+        headers={
+            "Cache-Control": "public, max-age=3600",
+            "ETag": etag,
+            "Content-Type": "application/json",
+        },
+    )
 
 
-@router.post("/init")
-async def mini_app_init(
-    session: AsyncSession = Depends(get_async_session),  # noqa: B008
-    authorization: str | None = Header(None, alias="Authorization"),  # noqa: B008
-    body: dict[str, Any] | None = Body(None),  # noqa: B008
-) -> dict[str, Any]:
-    """
-    Initialize Mini App and verify user registration status.
+async def _build_user_context_data(
+    session: AsyncSession,
+    target_user: User,
+) -> UserContextResponse:
+    """Build UserContextResponse for a target user.
 
-    Returns user access status and menu configuration for registered users,
-    or access denied message for non-registered users.
+    This helper is shared by /init and /user-context endpoints.
 
     Args:
         session: Database session
+        target_user: The user to build context for (may be authenticated, represented, or admin-selected)
 
     Returns:
-        For registered users: {"isRegistered": true, "menu": [...], "userName": ...}
-        For non-registered: {"isRegistered": false, "message": "Access is limited", ...}
+        UserContextResponse with target user's data
+    """
+    # Get active roles for target user
+    roles = UserStatusService.get_active_roles(target_user)
+
+    # Get target user's account ID
+    account_stmt = select(Account).where(Account.user_id == target_user.id)
+    account_result = await session.execute(account_stmt)
+    target_account = account_result.scalar_one_or_none()
+
+    if not target_account:
+        raise HTTPException(status_code=500, detail="Account not found for user")
+
+    return UserContextResponse(
+        user_id=target_user.id,
+        name=target_user.name,
+        account_id=target_account.id,
+        roles=roles,
+    )
+
+
+@router.post("/init", response_model=InitResponse)
+async def init(
+    selected_user_id: int | None = None,
+    session: AsyncSession = Depends(get_async_session),  # noqa: B008
+    authorization: str | None = Header(None, alias="Authorization"),  # noqa: B008
+    body: dict[str, Any] | None = Body(None),  # noqa: B008
+) -> InitResponse:
+    """
+    Initialize Mini App and verify user registration status.
+
+    Returns user access status, menu configuration, and full user context
+    for registered users, or access denied message for non-registered users.
+
+    For admins, also returns the list of all users for context switching dropdown.
+
+    Args:
+        session: Database session
+        selected_user_id: User ID selected by admin (for context switching on page load)
+
+    Returns:
+        InitResponse with:
+        - Root-level auth info (name, is_administrator, representative_id)
+        - Nested user_context for target user (authenticated, represented, or admin-selected)
+        - users list for admins only
+        - Static config (photo_gallery_url, stakeholder_url)
 
     Raises:
         401: Invalid Telegram signature
         500: Server error
     """
     try:
-        # Extract raw init data from supported transports
-        raw_init = _extract_init_data(authorization, None, body)
+        # Verify Telegram auth and extract telegram_id
+        telegram_id = await verify_telegram_auth(session, authorization, body=body)
 
-        if not raw_init:
-            logger.warning("No Telegram init data provided")
-            raise HTTPException(status_code=401, detail="Missing Telegram init data")
+        # Get authenticated user (checks is_active)
+        authenticated_user = await get_authenticated_user(session, telegram_id)
 
-        # Verify Telegram signature
-        parsed_data = UserService.verify_telegram_webapp_signature(
-            init_data=raw_init, bot_token=bot_config.telegram_bot_token
+        # Authorize and resolve target user (admin context switching or representation)
+        auth_context = await authorize_user_context_access(
+            session, authenticated_user, selected_user_id=selected_user_id
         )
 
-        if not parsed_data:
-            logger.warning("Invalid Telegram signature in /api/mini-app/init")
-            raise HTTPException(status_code=401, detail="Invalid Telegram signature")
-
-        # Extract user info from parsed data
-        user_data = json.loads(parsed_data.get("user", "{}"))
-        telegram_id = str(user_data.get("id"))
-        username = user_data.get("username")
-        first_name = user_data.get("first_name")
-
-        if not telegram_id:
-            raise HTTPException(status_code=401, detail="User ID not found in init data")
-
-        # Check user registration status
-        user_service = UserService(session)
-        user = await user_service.get_by_telegram_id(telegram_id)
-
-        # Check if user can access Mini App (is_active=True)
-        if user and user.is_active:
-            # Registered user - return menu
-            menu = [
-                {"id": "rule", "label": "Rule", "enabled": True},
-                {"id": "pay", "label": "Pay", "enabled": True},
-                {"id": "invest", "label": "Invest", "enabled": user.is_investor},
-            ]
-
-            return {
-                "isRegistered": True,
-                "userId": telegram_id,
-                "userName": username or first_name or "User",
-                "firstName": first_name,
-                "isInvestor": user.is_investor,
-                "menu": menu,
-            }
-        else:
-            # Non-registered user - return access denied
-            return {
-                "isRegistered": False,
-                "userId": telegram_id,
-                "message": "Access is limited",
-                "instruction": "Send /request to bot to request access",
-                "menu": [],
-            }
+        # Build and return init response
+        return await _init_build_response(
+            session, auth_context.authenticated_user, auth_context.target_user
+        )
 
     except HTTPException:
         raise
@@ -305,354 +289,107 @@ async def mini_app_init(
         raise HTTPException(status_code=500, detail="Server error") from e
 
 
-@router.post("/verify-registration")
-async def verify_registration(
+@router.post("/user-context", response_model=UserContextResponse)
+async def get_user_context(
+    selected_user_id: int,
     session: AsyncSession = Depends(get_async_session),  # noqa: B008
     authorization: str | None = Header(None, alias="Authorization"),  # noqa: B008
     body: dict[str, Any] | None = Body(None),  # noqa: B008
-) -> dict[str, Any]:
+) -> UserContextResponse:
     """
-    Verify user registration status (explicit refresh).
+    Get user context for admin context switching.
 
-    Similar to /init but provides just registration status without menu.
-    Useful for explicit refresh after user requests it.
+    This endpoint is for administrators only and is used when switching
+    between users in the admin dropdown. Returns the selected user's context.
 
     Args:
         session: Database session
+        selected_user_id: User ID to get context for (required)
 
     Returns:
-        {"isRegistered": bool, "userId": str, ...}
+        UserContextResponse with target user's data
 
     Raises:
-        401: Invalid Telegram signature
-    """
-    try:
-        # Extract raw init data
-        raw_init = _extract_init_data(authorization, None, body)
-
-        # Verify signature
-        parsed_data = UserService.verify_telegram_webapp_signature(
-            init_data=raw_init or "", bot_token=bot_config.telegram_bot_token
-        )
-
-        if not parsed_data:
-            raise HTTPException(status_code=401, detail="Invalid Telegram signature")
-
-        # Extract user info
-        user_data = json.loads(parsed_data.get("user", "{}"))
-        telegram_id = str(user_data.get("id"))
-        username = user_data.get("username")
-
-        if not telegram_id:
-            raise HTTPException(status_code=401, detail="User ID not found")
-
-        # Check registration
-        user_service = UserService(session)
-        user = await user_service.get_by_telegram_id(telegram_id)
-
-        if user and user.is_active:
-            return {
-                "isRegistered": True,
-                "userId": telegram_id,
-                "userName": username,
-                "isActive": user.is_active,
-                "isInvestor": user.is_investor,
-            }
-        else:
-            return {
-                "isRegistered": False,
-                "userId": telegram_id,
-                "message": "Your access request is pending or was not approved",
-            }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error in /api/mini-app/verify-registration: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Server error") from e
-
-
-@router.post("/menu-action")
-async def parse_action(
-    authorization: str | None = Header(None, alias="Authorization"),  # noqa: B008
-    x_telegram_init_data: str | None = Header(None, alias="X-Telegram-Init-Data"),  # noqa: B008
-    action_data: dict[str, Any] | None = Body(None),  # noqa: B008
-) -> dict[str, Any]:
-    """
-    Handle menu action (placeholder for future features).
-
-    Args:
-        Telegram WebApp initData (via Authorization/X-Header or body)
-        action_data: Action data (e.g., {"action": "rule", "data": {}})
-
-    Returns:
-        {"success": bool, "message": str}
-
-    Raises:
-        401: Invalid signature or not registered
-        403: Access denied
-    """
-    try:
-        # Extract raw init data and verify signature
-        raw_init = _extract_init_data(authorization, x_telegram_init_data, action_data)
-        parsed_data = UserService.verify_telegram_webapp_signature(
-            init_data=raw_init or "", bot_token=bot_config.telegram_bot_token
-        )
-
-        if not parsed_data:
-            raise HTTPException(status_code=401, detail="Invalid Telegram signature")
-
-        # Placeholder response - features not implemented yet
-        return {"success": True, "message": "Feature coming soon!", "redirectUrl": None}
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error in /api/mini-app/menu-action: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Server error") from e
-
-
-@router.post("/user-status", response_model=UserStatusResponse)
-async def get_user_status(
-    session: AsyncSession = Depends(get_async_session),  # noqa: B008
-    authorization: str | None = Header(None, alias="Authorization"),  # noqa: B008
-    body: dict[str, Any] | None = Body(None),  # noqa: B008
-    selected_user_id: int | None = None,  # noqa: B008
-) -> UserStatusResponse:
-    """
-    Get current user's status information for dashboard display.
-
-    Returns user's active roles, stakeholder contract status (for owners),
-    and stakeholder shares link (for owners only).
-
-    Args:
-        session: Database session
-        selected_user_id: User ID selected by admin (takes precedence if admin)
-
-    Returns:
-        UserStatusResponse with user_id, roles, stakeholder_url, share_percentage
-
-    Raises:
-        401: Invalid Telegram signature
-        403: User not registered or inactive
+        401: Invalid Telegram signature or not an administrator
+        404: Selected user not found
         500: Server error
     """
     try:
-        # Extract and verify Telegram signature
-        raw_init = _extract_init_data(authorization, None, body)
-        parsed_data = UserService.verify_telegram_webapp_signature(
-            init_data=raw_init or "", bot_token=bot_config.telegram_bot_token
+        # Verify Telegram auth and extract telegram_id
+        telegram_id = await verify_telegram_auth(session, authorization, body=body)
+
+        # Get authenticated user (checks is_active)
+        authenticated_user = await get_authenticated_user(session, telegram_id)
+
+        # Authorize admin-only access
+        await authorize_user_context_access(
+            session, authenticated_user, required_role="is_administrator"
         )
 
-        if not parsed_data:
-            logger.warning("Invalid Telegram signature in /api/mini-app/user-status")
-            raise HTTPException(status_code=401, detail="Invalid Telegram signature")
+        # Get the selected user
+        target_user = await session.get(User, selected_user_id)
+        if not target_user:
+            raise HTTPException(status_code=404, detail="Selected user not found")
 
-        # Extract telegram_id from parsed data
-        user_data = json.loads(parsed_data.get("user", "{}"))
-        telegram_id = str(user_data.get("id"))
-
-        if not telegram_id:
-            raise HTTPException(status_code=401, detail="No user ID in init data")
-
-        # Resolve target user (authenticated or admin-selected)
-        target_user, _ = await _resolve_target_user(session, telegram_id, None, selected_user_id)
-
-        # Get active roles
-        roles = UserStatusService.get_active_roles(target_user)
-
-        # Get stakeholder URL from environment (for owners only)
-        import os
-
-        stakeholder_url = None
-        if target_user.is_owner:
-            stakeholder_url = os.getenv("STAKEHOLDER_SHARES_URL")
-
-        # Get share percentage (for owners only)
-        share_percentage = UserStatusService.get_share_percentage(target_user)
-
-        # Get representative info (if user represents someone) - only for authenticated user, not selected user
-        representative_of = None
-        represented_user_roles = None
-        represented_user_share_percentage = None
-
-        # Check if authenticated user (not target) represents someone
-        user_service = UserService(session)
-        auth_user = await user_service.get_by_telegram_id(telegram_id)
-        if auth_user and auth_user.representative_id:
-            user_status_service = UserStatusService(session)
-            represented_user = await user_status_service.get_represented_user(auth_user.id)
-            if represented_user:
-                representative_of = {
-                    "user_id": represented_user.id,
-                    "name": represented_user.name,
-                    "telegram_id": represented_user.telegram_id,
-                }
-                # Get represented user's roles and share percentage for context switching
-                represented_user_roles = UserStatusService.get_active_roles(represented_user)
-                represented_user_share_percentage = UserStatusService.get_share_percentage(
-                    represented_user
-                )
-
-        # Get target user's account ID
-        account_stmt = select(Account).where(Account.user_id == target_user.id)
-        account_result = await session.execute(account_stmt)
-        target_account = account_result.scalar_one_or_none()
-        account_id = target_account.id if target_account else None
-
-        if not account_id:
-            raise HTTPException(status_code=500, detail="Account not found for user")
-
-        return UserStatusResponse(
-            user_id=target_user.id,
-            account_id=account_id,
-            roles=roles,
-            stakeholder_url=stakeholder_url,
-            share_percentage=share_percentage,
-            representative_of=representative_of,
-            represented_user_roles=represented_user_roles,
-            represented_user_share_percentage=represented_user_share_percentage,
-        )
+        # Build and return user context for selected user
+        return await _build_user_context_data(session, target_user)
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error in /api/mini-app/user-status: {e}", exc_info=True)
+        logger.error(f"Error in /api/mini-app/user-context: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Server error") from e
 
 
-@router.post("/users", response_model=UserListResponse)
-async def get_users(
-    session: AsyncSession = Depends(get_async_session),  # noqa: B008
-    authorization: str | None = Header(None, alias="Authorization"),  # noqa: B008
-    body: dict[str, Any] | None = Body(None),  # noqa: B008
-) -> UserListResponse:
-    """
-    Get list of all users for admin dropdown (administrators only).
-
-    Returns all users ordered by name. Access restricted to administrators.
-
-    Args:
-        session: Database session
-
-    Returns:
-        UserListResponse with list of all users
-
-    Raises:
-        401: Invalid Telegram signature
-        403: User not registered, inactive, or not an administrator
-        500: Server error
-    """
-    try:
-        # Extract and verify Telegram signature
-        raw_init = _extract_init_data(authorization, None, body)
-        parsed_data = UserService.verify_telegram_webapp_signature(
-            init_data=raw_init or "", bot_token=bot_config.telegram_bot_token
-        )
-
-        if not parsed_data:
-            logger.warning("Invalid Telegram signature in /api/mini-app/users")
-            raise HTTPException(status_code=401, detail="Invalid Telegram signature")
-
-        # Extract telegram_id from parsed data
-        user_data = json.loads(parsed_data.get("user", "{}"))
-        telegram_id = str(user_data.get("id"))
-
-        if not telegram_id:
-            raise HTTPException(status_code=401, detail="No user ID in init data")
-
-        # Check if user is administrator
-        user_service = UserService(session)
-        is_admin = await user_service.is_administrator(telegram_id)
-
-        if not is_admin:
-            logger.warning(f"Non-admin attempted to access users list: telegram_id={telegram_id}")
-            raise HTTPException(status_code=403, detail="Only administrators can view users list")
-
-        # Fetch all users ordered by name
-        all_users = await user_service.get_all_users()
-
-        # Format response
-        user_list = [
-            UserListItemResponse(
-                user_id=u.id,
-                name=u.name,
-                telegram_id=u.telegram_id,
-            )
-            for u in all_users
-        ]
-
-        return UserListResponse(users=user_list)
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error in /api/mini-app/users: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Server error") from e
-
-
-@router.post("/properties")
+@router.post("/properties", response_model=PropertiesResponse)
 async def get_properties(
-    representing: bool | None = None,
     selected_user_id: int | None = None,
     session: AsyncSession = Depends(get_async_session),  # noqa: B008
     authorization: str | None = Header(None, alias="Authorization"),  # noqa: B008
     body: dict[str, Any] | None = Body(None),  # noqa: B008
-) -> PropertyListResponse:
+) -> PropertiesResponse:
     """
     Get properties for owner or represented owner.
 
     Returns properties owned by the authenticated user if they are an owner,
     or properties of the user they represent if applicable.
-    Uses context switching: if user represents someone, returns their properties.
+    Uses context switching: if admin selects a user, returns their properties.
 
     Args:
         session: Database session
+        selected_user_id: User ID selected by admin for context switching
 
     Returns:
-        PropertyListResponse with list of properties and total count
+        PropertiesResponse with list of properties and total count
 
     Raises:
-        401: Invalid Telegram signature
-        403: User not registered, inactive, or not an owner
+        401: Invalid Telegram signature or not an owner
+        404: Selected user not found (admin context switch)
         500: Server error
     """
     try:
-        # Extract and verify Telegram signature
-        raw_init = _extract_init_data(authorization, None, body)
-        parsed_data = UserService.verify_telegram_webapp_signature(
-            init_data=raw_init or "", bot_token=bot_config.telegram_bot_token
+        # Verify Telegram auth and extract telegram_id
+        telegram_id = await verify_telegram_auth(session, authorization, body=body)
+
+        # Get authenticated user (checks is_active)
+        authenticated_user = await get_authenticated_user(session, telegram_id)
+
+        # Authorize user context access with is_owner role requirement
+        auth_context = await authorize_user_context_access(
+            session, authenticated_user, required_role="is_owner", selected_user_id=selected_user_id
         )
 
-        if not parsed_data:
-            logger.warning("Invalid Telegram signature in /api/mini-app/properties")
-            raise HTTPException(status_code=401, detail="Invalid Telegram signature")
-
-        user_data = json.loads(parsed_data.get("user", "{}"))
-        telegram_id = str(user_data.get("id"))
-
-        if not telegram_id:
-            raise HTTPException(status_code=401, detail="No user ID in init data")
-
-        target_user, _ = await _resolve_target_user(
-            session, telegram_id, representing, selected_user_id
-        )
-
-        if not target_user.is_owner:
-            logger.warning(f"Non-owner attempted to access properties: telegram_id={telegram_id}")
-            raise HTTPException(status_code=403, detail="Only owners can view properties")
-
-        # Fetch properties for target user (context-switched if representing)
+        # Fetch properties for target user
         from src.models.property import Property
 
         stmt = (
             select(Property)
             .where(
-                Property.owner_id == target_user.id,
+                Property.owner_id == auth_context.target_user.id,
                 Property.is_active == True,  # noqa: E712
             )
             .order_by(Property.id)
-        )  # Sort by ID ascending for consistent ordering
+        )
 
         result = await session.execute(stmt)
         properties = result.scalars().all()
@@ -674,7 +411,7 @@ async def get_properties(
                 )
             )
 
-        return PropertyListResponse(
+        return PropertiesResponse(
             properties=property_responses,
             total_count=len(property_responses),
         )
@@ -793,7 +530,7 @@ class TransactionResponse(BaseModel):
     """Optional transaction description."""
 
 
-class TransactionListResponse(BaseModel):
+class TransactionsResponse(BaseModel):
     """Response for transactions list."""
 
     transactions: list[TransactionResponse]
@@ -838,52 +575,49 @@ class ElectricityBillResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class BillsListResponse(BaseModel):
+class BillsResponse(BaseModel):
     """Response for bills list (all bill types: electricity, shared electricity, conservation, main)."""
 
     bills: list[ElectricityBillResponse]
 
 
-@router.post("/transactions-list")
-async def transactions_list(
+@router.post("/transactions", response_model=TransactionsResponse)
+async def get_transactions(
     account_id: int,
     scope: str = "all",
     authorization: str | None = Header(None),  # noqa: B008
     x_telegram_init_data: str | None = Header(None),  # noqa: B008
     body: dict[str, Any] | None = Body(None),  # noqa: B008
     db: AsyncSession = Depends(get_async_session),  # noqa: B008
-) -> TransactionListResponse:
+) -> TransactionsResponse:
     """Get list of transactions for a specific account.
 
+    Authorization: Admin can access any account, owners can access ORGANIZATION accounts
+    and their own personal accounts, staff can access their own accounts.
+
     Args:
-        account_id: Account ID to fetch transactions for (required, extracted during page initialization).
+        account_id: Account ID to fetch transactions for (required).
         scope: Filter scope - 'personal' returns only account's transactions,
                'all' (default) returns all organization transactions visible to account.
 
-    Returns all transactions or account's transactions based on scope parameter.
+    Returns:
+        TransactionsResponse with filtered transactions.
+
+    Raises:
+        400: Missing or invalid account_id
+        401: Invalid Telegram signature or unauthorized account access
+        404: Account not found
+        500: Server error
     """
-    # Validate account_id
-    if not account_id or account_id <= 0:
-        raise HTTPException(status_code=400, detail="Valid account_id required")
-
-    # Extract and verify init data (for authentication only)
-    init_data_raw = _extract_init_data(authorization, x_telegram_init_data, body)
-    parsed_data = UserService.verify_telegram_webapp_signature(
-        init_data=init_data_raw or "", bot_token=bot_config.telegram_bot_token
-    )
-
-    if not parsed_data:
-        logger.warning("Invalid Telegram signature in /api/mini-app/transactions-list")
-        raise HTTPException(status_code=401, detail="Invalid Telegram signature")
-
     try:
-        # Verify account exists
-        account_stmt = select(Account).where(Account.id == account_id)
-        account_result = await db.execute(account_stmt)
-        account = account_result.scalar_one_or_none()
+        # Verify Telegram auth and extract telegram_id
+        telegram_id = await verify_telegram_auth(db, authorization, x_telegram_init_data, body)
 
-        if not account:
-            raise HTTPException(status_code=404, detail="Account not found")
+        # Get authenticated user (checks is_active)
+        authenticated_user = await get_authenticated_user(db, telegram_id)
+
+        # Authorize account access
+        await authorize_account_access(db, authenticated_user, account_id)
 
         from_account_alias = (
             select(Account.name.label("from_ac_name"))
@@ -935,37 +669,38 @@ async def transactions_list(
             for row in transactions_data
         ]
 
-        return TransactionListResponse(transactions=transactions_list_data)
+        return TransactionsResponse(transactions=transactions_list_data)
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error in /api/mini-app/transactions-list: {e}", exc_info=True)
+        logger.error(f"Error in /api/mini-app/transactions: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Server error") from e
 
 
-@router.post("/bills")
+@router.post("/bills", response_model=BillsResponse)
 async def get_bills(
     account_id: int,
     authorization: str | None = Header(None),  # noqa: B008
     x_telegram_init_data: str | None = Header(None),  # noqa: B008
     body: dict[str, Any] | None = Body(None),  # noqa: B008
     db: AsyncSession = Depends(get_async_session),  # noqa: B008
-) -> BillsListResponse:
-    """Get list of all bills (electricity, shared electricity, conservation, main) for a specific account.
+) -> BillsResponse:
+    """Get list of all bills for a specific account.
 
     Returns bills for the account itself and for properties owned by the account owner.
-    Each bill includes period information, bill type, and amount.
+    Authorization: Admin can access any account, owners can access ORGANIZATION accounts
+    and their own personal accounts, staff can access their own accounts.
 
     Args:
-        account_id: Account ID to fetch bills for (required, extracted during page initialization).
+        account_id: Account ID to fetch bills for (required).
 
     Returns:
-        BillsListResponse with list of bills sorted by period (most recent first).
+        BillsResponse with list of bills sorted by period (most recent first).
 
     Raises:
         400: Missing or invalid account_id
-        401: Invalid Telegram signature
+        401: Invalid Telegram signature or unauthorized account access
         404: Account not found
         500: Server error
     """
@@ -973,28 +708,15 @@ async def get_bills(
     from src.models.property import Property
     from src.models.service_period import ServicePeriod
 
-    # Validate account_id
-    if not account_id or account_id <= 0:
-        raise HTTPException(status_code=400, detail="Valid account_id required")
-
-    # Extract and verify init data (for authentication only)
-    init_data_raw = _extract_init_data(authorization, x_telegram_init_data, body)
-    parsed_data = UserService.verify_telegram_webapp_signature(
-        init_data=init_data_raw or "", bot_token=bot_config.telegram_bot_token
-    )
-
-    if not parsed_data:
-        logger.warning("Invalid Telegram signature in /api/mini-app/bills")
-        raise HTTPException(status_code=401, detail="Invalid Telegram signature")
-
     try:
-        # Verify account exists and get its user_id
-        account_stmt = select(Account).where(Account.id == account_id)
-        account_result = await db.execute(account_stmt)
-        account = account_result.scalar_one_or_none()
+        # Verify Telegram auth and extract telegram_id
+        telegram_id = await verify_telegram_auth(db, authorization, x_telegram_init_data, body)
 
-        if not account:
-            raise HTTPException(status_code=404, detail="Account not found")
+        # Get authenticated user (checks is_active)
+        authenticated_user = await get_authenticated_user(db, telegram_id)
+
+        # Authorize account access
+        account = await authorize_account_access(db, authenticated_user, account_id)
 
         # Get properties owned by account's user
         user_property_ids = []
@@ -1043,9 +765,9 @@ async def get_bills(
             bill_response = _format_bill_response(
                 bill, service_period, property_obj, start_reading, end_reading
             )
-            bills_response.append(bill_response)
+            bills_response.append(ElectricityBillResponse(**bill_response))
 
-        return {"bills": bills_response}
+        return BillsResponse(bills=bills_response)
 
     except HTTPException:
         raise
@@ -1055,8 +777,8 @@ async def get_bills(
 
 
 # Balance Response Models
-class BalanceResponse(BaseModel):
-    """Response schema for single user balance endpoint."""
+class AccountResponse(BaseModel):
+    """Response schema for single user account endpoint."""
 
     balance: float  # Raw balance value
     invert_for_display: bool = False  # True for OWNER accounts (display negated value)
@@ -1084,52 +806,40 @@ class AccountsResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-@router.post("/balance", response_model=BalanceResponse)
-async def get_balance(
+@router.post("/account", response_model=AccountResponse)
+async def get_account(
     account_id: int,
     authorization: str | None = Header(None),  # noqa: B008
     x_telegram_init_data: str | None = Header(None),  # noqa: B008
     session: AsyncSession = Depends(get_async_session),  # noqa: B008
     body: dict[str, Any] | None = Body(None),  # noqa: B008
-) -> BalanceResponse:
+) -> AccountResponse:
     """Get balance (payments - bills) for a specific account.
 
+    Authorization: Admin can access any account, owners can access ORGANIZATION accounts
+    and their own personal accounts, staff can access their own accounts.
+
     Args:
-        account_id: Account ID to calculate balance for (required, extracted during page initialization).
+        account_id: Account ID to calculate balance for (required).
 
     Returns:
-        BalanceResponse with balance value (positive = credit, negative = debt).
+        AccountResponse with balance value (positive = credit, negative = debt).
 
     Raises:
         400: Missing or invalid account_id
-        401: Invalid Telegram signature
+        401: Invalid Telegram signature or unauthorized account access
         404: Account not found
         500: Server error
     """
-    # Validate account_id
-    if not account_id or account_id <= 0:
-        raise HTTPException(status_code=400, detail="Valid account_id required")
-
     try:
-        # Extract init data (for authentication only)
-        raw_init_data = _extract_init_data(authorization, x_telegram_init_data, body)
-        if not raw_init_data:
-            raise HTTPException(status_code=400, detail="Missing init data")
+        # Verify Telegram auth and extract telegram_id
+        telegram_id = await verify_telegram_auth(session, authorization, x_telegram_init_data, body)
 
-        # Verify Telegram signature
-        parsed_data = UserService.verify_telegram_webapp_signature(
-            init_data=raw_init_data, bot_token=bot_config.telegram_bot_token
-        )
-        if not parsed_data:
-            raise HTTPException(status_code=401, detail="Invalid Telegram signature")
+        # Get authenticated user (checks is_active)
+        authenticated_user = await get_authenticated_user(session, telegram_id)
 
-        # Verify account exists
-        account_stmt = select(Account).where(Account.id == account_id)
-        account_result = await session.execute(account_stmt)
-        account = account_result.scalar_one_or_none()
-
-        if not account:
-            raise HTTPException(status_code=404, detail="Account not found")
+        # Authorize account access
+        await authorize_account_access(session, authenticated_user, account_id)
 
         # Calculate balance using service
         from src.services.balance_service import BalanceCalculationService
@@ -1137,52 +847,47 @@ async def get_balance(
         balance_service = BalanceCalculationService(session)
         result = await balance_service.calculate_account_balance_with_display(account_id)
 
-        return BalanceResponse(balance=result.balance, invert_for_display=result.invert_for_display)
+        return AccountResponse(balance=result.balance, invert_for_display=result.invert_for_display)
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error in /api/mini-app/balance: {e}", exc_info=True)
+        logger.error(f"Error in /api/mini-app/account: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Server error") from e
 
 
 @router.post("/accounts", response_model=AccountsResponse)
-async def get_all_accounts(
+async def get_accounts(
     authorization: str | None = Header(None),  # noqa: B008
     x_telegram_init_data: str | None = Header(None),  # noqa: B008
     session: AsyncSession = Depends(get_async_session),  # noqa: B008
     body: dict[str, Any] | None = Body(None),  # noqa: B008
 ) -> AccountsResponse:
-    """Get accounts for all owners (info available to any owner)."""
+    """Get all accounts with balances for authorized users.
+
+    Available to: admin, owner, and staff roles.
+    All authorized users can view all account balances - info is not role-restricted.
+
+    Returns:
+        AccountsResponse with all accounts and their balances
+
+    Raises:
+        401: Invalid Telegram signature or user lacks required role
+        500: Server error
+    """
     try:
-        # Extract init data
-        raw_init_data = _extract_init_data(authorization, x_telegram_init_data, body)
-        if not raw_init_data:
-            raise HTTPException(status_code=400, detail="Missing init data")
+        # Verify Telegram auth and extract telegram_id
+        telegram_id = await verify_telegram_auth(session, authorization, x_telegram_init_data, body)
 
-        # Verify Telegram signature
-        parsed_data = UserService.verify_telegram_webapp_signature(
-            init_data=raw_init_data, bot_token=bot_config.telegram_bot_token
+        # Get authenticated user (checks is_active)
+        authenticated_user = await get_authenticated_user(session, telegram_id)
+
+        # Authorize role-based access (admin, owner, or staff)
+        await authorize_account_access_for_roles(
+            session, authenticated_user, 1, ["is_administrator", "is_owner", "is_staff"]
         )
-        if not parsed_data:
-            raise HTTPException(status_code=401, detail="Invalid Telegram signature")
 
-        # Extract telegram_id from parsed data
-        user_data = json.loads(parsed_data.get("user", "{}"))
-        telegram_id = str(user_data.get("id"))
-        if not telegram_id:
-            raise HTTPException(status_code=401, detail="User ID not found in init data")
-
-        # Get the authenticated user
-        stmt = select(User).filter(User.telegram_id == int(telegram_id))
-        result = await session.execute(stmt)
-        authenticated_user = result.scalar_one_or_none()
-        if not authenticated_user:
-            raise HTTPException(status_code=401, detail="User not found")
-
-        # Get all accounts (user + organization) for balance display
-        # All owners can view all account balances - info is not restricted
-        from src.models.account import Account
+        # Get all accounts for balance display
         from src.services.balance_service import BalanceCalculationService
 
         stmt = select(Account)
@@ -1222,9 +927,4 @@ async def get_all_accounts(
         raise HTTPException(status_code=500, detail="Server error") from e
 
 
-# Endpoints will be implemented in Phase 5 and Polish
-# - GET /api/mini-app/verify-registration
-# - POST /api/mini-app/menu-action
-
-
-__all__ = ["router"]
+__all__ = ["router", "_extract_init_data"]

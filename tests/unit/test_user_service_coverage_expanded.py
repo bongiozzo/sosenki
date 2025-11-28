@@ -63,33 +63,19 @@ class TestUserStatusServiceGetActiveRoles:
             is_investor=True,
             is_owner=True,
             is_staff=True,
+            is_stakeholder=True,
             is_tenant=True,
             is_active=True,
         )
         roles = UserStatusService.get_active_roles(user)
-        assert set(roles) == {"administrator", "investor", "owner", "staff", "tenant"}
-
-
-class TestUserStatusServiceGetSharePercentage:
-    """Test get_share_percentage method."""
-
-    def test_share_percentage_non_owner(self):
-        """Verify non-owner returns None."""
-        user = User(name="Non Owner", is_owner=False, is_active=True)
-        percentage = UserStatusService.get_share_percentage(user)
-        assert percentage is None
-
-    def test_share_percentage_owner_signed(self):
-        """Verify owner with signed contract returns 1."""
-        user = User(name="Signed Owner", is_owner=True, is_stakeholder=True, is_active=True)
-        percentage = UserStatusService.get_share_percentage(user)
-        assert percentage == 1
-
-    def test_share_percentage_owner_unsigned(self):
-        """Verify owner without signed contract returns 0."""
-        user = User(name="Unsigned Owner", is_owner=True, is_stakeholder=False, is_active=True)
-        percentage = UserStatusService.get_share_percentage(user)
-        assert percentage == 0
+        assert set(roles) == {
+            "administrator",
+            "investor",
+            "owner",
+            "staff",
+            "stakeholder",
+            "tenant",
+        }
 
 
 @pytest.mark.asyncio

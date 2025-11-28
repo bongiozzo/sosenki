@@ -2,7 +2,7 @@
 
 Phase 1: Helper functions
 - _extract_init_data() - 8 tests (Lines 24-54)
-- _resolve_target_user() - 7 tests (Lines 57-116)
+- resolve_target_user() - 7 tests (Lines 57-116)
 
 These are foundational to all other endpoints.
 
@@ -16,9 +16,9 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.mini_app import _extract_init_data, _resolve_target_user
 from src.main import app
 from src.models.user import User
+from src.services.auth_service import _extract_init_data, _resolve_target_user
 
 
 @pytest.fixture
@@ -245,28 +245,23 @@ class TestResolveTargetUser:
 
     @pytest.mark.asyncio
     async def test_resolve_user_not_found_raises_403(self, session: AsyncSession):
-        """Line 73-77: Raise 403 when user doesn't exist"""
+        """Line 73-77: Raise 401 when user doesn't exist"""
         with pytest.raises(HTTPException) as exc_info:
-            await _resolve_target_user(
-                session, telegram_id="999999999", representing=None, selected_user_id=None
-            )
-        assert exc_info.value.status_code == 403
-        assert "not registered" in exc_info.value.detail.lower()
+            await _resolve_target_user(session, telegram_id="999999999", selected_user_id=None)
+        assert exc_info.value.status_code == 401
 
     @pytest.mark.asyncio
     async def test_resolve_inactive_user_raises_403(
         self, session: AsyncSession, inactive_user: User
     ):
-        """Line 77: Raise 403 when user is_active=False"""
+        """Line 77: Raise 401 when user is_active=False"""
         with pytest.raises(HTTPException) as exc_info:
             await _resolve_target_user(
                 session,
                 telegram_id=inactive_user.telegram_id,
-                representing=None,
                 selected_user_id=None,
             )
-        assert exc_info.value.status_code == 403
-        assert "inactive" in exc_info.value.detail.lower()
+        assert exc_info.value.status_code == 401
 
     @pytest.mark.asyncio
     async def test_resolve_active_user_returns_user_not_switched(
@@ -274,7 +269,7 @@ class TestResolveTargetUser:
     ):
         """Line 108: Return active user with switched=False"""
         target_user, switched = await _resolve_target_user(
-            session, telegram_id=active_user.telegram_id, representing=None, selected_user_id=None
+            session, telegram_id=active_user.telegram_id, selected_user_id=None
         )
         assert target_user.id == active_user.id
         assert switched is False
@@ -287,7 +282,6 @@ class TestResolveTargetUser:
         target_user, switched = await _resolve_target_user(
             session,
             telegram_id=admin_user.telegram_id,
-            representing=None,
             selected_user_id=active_user.id,
         )
         assert target_user.id == active_user.id
@@ -302,7 +296,6 @@ class TestResolveTargetUser:
             await _resolve_target_user(
                 session,
                 telegram_id=admin_user.telegram_id,
-                representing=None,
                 selected_user_id=999999,
             )
         assert exc_info.value.status_code == 404
@@ -317,7 +310,6 @@ class TestResolveTargetUser:
         target_user, switched = await _resolve_target_user(
             session,
             telegram_id=active_user.telegram_id,
-            representing=None,
             selected_user_id=inactive_user.id,
         )
         # Should still get active_user, not inactive_user
@@ -332,7 +324,6 @@ class TestResolveTargetUser:
         target_user, switched = await _resolve_target_user(
             session,
             telegram_id=representative_user.telegram_id,
-            representing=True,  # Explicitly request representation
             selected_user_id=None,
         )
         assert target_user.id == represented_user.id
@@ -340,28 +331,27 @@ class TestResolveTargetUser:
 
     @pytest.mark.asyncio
     async def test_resolve_representation_requires_explicit_flag(
-        self, session: AsyncSession, representative_user: User
+        self, session: AsyncSession, representative_user: User, represented_user: User
     ):
-        """Line 99-108: Representation only used if representing=True or None with representative_id"""
-        # With representing=False, should use authenticated user
+        """Line 99-108: Representation is always used when representative_id is set"""
+        # With representative_id set, representation is automatically applied
         target_user, switched = await _resolve_target_user(
             session,
             telegram_id=representative_user.telegram_id,
-            representing=False,  # Explicitly disable representation
             selected_user_id=None,
         )
-        assert target_user.id == representative_user.id
-        assert switched is False
+        # Should return represented_user because representation is automatically applied
+        assert target_user.id == represented_user.id
+        assert switched is True
 
     @pytest.mark.asyncio
     async def test_resolve_representation_default_behavior(
         self, session: AsyncSession, representative_user: User, represented_user: User
     ):
-        """Line 99-108: With representing=None, should use representation if available"""
+        """Line 99-108: Representation is always used when representative_id is set"""
         target_user, switched = await _resolve_target_user(
             session,
             telegram_id=representative_user.telegram_id,
-            representing=None,  # Default behavior
             selected_user_id=None,
         )
         # Should use represented user because representing_id exists

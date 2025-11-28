@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models import Base, BaseModel
@@ -27,8 +27,8 @@ class User(Base, BaseModel):
     __tablename__ = "users"
 
     # Identity fields
-    telegram_id: Mapped[str | None] = mapped_column(
-        String(50),
+    telegram_id: Mapped[int | None] = mapped_column(
+        Integer,
         nullable=True,
         index=True,
         comment="Primary identifier from Telegram (nullable until user becomes active)",
