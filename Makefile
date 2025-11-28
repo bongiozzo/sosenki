@@ -1,5 +1,5 @@
-# TODO feat: Align CSS and add Figma MCP to fix wrapping
-# - https://www.figma.com/community/file/1248595286803212338/telegram-graphics
+# TODO refactor: Optimize Endpoints for represent/admin params
+# TODO refactor: Fix Seed and Display major stakeholders
 # TODO refactor: Access rights - Account details for Administrator
 # TODO feat: Management from bot - MCP server for query and Endpoints for actions, 
 # TODO feat: Production from branch main and Dev from dev

@@ -94,6 +94,37 @@ tg.ready();
 const appContainer = document.getElementById('app');
 
 // ---------------------------------------------------------------------------
+// Telegram Native BackButton Management
+// ---------------------------------------------------------------------------
+let __currentBackHandler = null;
+
+/**
+ * Show Telegram's native back button with a custom handler
+ * @param {Function} handler - Callback to execute when back button is pressed
+ */
+function showBackButton(handler) {
+    // Remove previous handler if exists
+    if (__currentBackHandler) {
+        tg.BackButton.offClick(__currentBackHandler);
+    }
+    
+    __currentBackHandler = handler;
+    tg.BackButton.onClick(__currentBackHandler);
+    tg.BackButton.show();
+}
+
+/**
+ * Hide Telegram's native back button
+ */
+function hideBackButton() {
+    if (__currentBackHandler) {
+        tg.BackButton.offClick(__currentBackHandler);
+        __currentBackHandler = null;
+    }
+    tg.BackButton.hide();
+}
+
+// ---------------------------------------------------------------------------
 // Debug Console (temporary)
 // ---------------------------------------------------------------------------
 const debugConsole = document.getElementById('debug-console');
@@ -1062,18 +1093,16 @@ async function reloadAllDatasets(context) {
     // Reload dynamic data from backend
     if (context.isOwner) {
         await loadProperties(context);
-        await loadBalance(context);
     } else {
-        // Hide properties and balance if not owner
+        // Hide properties if not owner
         const propsContainer = document.getElementById('properties-container');
         if (propsContainer) {
             propsContainer.classList.remove('visible');
         }
-        const balanceContainer = document.getElementById('balance-container');
-        if (balanceContainer) {
-            balanceContainer.classList.remove('visible');
-        }
     }
+    
+    // Load balance for all users (owners and staff)
+    await loadBalance(context);
     
     // Load transactions and bills
     await loadTransactions('transactions-list', 'personal', context);
@@ -1101,6 +1130,9 @@ function navigateToTransactions(event) {
     // Apply translations to rendered template
     applyTranslations();
     
+    // Show Telegram native back button
+    showBackButton(goBackToWelcome);
+    
     // Load all organization transactions
     loadTransactions('transactions-list', 'all');
 }
@@ -1109,6 +1141,9 @@ function navigateToTransactions(event) {
  * Go back to welcome screen
  */
 function goBackToWelcome() {
+    // Hide back button when going to welcome screen
+    hideBackButton();
+    
     // Reload to show welcome screen again
     location.reload();
 }
@@ -1142,6 +1177,9 @@ function navigateToAccountDetails(accountId, accountName, fromPage = 'accounts')
     
     // Apply translations to rendered template
     applyTranslations();
+    
+    // Show Telegram native back button
+    showBackButton(goBackFromAccountDetails);
     
     // Load account data
     loadAccountDetails(accountId);
@@ -1303,6 +1341,9 @@ function navigateToAccounts(event) {
     
     // Apply translations to rendered template
     applyTranslations();
+    
+    // Show Telegram native back button
+    showBackButton(goBackToWelcome);
     
     // Load all accounts
     loadAccounts('accounts-list');

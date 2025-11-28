@@ -16,8 +16,8 @@
     <template id="welcome-template">
         <div class="page-container">
             <header class="header">
-                <h1 class="brand">SOSenki</h1>
-                <p class="tagline"><span data-i18n="welcome_back">Welcome back,</span> <span id="user-name">User</span></p>
+                <h1 class="brand">S<span class="brand-sos-o">O</span>S🌲enki</h1>
+                <span id="user-name">User</span>
             </header>
             
             <main class="main-menu">
@@ -37,47 +37,47 @@
                 </nav>
             </main>
             
-            <!-- Representative Info (if representing someone) -->
-            <section id="representative-info-container" class="representative-info-section"></section>
-            
-            <!-- All Datasets Container (unified reload) -->
-            <div id="datasets-container">
+            <!-- Info & Admin Container (rounded) -->
+            <div class="info-admin-container">
+                <!-- Representative Info (if representing someone) -->
+                <section id="representative-info-container" class="representative-info-section"></section>
+                
                 <!-- User Status Badges -->
                 <section id="statuses-container" class="status-badges"></section>
                 
                 <!-- Stakeholder Link (owners only) -->
                 <div id="stakeholder-link-container" class="stakeholder-link-container"></div>
-
-                <!-- Properties Section (owners only) -->
-                <section id="properties-container" class="properties-section">
-                    <h2 data-i18n="properties">Properties</h2>
-                    <div id="properties-list"></div>
-                </section>
-
-                <!-- Balance Section (owners only) -->
-                <section id="balance-container" class="balance-section">
-                    <div class="section-header">
-                        <h2 data-i18n="balance">Balance</h2>
-                        <a href="#" class="view-all-link" onclick="navigateToAccounts(event)" data-i18n="view_all">View all →</a>
-                    </div>
-                    <div class="balance-value">-₽0.00</div>
-                </section>
-                
-                <!-- Transaction List Section -->
-                <section id="transactions-section" class="transactions-section">
-                    <div class="section-header">
-                        <h2 data-i18n="transactions">Transactions</h2>
-                        <a href="#" class="view-all-link" onclick="navigateToTransactions(event)" data-i18n="view_all">View all →</a>
-                    </div>
-                    <div id="transactions-list"></div>
-                </section>
-                
-                <!-- Bills Section (all types) -->
-                <section id="bills-container" class="bills-section">
-                    <h2 data-i18n="bills">Bills</h2>
-                    <div id="bills-list"></div>
-                </section>
             </div>
+            
+            <!-- Properties Section (owners only) -->
+            <section id="properties-container" class="properties-section">
+                <h2 data-i18n="properties">Properties</h2>
+                <div id="properties-list"></div>
+            </section>
+
+            <!-- Balance Section (owners only) -->
+            <section id="balance-container" class="balance-section">
+                <div class="section-header">
+                    <h2 data-i18n="balance">Balance</h2>
+                    <a href="#" class="view-all-link" onclick="navigateToAccounts(event)" data-i18n="view_all">View all →</a>
+                </div>
+                <div class="balance-value">-₽0.00</div>
+            </section>
+            
+            <!-- Transaction List Section -->
+            <section id="transactions-section" class="transactions-section">
+                <div class="section-header">
+                    <h2 data-i18n="transactions">Transactions</h2>
+                    <a href="#" class="view-all-link" onclick="navigateToTransactions(event)" data-i18n="view_all">View all →</a>
+                </div>
+                <div id="transactions-list"></div>
+            </section>
+            
+            <!-- Bills Section (all types) -->
+            <section id="bills-container" class="bills-section">
+                <h2 data-i18n="bills">Bills</h2>
+                <div id="bills-list"></div>
+            </section>
         </div>
     </template>
     
@@ -85,7 +85,6 @@
     <template id="transactions-template">
         <div class="page-container">
             <header class="header">
-                <button class="back-button" onclick="goBackToWelcome()" data-i18n="back">← Back</button>
                 <h1 data-i18n="transactions">Transactions</h1>
             </header>
             
@@ -101,7 +100,6 @@
     <template id="accounts-template">
         <div class="page-container">
             <header class="header">
-                <button class="back-button" onclick="goBackToWelcome()" data-i18n="back">← Back</button>
                 <h1 data-i18n="accounts">Accounts</h1>
             </header>
             
@@ -117,7 +115,6 @@
     <template id="account-details-template">
         <div class="page-container">
             <header class="header">
-                <button class="back-button" onclick="goBackFromAccountDetails()" data-i18n="back">← Back</button>
                 <h1 id="account-details-name">Account</h1>
             </header>
             
