@@ -161,7 +161,7 @@ let __appContext = null; // memoized context
 let __selectedUserId = null; // admin-selected user ID (takes precedence)
 let __authenticatedUserInfo = null; // Keep authenticated user info constant (name, isAdmin)
 let __currentAccountId = null; // Current account ID for endpoint calls
-let __previousPage = 'welcome'; // Navigation stack: 'welcome', 'accounts', 'transactions'
+const __navStack = []; // Navigation stack: [{page, params}]
 
 /**
  * Get selected user ID from URL hash parameter
@@ -584,7 +584,7 @@ function renderTransactionsList(transactions, containerId = 'transactions-list')
             fromLink.onclick = (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                navigateToAccountDetails(transaction.from_account_id, transaction.from_ac_name, 'transactions');
+                navigateToAccountDetails(transaction.from_account_id, transaction.from_ac_name);
             };
             
             const arrowSpan = document.createElement('span');
@@ -597,7 +597,7 @@ function renderTransactionsList(transactions, containerId = 'transactions-list')
             toLink.onclick = (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                navigateToAccountDetails(transaction.to_account_id, transaction.to_ac_name, 'transactions');
+                navigateToAccountDetails(transaction.to_account_id, transaction.to_ac_name);
             };
             
             accountEl.appendChild(fromLink);
@@ -1109,98 +1109,103 @@ async function reloadAllDatasets(context) {
     await loadBills('bills-list', context);
 }
 
+// ---------------------------------------------------------------------------
+// Stack-Based Navigation
+// ---------------------------------------------------------------------------
+
+/**
+ * Navigate to a page, pushing it onto the navigation stack
+ * @param {string} page - Page identifier ('welcome', 'transactions', 'accounts', 'account-details')
+ * @param {Object} params - Page-specific parameters (e.g., {accountId, accountName} for account-details)
+ */
+function navigateTo(page, params = {}) {
+    // Push to stack
+    __navStack.push({ page, params });
+    
+    // Render the page
+    renderPage(page, params);
+}
+
+/**
+ * Render a page without modifying the stack (used by goBack)
+ * @param {string} page - Page identifier
+ * @param {Object} params - Page-specific parameters
+ */
+function renderPage(page, params = {}) {
+    if (page === 'welcome') {
+        // Welcome is special - just reload to get fresh state
+        hideBackButton();
+        location.reload();
+        return;
+    }
+    
+    const template = document.getElementById(`${page}-template`);
+    if (!template) {
+        console.error(`Template ${page}-template not found`);
+        return;
+    }
+    
+    const content = template.content.cloneNode(true);
+    
+    // Page-specific setup before appending to DOM
+    if (page === 'account-details' && params.accountName) {
+        const nameEl = content.getElementById('account-details-name');
+        if (nameEl) {
+            nameEl.textContent = params.accountName;
+        }
+    }
+    
+    appContainer.innerHTML = '';
+    appContainer.appendChild(content);
+    applyTranslations();
+    
+    // Show back button (all non-welcome pages have back)
+    showBackButton(goBack);
+    
+    // Page-specific data loading
+    if (page === 'transactions') {
+        loadTransactions('transactions-list', 'all');
+    } else if (page === 'accounts') {
+        loadAccounts('accounts-list');
+    } else if (page === 'account-details' && params.accountId) {
+        loadAccountDetails(params.accountId);
+    }
+}
+
+/**
+ * Go back to previous page in navigation stack
+ */
+function goBack() {
+    // Pop current page
+    __navStack.pop();
+    
+    if (__navStack.length === 0) {
+        // Stack empty, go to welcome
+        hideBackButton();
+        location.reload();
+        return;
+    }
+    
+    // Get previous page and render it (don't push again)
+    const prev = __navStack[__navStack.length - 1];
+    renderPage(prev.page, prev.params);
+}
+
 /**
  * Navigate to transactions page
  */
 function navigateToTransactions(event) {
     event.preventDefault();
-    __previousPage = 'welcome';
-    
-    // Show transactions page
-    const template = document.getElementById('transactions-template');
-    if (!template) {
-        console.error('Transactions template not found');
-        return;
-    }
-    
-    const content = template.content.cloneNode(true);
-    appContainer.innerHTML = '';
-    appContainer.appendChild(content);
-    
-    // Apply translations to rendered template
-    applyTranslations();
-    
-    // Show Telegram native back button
-    showBackButton(goBackToWelcome);
-    
-    // Load all organization transactions
-    loadTransactions('transactions-list', 'all');
-}
-
-/**
- * Go back to welcome screen
- */
-function goBackToWelcome() {
-    // Hide back button when going to welcome screen
-    hideBackButton();
-    
-    // Reload to show welcome screen again
-    location.reload();
+    navigateTo('transactions');
 }
 
 /**
  * Navigate to account details page
  * @param {number} accountId - Account ID to show details for
  * @param {string} accountName - Account name for header
- * @param {string} fromPage - Source page for back navigation ('welcome', 'accounts', 'transactions')
  */
-function navigateToAccountDetails(accountId, accountName, fromPage = 'accounts') {
-    __previousPage = fromPage;
-    
-    // Show account details page
-    const template = document.getElementById('account-details-template');
-    if (!template) {
-        console.error('Account details template not found');
-        return;
-    }
-    
-    const content = template.content.cloneNode(true);
-    
-    // Set account name in header
-    const nameEl = content.getElementById('account-details-name');
-    if (nameEl) {
-        nameEl.textContent = accountName;
-    }
-    
-    appContainer.innerHTML = '';
-    appContainer.appendChild(content);
-    
-    // Apply translations to rendered template
-    applyTranslations();
-    
-    // Show Telegram native back button
-    showBackButton(goBackFromAccountDetails);
-    
-    // Load account data
-    loadAccountDetails(accountId);
-}
-
-/**
- * Go back from account details page
- */
-function goBackFromAccountDetails() {
-    if (__previousPage === 'accounts') {
-        // Go back to accounts list
-        const event = { preventDefault: () => {} };
-        navigateToAccounts(event);
-    } else if (__previousPage === 'transactions') {
-        // Go back to transactions list
-        const event = { preventDefault: () => {} };
-        navigateToTransactions(event);
-    } else {
-        // Default: go back to welcome
-        goBackToWelcome();
-    }
+function navigateToAccountDetails(accountId, accountName) {
+    navigateTo('account-details', { accountId, accountName });
 }
 
 /**
@@ -1327,26 +1332,7 @@ function renderBalance(balance, invert = false, containerId = 'balance-container
  */
 function navigateToAccounts(event) {
     event.preventDefault();
-    __previousPage = 'welcome';
-
-    // Show accounts page
-    const template = document.getElementById('accounts-template');
-    if (!template) {
-        return;
-    }
-    
-    const content = template.content.cloneNode(true);
-    appContainer.innerHTML = '';
-    appContainer.appendChild(content);
-    
-    // Apply translations to rendered template
-    applyTranslations();
-    
-    // Show Telegram native back button
-    showBackButton(goBackToWelcome);
-    
-    // Load all accounts
-    loadAccounts('accounts-list');
+    navigateTo('accounts');
 }
 
 /**
@@ -1435,7 +1421,7 @@ function renderAccountsPage(accounts, containerId = 'accounts-list') {
         
         // Make row clickable to navigate to account details
         row.onclick = () => {
-            navigateToAccountDetails(item.account_id, item.account_name, 'accounts');
+            navigateToAccountDetails(item.account_id, item.account_name);
         };
         
         // Account info (icon + name)
