@@ -1,21 +1,105 @@
 /* SOSenki Mini App Styles - Nature-inspired minimalistic design */
+/* Telegram UI Kit aligned with safe areas and theme integration */
 
 :root {
-    /* Nature-inspired color palette */
-    --color-pine: #2D5016;      /* Forest green */
-    --color-water: #0099CC;     /* Aqua/teal */
-    --color-sand: #D4A574;      /* Beige */
+    /* ==========================================================================
+       BRAND COLORS - Nature-inspired palette
+       ========================================================================== */
+    --color-pine: #2D5016;           /* Forest green - primary brand */
+    --color-water: #0099CC;          /* Aqua/teal - secondary brand */
+    --color-sand: #D4A574;           /* Beige - accent */
+    --color-sos-red: #E74C3C;        /* Lifebuoy red - SOS branding */
+    
+    /* ==========================================================================
+       NEUTRAL COLORS
+       ========================================================================== */
     --color-white: #FFFFFF;
     --color-light-gray: #F5F5F7;
+    --color-border: #E5E5E7;         /* Consistent border color */
+    --color-hover: #EFEFEF;          /* Hover state background */
+    --color-active: #E5E5E5;         /* Active/pressed state */
+    
+    /* ==========================================================================
+       TEXT COLORS
+       ========================================================================== */
     --color-text: #1D1D1F;
     --color-text-secondary: #6E6E73;
+    --color-text-on-dark: #FFFFFF;
     
-    /* Spacing */
+    /* ==========================================================================
+       SEMANTIC COLORS - Status and feedback
+       ========================================================================== */
+    --color-success: #27AE60;
+    --color-success-bg: #D5F4E6;
+    --color-warning: #e65100;
+    --color-warning-bg: #fff3e0;
+    --color-error: #E74C3C;
+    --color-error-bg: #FADBD8;
+    --color-info: #0277bd;
+    --color-info-bg: #e3f2fd;
+    
+    /* Badge colors for bill types */
+    --badge-electricity: #0277bd;
+    --badge-electricity-bg: #e3f2fd;
+    --badge-shared: #6a1b9a;
+    --badge-shared-bg: #f3e5f5;
+    --badge-conservation: #2e7d32;
+    --badge-conservation-bg: #e8f5e9;
+    --badge-main: #e65100;
+    --badge-main-bg: #fff3e0;
+    --badge-signed: #2e7d32;
+    --badge-signed-bg: #c8e6c9;
+    --badge-unsigned: #e65100;
+    --badge-unsigned-bg: #fff3e0;
+    
+    /* ==========================================================================
+       SPACING SYSTEM
+       ========================================================================== */
     --spacing-xs: 8px;
     --spacing-sm: 16px;
     --spacing-md: 24px;
     --spacing-lg: 32px;
     --spacing-xl: 48px;
+    
+    /* ==========================================================================
+       TYPOGRAPHY
+       ========================================================================== */
+    --font-family-base: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+    --font-family-mono: 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
+    
+    --font-size-xs: 11px;
+    --font-size-sm: 12px;
+    --font-size-base: 14px;
+    --font-size-md: 16px;
+    --font-size-lg: 18px;
+    --font-size-xl: 24px;
+    --font-size-2xl: 32px;
+    --font-size-brand: 36px;
+    
+    /* ==========================================================================
+       BORDER RADIUS
+       ========================================================================== */
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+    
+    /* ==========================================================================
+       SHADOWS
+       ========================================================================== */
+    --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.1);
+    --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.15);
+    
+    /* ==========================================================================
+       TELEGRAM SAFE AREAS (with fallbacks)
+       ========================================================================== */
+    --safe-area-top: var(--tg-safe-area-inset-top, 0px);
+    --safe-area-bottom: var(--tg-safe-area-inset-bottom, 0px);
+    --safe-area-left: var(--tg-safe-area-inset-left, 0px);
+    --safe-area-right: var(--tg-safe-area-inset-right, 0px);
+    --content-safe-top: var(--tg-content-safe-area-inset-top, 0px);
+    --content-safe-bottom: var(--tg-content-safe-area-inset-bottom, 0px);
 }
 
 * {
@@ -25,14 +109,18 @@
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+    font-family: var(--font-family-base);
     color: var(--color-text);
     background-color: var(--color-light-gray);
     line-height: 1.5;
+    /* Telegram safe area padding */
+    padding-top: var(--safe-area-top);
+    padding-bottom: var(--safe-area-bottom);
 }
 
 #app {
     min-height: 100vh;
+    min-height: calc(100vh - var(--safe-area-top) - var(--safe-area-bottom));
     display: flex;
     flex-direction: column;
 }
@@ -42,57 +130,100 @@ body {
     align-items: center;
     justify-content: center;
     min-height: 100vh;
-    font-size: 18px;
+    font-size: var(--font-size-lg);
     color: var(--color-text-secondary);
 }
 
-/* Welcome Container */
+/* ==========================================================================
+   REUSABLE BASE CLASSES
+   ========================================================================== */
+
+/* Section - shared container for content sections - REMOVED: not used */
+
+/* Card Item - shared item card styling - REMOVED: not used */
+
+/* REMOVED: .empty-state - not used, use inline text instead */
+
+/* REMOVED: .amount classes - not used, use .balance-value and .account-row-amount instead */
+
+/* Button Base Classes - REMOVED: not used in templates or app.js */
+
+/* ==========================================================================
+   PAGE LAYOUT
+   ========================================================================== */
+
 /* Unified Page Container */
 .page-container {
     display: flex;
     flex-direction: column;
     min-height: 100vh;
+    min-height: calc(100vh - var(--safe-area-top) - var(--safe-area-bottom));
     background: linear-gradient(135deg, var(--color-pine) 0%, var(--color-water) 100%);
-    padding: 0px var(--spacing-md) var(--spacing-md) var(--spacing-md);
+    padding: 0 var(--spacing-md) var(--spacing-md) var(--spacing-md);
+    padding-bottom: calc(var(--spacing-md) + var(--content-safe-bottom));
 }
 
-/* Legacy: welcome-container maps to page-container for backwards compatibility */
-.welcome-container {
-    display: flex;
-    flex-direction: column;
-    min-height: 100vh;
-    background: linear-gradient(135deg, var(--color-pine) 0%, var(--color-water) 100%);
-    padding: 0px var(--spacing-md) var(--spacing-md) var(--spacing-md);
-}
-
+/* Header - brand area with gradient background */
 .header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: var(--spacing-sm) 0;
-    color: var(--color-white);
+    color: var(--color-text-on-dark);
+    gap: var(--spacing-md);
+    min-height: 60px;
 }
 
 .header h1 {
-    color: var(--color-white);
+    color: var(--color-text-on-dark);
     margin: 0;
-    flex: 1;
+    font-size: var(--font-size-xl);
 }
 
+/* Brand with SOS Red O - left aligned */
 .brand {
-    font-size: 36px;
+    font-size: var(--font-size-brand);
     font-weight: 700;
     margin-bottom: 0;
     letter-spacing: -0.5px;
     white-space: nowrap;
+    color: var(--color-text-on-dark);
+    flex: 0 0 auto;
+    text-align: left;
 }
 
+.brand-sos-o {
+    color: var(--color-sos-red);
+    font-weight: 800;
+}
+
+.brand-icon {
+    display: inline-block;
+    margin: 0 2px;
+    font-size: 1.1em;
+    vertical-align: middle;
+}
+
+/* Tagline - centered with flex grow */
 .tagline {
-    font-size: 16px;
+    font-size: var(--font-size-md);
     opacity: 0.9;
     font-weight: 400;
     margin: 0;
-    margin-left: var(--spacing-md);
+    color: var(--color-text-on-dark);
+    flex: 1 1 auto;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Username - right aligned */
+#user-name {
+    flex: 0 0 auto;
+    text-align: right;
+    white-space: nowrap;
+    font-weight: 500;
 }
 
 /* Main Menu */
@@ -105,6 +236,19 @@ body {
     width: 100%;
     max-height: 30vh;
     overflow-y: auto;
+    border-radius: var(--radius-lg);
+}
+
+/* Info & Admin Container (rounded) */
+.info-admin-container {
+    padding: var(--spacing-md);
+    background: var(--color-white);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    margin-top: var(--spacing-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
 }
 
 .menu-grid {
@@ -119,8 +263,8 @@ body {
 
 .menu-item {
     background: var(--color-light-gray);
-    border: 1px solid #E5E5E7;
-    border-radius: 8px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
     padding: 10px 15px;
     display: flex;
     flex-direction: column;
@@ -129,7 +273,7 @@ body {
     text-align: center;
     text-decoration: none;
     color: var(--color-text);
-    font-size: 14px;
+    font-size: var(--font-size-base);
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -140,7 +284,7 @@ body {
 
 .menu-item:hover {
     transform: translateY(-4px);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    box-shadow: var(--shadow-lg);
 }
 
 .menu-item:active {
@@ -154,7 +298,7 @@ body {
 
 .menu-item.disabled:hover {
     transform: none;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow-sm);
 }
 
 .menu-icon {
@@ -162,7 +306,7 @@ body {
 }
 
 .menu-label {
-    font-size: 18px;
+    font-size: var(--font-size-lg);
     font-weight: 600;
     color: var(--color-text);
 }
@@ -180,11 +324,11 @@ body {
 
 .message-box {
     background: var(--color-white);
-    border-radius: 16px;
+    border-radius: var(--radius-xl);
     padding: var(--spacing-xl);
     text-align: center;
     max-width: 400px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow-md);
 }
 
 .icon-large {
@@ -193,14 +337,14 @@ body {
 }
 
 .message-box h2 {
-    font-size: 24px;
+    font-size: var(--font-size-xl);
     font-weight: 600;
     margin-bottom: var(--spacing-sm);
     color: var(--color-text);
 }
 
 .message-box p {
-    font-size: 16px;
+    font-size: var(--font-size-md);
     color: var(--color-text-secondary);
     margin-bottom: var(--spacing-md);
     line-height: 1.6;
@@ -209,19 +353,20 @@ body {
 .message-box code {
     background: var(--color-light-gray);
     padding: 2px 8px;
-    border-radius: 4px;
-    font-family: 'SF Mono', 'Courier New', monospace;
-    font-size: 14px;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-base);
 }
 
+/* Legacy button classes - now using base .btn classes */
 .back-button,
 .retry-button {
     background: var(--color-pine);
     color: var(--color-white);
     border: none;
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     padding: var(--spacing-sm) var(--spacing-lg);
-    font-size: 16px;
+    font-size: var(--font-size-md);
     font-weight: 600;
     cursor: pointer;
     transition: background 0.2s;
@@ -296,47 +441,43 @@ body {
     }
 }
 
-/* Status Badges Container */
+/* Status Badges Container - inside info-admin-container */
 .status-badges {
     display: flex;
     flex-wrap: wrap;
     gap: var(--spacing-sm);
-    padding: var(--spacing-md);
-    background: var(--color-white);
-    border-top: 1px solid #E5E5E7;
+    width: 100%;
 }
 
 .badge {
     display: inline-block;
-    background-color: #e3f2fd;
-    color: #1976d2;
+    background-color: var(--color-info-bg);
+    color: var(--color-info);
     padding: 5px 10px;
     margin: 5px;
-    border-radius: 4px;
-    font-size: 12px;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
     font-weight: 500;
     text-align: center;
     white-space: nowrap;
 }
 
 .badge-signed {
-    background-color: #c8e6c9;
-    color: #2e7d32;
+    background-color: var(--badge-signed-bg);
+    color: var(--badge-signed);
 }
 
 .badge-unsigned {
-    background-color: #fff3e0;
-    color: #e65100;
+    background-color: var(--badge-unsigned-bg);
+    color: var(--badge-unsigned);
 }
 
-/* Stakeholder Link */
+/* Stakeholder Link - inside info-admin-container */
 .stakeholder-link-container {
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: var(--spacing-md);
-    background: var(--color-white);
-    border-top: 1px solid #E5E5E7;
+    width: 100%;
 }
 
 .stakeholder-section {
@@ -346,18 +487,18 @@ body {
 }
 
 .stakeholder-status {
-    font-size: 14px;
+    font-size: var(--font-size-base);
     font-weight: 500;
     color: var(--color-text);
     white-space: nowrap;
 }
 
 .stakeholder-status.signed {
-    color: #2e7d32;
+    color: var(--badge-signed);
 }
 
 .stakeholder-status.not-signed {
-    color: #e65100;
+    color: var(--badge-unsigned);
 }
 
 .stakeholder-link {
@@ -366,8 +507,8 @@ body {
     background-color: var(--color-water);
     color: var(--color-white);
     text-decoration: none;
-    border-radius: 6px;
-    font-size: 14px;
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-base);
     font-weight: 500;
     transition: all 0.2s ease;
     white-space: nowrap;
@@ -383,19 +524,17 @@ body {
     transform: translateY(0);
 }
 
-/* Representative Info */
+/* Representative Info - inside info-admin-container */
 .representative-info-section {
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: var(--spacing-sm) var(--spacing-md);
-    background: var(--color-white);
-    border-top: 1px solid #E5E5E7;
+    width: 100%;
     min-height: auto;
 }
 
 .representative-info-text {
-    font-size: 14px;
+    font-size: var(--font-size-base);
     font-weight: 500;
     color: var(--color-pine);
     text-align: center;
@@ -413,7 +552,7 @@ body {
 }
 
 .admin-user-selector label {
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     font-weight: 500;
     color: var(--color-text-secondary);
     text-transform: uppercase;
@@ -423,12 +562,12 @@ body {
 .admin-user-selector select {
     width: 100%;
     padding: 10px 14px;
-    font-size: 14px;
+    font-size: var(--font-size-base);
     font-weight: 500;
     color: var(--color-text);
     background-color: var(--color-light-gray);
-    border: 1px solid #E5E5E7;
-    border-radius: 8px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
     outline: none;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -443,7 +582,7 @@ body {
 
 .admin-user-selector select:hover {
     border-color: var(--color-pine);
-    background-color: #EEEEEE;
+    background-color: var(--color-hover);
 }
 
 .admin-user-selector select:focus {
@@ -451,78 +590,27 @@ body {
     box-shadow: 0 0 0 3px rgba(0, 153, 204, 0.1);
 }
 
-.representative-info {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--spacing-xs);
-    text-align: center;
-}
+/* Representative Info unused variants - REMOVED: not used */
+/* .representative-info, .representative-info-label, .representative-info-name, .representative-info-id - not used */
 
-.representative-info-label {
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--color-text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
+/* Placeholder Sections (Future Features) - REMOVED: not used */
 
-.representative-info-name {
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--color-pine);
-}
-
-.representative-info-id {
-    font-size: 13px;
-    color: var(--color-text-secondary);
-    font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
-}
-
-/* Placeholder Sections (Future Features) */
-.placeholder-section {
-    background-color: #f9f9f9;
-    border: 1px dashed #ccc;
-    border-radius: 8px;
-    padding: 15px;
-    margin-top: 15px;
-    margin-left: var(--spacing-sm);
-    margin-right: var(--spacing-sm);
-    text-align: center;
-    color: var(--color-text-secondary);
-}
-
-.placeholder-section h2 {
-    font-size: 16px;
-    font-weight: 600;
-    margin-bottom: 8px;
-    color: var(--color-text);
-}
-
-.placeholder-section p {
-    font-size: 14px;
-    color: var(--color-text-secondary);
-    margin: 0;
-}
-
-@media (max-width: 375px) {
-    .placeholder-section {
-        margin-left: var(--spacing-xs);
-        margin-right: var(--spacing-xs);
-        padding: 12px;
-    }
-}
+/* ==========================================================================
+   CONTENT SECTIONS - Transactions, Properties, Bills, Balance
+   ========================================================================== */
 
 /* Transactions List Section */
 .transactions-section {
     padding: var(--spacing-md);
     background: var(--color-white);
-    border-top: 1px solid #E5E5E7;
+    border-top: 1px solid var(--color-border);
     margin-top: var(--spacing-md);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
 }
 
 .transactions-section h2 {
-    font-size: 16px;
+    font-size: var(--font-size-md);
     font-weight: 600;
     margin-bottom: var(--spacing-sm);
     color: var(--color-text);
@@ -539,14 +627,14 @@ body {
     flex-direction: column;
     padding: var(--spacing-sm);
     background: var(--color-light-gray);
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     border-left: 4px solid var(--color-sand);
     transition: background-color 0.2s ease;
     gap: var(--spacing-xs);
 }
 
 .transaction-item:active {
-    background-color: #EFEFEF;
+    background-color: var(--color-hover);
 }
 
 .transaction-item-header {
@@ -564,12 +652,12 @@ body {
 }
 
 .transaction-item-date {
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     color: var(--color-text-secondary);
 }
 
 .transaction-item-account {
-    font-size: 14px;
+    font-size: var(--font-size-base);
     font-weight: 500;
     color: var(--color-text);
 }
@@ -589,11 +677,10 @@ body {
 }
 
 .transaction-item-amount {
-    font-size: 16px;
+    font-size: var(--font-size-md);
     font-weight: 600;
     color: var(--color-pine);
     letter-spacing: -0.3px;
-    font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
     white-space: nowrap;
     margin-left: var(--spacing-sm);
 }
@@ -611,16 +698,18 @@ body {
     padding: var(--spacing-md);
     text-align: center;
     color: var(--color-text-secondary);
-    font-size: 14px;
+    font-size: var(--font-size-base);
 }
 
 /* Properties Section */
 .properties-section {
     padding: var(--spacing-md);
     background: var(--color-white);
-    border-top: 1px solid #E5E5E7;
+    border-top: 1px solid var(--color-border);
     margin-top: var(--spacing-md);
     display: none;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
 }
 
 .properties-section.visible {
@@ -628,7 +717,7 @@ body {
 }
 
 .properties-section h2 {
-    font-size: 16px;
+    font-size: var(--font-size-md);
     font-weight: 600;
     margin-bottom: var(--spacing-sm);
     color: var(--color-text);
@@ -645,13 +734,13 @@ body {
     gap: var(--spacing-sm);
     padding: var(--spacing-sm);
     background: var(--color-light-gray);
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     border-left: 4px solid var(--color-pine);
     transition: background-color 0.2s ease;
 }
 
 .property-item:active {
-    background-color: #EFEFEF;
+    background-color: var(--color-hover);
 }
 
 .property-photo {
@@ -659,7 +748,7 @@ body {
     width: 60px;
     height: 60px;
     background: #ddd;
-    border-radius: 6px;
+    border-radius: var(--radius-md);
     object-fit: cover;
 }
 
@@ -672,13 +761,13 @@ body {
 }
 
 .property-name {
-    font-size: 14px;
+    font-size: var(--font-size-base);
     font-weight: 600;
     color: var(--color-text);
 }
 
 .property-type {
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     color: var(--color-text-secondary);
 }
 
@@ -690,17 +779,17 @@ body {
 
 .property-badge {
     display: inline-block;
-    background-color: #e8f5e9;
-    color: #2e7d32;
+    background-color: var(--badge-conservation-bg);
+    color: var(--badge-conservation);
     padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 11px;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
     font-weight: 500;
 }
 
 .property-badge.not-ready {
-    background-color: #fff3e0;
-    color: #e65100;
+    background-color: var(--badge-unsigned-bg);
+    color: var(--badge-unsigned);
 }
 
 .property-badge.tenant {
@@ -710,7 +799,7 @@ body {
 
 .property-photo-link {
     margin-top: 6px;
-    font-size: 12px;
+    font-size: var(--font-size-sm);
 }
 
 .property-photo-link a {
@@ -747,7 +836,7 @@ body {
 }
 
 .property-item.is-additional-property .property-type {
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     opacity: 0.8;
 }
 
@@ -755,7 +844,7 @@ body {
     padding: var(--spacing-md);
     text-align: center;
     color: var(--color-text-secondary);
-    font-size: 14px;
+    font-size: var(--font-size-base);
 }
 
 @media (max-width: 375px) {
@@ -792,16 +881,20 @@ body {
 .section-header h2 {
     margin: 0;
     flex: 1;
+    font-size: var(--font-size-md);
+    font-weight: 600;
+    color: var(--color-text);
 }
 
 .view-all-link {
     color: var(--color-water);
     text-decoration: none;
-    font-size: 14px;
+    font-size: var(--font-size-base);
     font-weight: 500;
     padding: 4px 8px;
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     transition: background-color 0.2s ease;
+    cursor: pointer;
 }
 
 .view-all-link:hover {
@@ -810,16 +903,10 @@ body {
 
 .view-all-link:active {
     background-color: rgba(0, 153, 204, 0.2);
+    opacity: 0.7;
 }
 
-/* Transactions Container */
-.transactions-container {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    padding: var(--spacing-md);
-    background: linear-gradient(135deg, #f5f7fa 0%, #e8f0f7 100%);
-}
+/* Transactions Container - REMOVED: not used, uses .page-container instead */
 
 .transactions-main {
     flex: 1;
@@ -835,18 +922,21 @@ body {
 .bills-section {
     padding: var(--spacing-md);
     background: var(--color-white);
-    border-top: 1px solid #E5E5E7;
+    border-top: 1px solid var(--color-border);
     margin-top: var(--spacing-md);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
 }
 
 .bills-section h2 {
-    font-size: 16px;
+    font-size: var(--font-size-md);
     font-weight: 600;
     margin-bottom: var(--spacing-sm);
     color: var(--color-text);
 }
 
-#bills-list {
+#bills-list,
+.bills-list {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-sm);
@@ -857,45 +947,45 @@ body {
     flex-direction: column;
     padding: var(--spacing-sm);
     background: linear-gradient(90deg, rgba(0, 153, 204, 0.05) 0%, rgba(45, 80, 22, 0.02) 100%);
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     border-left: 4px solid var(--color-water);
     transition: background-color 0.2s ease;
     gap: var(--spacing-xs);
 }
 
 .bill-item:active {
-    background-color: #EFEFEF;
+    background-color: var(--color-hover);
 }
 
 /* Bill type badges */
 .bill-type-badge {
     display: inline-block;
     padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 11px;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
     font-weight: 600;
     white-space: nowrap;
     flex-shrink: 0;
 }
 
 .bill-type-electricity {
-    background-color: #e3f2fd;
-    color: #0277bd;
+    background-color: var(--badge-electricity-bg);
+    color: var(--badge-electricity);
 }
 
 .bill-type-shared_electricity {
-    background-color: #f3e5f5;
-    color: #6a1b9a;
+    background-color: var(--badge-shared-bg);
+    color: var(--badge-shared);
 }
 
 .bill-type-conservation {
-    background-color: #e8f5e9;
-    color: #2e7d32;
+    background-color: var(--badge-conservation-bg);
+    color: var(--badge-conservation);
 }
 
 .bill-type-main {
-    background-color: #fff3e0;
-    color: #e65100;
+    background-color: var(--badge-main-bg);
+    color: var(--badge-main);
 }
 
 .bill-item-period-row {
@@ -948,7 +1038,7 @@ body {
 }
 
 .bill-item-period {
-    font-size: 14px;
+    font-size: var(--font-size-base);
     font-weight: 600;
     color: var(--color-text);
     white-space: nowrap;
@@ -960,11 +1050,10 @@ body {
 }
 
 .bill-item-amount {
-    font-size: 16px;
+    font-size: var(--font-size-md);
     font-weight: 600;
     color: var(--color-pine);
     letter-spacing: -0.3px;
-    font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
     white-space: nowrap;
     margin-left: auto;
     flex-shrink: 0;
@@ -981,19 +1070,18 @@ body {
 }
 
 .readings-range {
-    font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
     font-size: 13px;
-    color: #0277bd;
+    color: var(--badge-electricity);
     font-weight: 500;
 }
 
 .consumption-badge {
     display: inline-block;
     background-color: #e0f2f1;
-    color: #0277bd;
+    color: var(--badge-electricity);
     padding: 3px 8px;
-    border-radius: 4px;
-    font-size: 11px;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
     font-weight: 500;
     white-space: nowrap;
 }
@@ -1002,14 +1090,18 @@ body {
     padding: var(--spacing-md);
     text-align: center;
     color: var(--color-text-secondary);
-    font-size: 14px;
+    font-size: var(--font-size-base);
 }
 
-/* Balance Section */
+/* ==========================================================================
+   BALANCE SECTION
+   ========================================================================== */
+
+/* Balance Section - on Welcome Page */
 #balance-container {
     padding: var(--spacing-md);
     background: var(--color-white);
-    border-top: 1px solid #E5E5E7;
+    border-top: 1px solid var(--color-border);
     margin-top: var(--spacing-md);
     display: none;
 }
@@ -1018,53 +1110,61 @@ body {
     display: block;
 }
 
-.section-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+/* Balance Section - on Account Details Page */
+#account-balance-container {
+    padding: var(--spacing-md);
+    background: var(--color-white);
+    border-top: 1px solid var(--color-border);
+    margin-top: var(--spacing-md);
+}
+
+#account-balance-container h2 {
+    font-size: var(--font-size-md);
+    font-weight: 600;
+    color: var(--color-text);
     margin-bottom: var(--spacing-sm);
 }
 
-.section-header h2 {
-    font-size: 16px;
+/* Shared balance section styles */
+.balance-section {
+    padding: var(--spacing-md);
+    background: var(--color-white);
+    border-top: 1px solid var(--color-border);
+    margin-top: var(--spacing-md);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+.balance-section h2 {
+    font-size: var(--font-size-md);
     font-weight: 600;
     color: var(--color-text);
-    margin: 0;
-}
-
-.view-all-link {
-    text-decoration: none;
-    color: var(--color-water);
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-}
-
-.view-all-link:active {
-    opacity: 0.7;
+    margin-bottom: var(--spacing-sm);
 }
 
 .balance-value {
-    font-size: 32px;
+    font-size: var(--font-size-2xl);
     font-weight: 700;
-    font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
     text-align: center;
     padding: var(--spacing-md);
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     margin-top: var(--spacing-sm);
 }
 
 .balance-value.positive {
-    color: #27AE60;
-    background: #D5F4E6;
+    color: var(--color-success);
+    background: var(--color-success-bg);
 }
 
 .balance-value.negative {
-    color: #E74C3C;
-    background: #FADBD8;
+    color: var(--color-error);
+    background: var(--color-error-bg);
 }
 
-/* Accounts Page */
+/* ==========================================================================
+   ACCOUNTS PAGE
+   ========================================================================== */
+
 .accounts-main {
     flex: 1;
     padding: var(--spacing-md) 0;
@@ -1084,17 +1184,17 @@ body {
     align-items: center;
     padding: var(--spacing-sm);
     background: var(--color-light-gray);
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     border-left: 4px solid var(--color-sand);
     transition: background-color 0.2s ease;
 }
 
 .account-row.clickable:hover {
-    background-color: #EFEFEF;
+    background-color: var(--color-hover);
 }
 
 .account-row:active {
-    background-color: #E5E5E5;
+    background-color: var(--color-active);
 }
 
 .account-row-info {
@@ -1105,48 +1205,54 @@ body {
 }
 
 .account-row-icon {
-    font-size: 18px;
+    font-size: var(--font-size-lg);
     margin-right: 8px;
 }
 
 .account-row-name {
-    font-size: 14px;
+    font-size: var(--font-size-base);
     font-weight: 600;
     color: var(--color-text);
 }
 
 .account-row-share {
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     color: var(--color-text-secondary);
 }
 
 .account-row-amount {
-    font-size: 16px;
+    font-size: var(--font-size-md);
     font-weight: 700;
-    font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
     letter-spacing: -0.3px;
     margin-left: var(--spacing-sm);
     white-space: nowrap;
 }
 
 .account-row-amount.positive {
-    color: #27AE60;
+    color: var(--color-success);
 }
 
 .account-row-amount.negative {
-    color: #E74C3C;
+    color: var(--color-error);
 }
 
 .account-empty {
     padding: var(--spacing-md);
     text-align: center;
     color: var(--color-text-secondary);
-    font-size: 14px;
+    font-size: var(--font-size-base);
+}
+
+/* Account Details Page */
+.account-details-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
 }
 
 @media (max-width: 375px) {
     .bill-item-amount {
-        font-size: 14px;
+        font-size: var(--font-size-base);
     }
     
     .bill-item-readings {
