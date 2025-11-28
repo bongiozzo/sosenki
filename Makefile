@@ -1,8 +1,7 @@
-# TODO refactor: Optimize Endpoints for represent/admin params
 # TODO refactor: Fix Seed and Display major stakeholders
-# TODO refactor: Access rights - Account details for Administrator
 # TODO feat: Management from bot - MCP server for query and Endpoints for actions, 
 # TODO feat: Production from branch main and Dev from dev
+# TODO Add Open Mini app button to bot /setmenubutton
 # TODO refactor: Make git-filter-repo to clean history
 # TODO feat: Invest part
 # TODO feat: Rule part with Job descriptions
@@ -20,7 +19,7 @@ export GOOGLE_SHEET_ID
 export TELEGRAM_BOT_NAME
 export TELEGRAM_MINI_APP_ID
 
-.PHONY: help seed test lint format install serve db-reset dead-code coverage coverage-seeding sync-design check-i18n clean
+.PHONY: help seed test lint format install serve db-reset dead-code coverage coverage-seeding check-i18n clean
 
 help:
 	@echo "SOSenki Development Commands"
@@ -34,7 +33,6 @@ help:
 	@echo "  make check-i18n        Validate translation completeness"
 	@echo "  make dead-code         Analyze dead code with vulture and custom scripts"
 	@echo "  make coverage          Generate coverage report for src/ tests"
-	@echo "  make sync-design       Sync design tokens from Figma"
 	@echo ""
 	@echo "Database Seeding & Management:"
 	@echo "  make seed              Seed database from Google Sheets (OFFLINE ONLY)"
@@ -118,12 +116,6 @@ coverage:
 	@echo ""
 	@echo "✓ Coverage report complete"
 	@echo "Open htmlcov/index.html to view detailed coverage report"
-
-
-# Design tokens sync
-sync-design:
-	@echo "Syncing design tokens from Figma..."
-	uv run python scripts/sync_figma_tokens.py
 
 # Local Development with Webhook Mode
 

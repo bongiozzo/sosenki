@@ -6,16 +6,44 @@
 let __translations = null;
 
 /**
- * Load translations from backend API
+ * Load translations from backend API with ETag-based caching
  * @returns {Promise<Object>} Translations dictionary
  */
 async function loadTranslations() {
     if (__translations) return __translations;
     
     try {
-        const response = await fetch('/api/mini-app/translations');
+        // Build request headers for cache validation
+        const headers = {};
+        const cachedETag = localStorage.getItem('translations_etag');
+        if (cachedETag) {
+            headers['If-None-Match'] = cachedETag;
+        }
+        
+        const response = await fetch('/api/mini-app/translations', {
+            headers: headers,
+            credentials: 'include'
+        });
+        
+        // 304 Not Modified - use cached translations
+        if (response.status === 304) {
+            const cached = localStorage.getItem('translations_cache');
+            if (cached) {
+                __translations = JSON.parse(cached);
+                console.debug('Loaded translations from client cache (304 Not Modified)');
+                return __translations;
+            }
+        }
+        
+        // 200 OK - update cache with new data and ETag
         if (response.ok) {
             __translations = await response.json();
+            const etag = response.headers.get('ETag');
+            if (etag) {
+                localStorage.setItem('translations_etag', etag);
+                localStorage.setItem('translations_cache', JSON.stringify(__translations));
+                console.debug('Updated translations cache with new ETag');
+            }
         } else {
             console.error('Failed to load translations:', response.status);
             __translations = {};
@@ -160,7 +188,9 @@ console.error = function(...args) {
 let __appContext = null; // memoized context
 let __selectedUserId = null; // admin-selected user ID (takes precedence)
 let __authenticatedUserInfo = null; // Keep authenticated user info constant (name, isAdmin)
+let __staticUrls = null; // Static URLs from /init (stakeholder_url, photo_gallery_url)
 let __currentAccountId = null; // Current account ID for endpoint calls
+let __usersList = null; // Users list for admin dropdown (fetched once in /init)
 const __navStack = []; // Navigation stack: [{page, params}]
 
 /**
@@ -213,37 +243,41 @@ async function getAppContext(selectedUserId = null) {
         return null;
     }
     try {
-        // Build URL with selected_user_id if present
-        let url = '/api/mini-app/user-status';
-        if (__selectedUserId !== null) {
-            url += `?selected_user_id=${__selectedUserId}`;
+        // For admin context switching, call /user-context endpoint
+        // Note: This endpoint requires selected_user_id and is admin-only
+        if (__selectedUserId === null) {
+            console.error('[context] No selected user ID for context switch');
+            return null;
         }
+        
+        const url = `/api/mini-app/user-context?selected_user_id=${__selectedUserId}`;
         
         const resp = await fetchWithTmaAuth(url, initData);
         if (!resp.ok) {
-            console.error('[context] user-status failed', resp.status, resp.statusText);
+            console.error('[context] user-context failed', resp.status, resp.statusText);
             return null;
         }
         const data = await resp.json();
-        const isRepresenting = !!(data.representative_of && data.represented_user_roles);
-        const roles = (isRepresenting ? data.represented_user_roles : data.roles) || [];
-        const sharePercentage = isRepresenting ? data.represented_user_share_percentage : data.share_percentage;
-        const isOwner = sharePercentage !== null;
-        const isAdministrator = (data.roles || []).includes('administrator');
+        
+        // Parse response from UserContextResponse schema
+        const roles = data.roles || [];
+        const isOwner = roles.includes('owner');
+        const isStakeholder = roles.includes('stakeholder');
         
         // Extract and store account_id for endpoint calls
         __currentAccountId = data.account_id || null;
         
         __appContext = {
-            isRepresenting,
-            isAdministrator,
+            isRepresenting: false, // Admin switching, not representing
+            isAdministrator: __authenticatedUserInfo?.is_administrator || false,
             authenticatedUserId: data.user_id,
             roles,
             isOwner,
-            sharePercentage,
-            stakeholderUrl: data.stakeholder_url || null,
-            representativeOf: data.representative_of || null,
-            greetingName: data.authenticated_user_name || data.authenticated_first_name || 'User'
+            isStakeholder,
+            stakeholderUrl: __staticUrls?.stakeholder_url || null,
+            representativeOf: null,
+            greetingName: __authenticatedUserInfo?.name || 'User',
+            photo_gallery_url: __staticUrls?.photo_gallery_url || null
         };
         console.log('[getAppContext] Context retrieved:', __appContext);
         console.log('[getAppContext] Current account ID:', __currentAccountId);
@@ -322,11 +356,12 @@ function renderWelcomeScreen(data) {
     
     // Set user name
     const userNameSpan = content.getElementById('user-name');
-    userNameSpan.textContent = data.userName || data.firstName || 'User';
+    userNameSpan.textContent = data.name || 'User';
     
-    // Handle Invest menu item based on isInvestor flag
+    // Handle Invest menu item based on investor role from user_context
     const investItem = content.getElementById('invest-item');
-    if (!data.isInvestor) {
+    const isInvestor = data.user_context && data.user_context.roles && data.user_context.roles.includes('investor');
+    if (!isInvestor) {
         investItem.classList.add('disabled');
         investItem.disabled = true;
     }
@@ -473,8 +508,6 @@ function renderUserStatuses(roles) {
     });
 }
 
-
-
 /**
  * Format date to locale string (e.g., "19 нояб. 2025")
  */
@@ -501,9 +534,8 @@ function formatAmount(amount) {
  * Load and render transactions from backend
  * @param {string} containerId - ID of container to render transactions into
  * @param {string} scope - Scope for filtering ('personal' or 'all'). Defaults to 'personal'
- * @param {boolean} isRepresenting - Whether the authenticated user is representing someone else
  */
-async function loadTransactions(containerId = 'transactions-list', scope = 'personal', contextOrFlag = false) {
+async function loadTransactions(containerId = 'transactions-list', scope = 'personal') {
     try {
         const initData = getInitData();
         
@@ -517,7 +549,7 @@ async function loadTransactions(containerId = 'transactions-list', scope = 'pers
         }
         
         // Build URL with account_id parameter
-        let url = `/api/mini-app/transactions-list?account_id=${__currentAccountId}&scope=${scope}`;
+        let url = `/api/mini-app/transactions?account_id=${__currentAccountId}&scope=${scope}`;
         
         const response = await fetchWithTmaAuth(url, initData);
 
@@ -575,8 +607,8 @@ function renderTransactionsList(transactions, containerId = 'transactions-list')
         const accountEl = document.createElement('div');
         accountEl.className = 'transaction-item-account';
         
-        // Create clickable account links if account IDs are available
-        if (transaction.from_account_id && transaction.to_account_id) {
+        // Make accounts clickable for administrators only (check authenticated user, not context)
+        if (__authenticatedUserInfo?.is_administrator) {
             const fromLink = document.createElement('a');
             fromLink.href = '#';
             fromLink.className = 'account-link';
@@ -604,7 +636,7 @@ function renderTransactionsList(transactions, containerId = 'transactions-list')
             accountEl.appendChild(arrowSpan);
             accountEl.appendChild(toLink);
         } else {
-            // Fallback to plain text if IDs not available
+            // Plain text for non-administrators
             accountEl.textContent = `${transaction.from_ac_name} → ${transaction.to_ac_name}`;
         }
         
@@ -635,9 +667,8 @@ function renderTransactionsList(transactions, containerId = 'transactions-list')
 /**
  * Load and render bills from backend
  * @param {string} containerId - ID of container to render bills into
- * @param {boolean} isRepresenting - Whether the authenticated user is representing someone else
  */
-async function loadBills(containerId = 'bills-list', contextOrFlag = false) {
+async function loadBills(containerId = 'bills-list') {
     try {
         const initData = getInitData();
         
@@ -790,68 +821,13 @@ function formatBillType(billType) {
 }
 
 /**
- * Load user status from backend and render badges
- */
-async function loadUserStatus() { // legacy path retained; unified context used in initMiniApp
-    try {
-        const initData = getInitData();
-
-        if (!initData) {
-            return;
-        }
-
-        // Fetch user status from backend
-        const response = await fetchWithTmaAuth('/api/mini-app/user-status', initData);
-        
-        if (!response.ok) {
-            return;
-        }
-
-        const data = await response.json();
-
-        // Determine if user is representing someone else
-        const isRepresenting = data.representative_of !== null && data.represented_user_roles !== null;
-
-        // Use represented user's roles if representing, otherwise use authenticated user's roles
-        const rolesToDisplay = isRepresenting ? data.represented_user_roles : data.roles;
-        if (rolesToDisplay && Array.isArray(rolesToDisplay)) {
-            renderUserStatuses(rolesToDisplay);
-        }
-
-        // Use represented user's share percentage if representing, otherwise use authenticated user's
-        const sharePercentageToDisplay = isRepresenting ? data.represented_user_share_percentage : data.share_percentage;
-        const isOwner = sharePercentageToDisplay !== null; // Owner if share_percentage is 1 or 0 (not null)
-        renderStakeholderLink(data.stakeholder_url || null, isOwner, sharePercentageToDisplay);
-
-        // Load properties if user is an owner
-        if (isOwner) {
-            await loadProperties(isRepresenting);
-        } else {
-            // Hide properties section if not an owner
-            const container = document.getElementById('properties-container');
-            if (container) {
-                container.classList.remove('visible');
-            }
-        }
-
-        // Render representative info (always call to ensure proper hiding when no data)
-        renderRepresentativeInfo(data.representative_of || null);
-        
-        // Datasets now loaded via getAppContext() inside initMiniApp.
-
-    } catch (error) {
-        console.error('Error loading user status:', error);
-    }
-}
-
-/**
  * Render stakeholder link for owners only
  * @param {string|null} url - Stakeholder shares URL from backend (null if not owner or not configured)
- * @param {boolean} isOwner - Whether the user is an owner
- * @param {number|null} sharePercentage - Share percentage (1 for signed owner, 0 for unsigned owner, null for non-owner)
+ * @param {boolean} isOwner - Whether the user is an owner (from roles array)
+ * @param {boolean} isStakeholder - Whether the owner has signed the stakeholder contract (from roles array)
  */
-function renderStakeholderLink(url, isOwner = false, sharePercentage = null) {
-    console.log('[renderStakeholderLink] url:', url, 'isOwner:', isOwner, 'sharePercentage:', sharePercentage);
+function renderStakeholderLink(url, isOwner = false, isStakeholder = false) {
+    console.log('[renderStakeholderLink] url:', url, 'isOwner:', isOwner, 'isStakeholder:', isStakeholder);
     const container = document.getElementById('stakeholder-link-container');
     if (!container) {
         console.warn('Stakeholder link container not found');
@@ -874,11 +850,11 @@ function renderStakeholderLink(url, isOwner = false, sharePercentage = null) {
     const statusDiv = document.createElement('div');
     statusDiv.className = 'stakeholder-status';
     
-    if (sharePercentage === 1) {
+    if (isStakeholder) {
         // Signed owner
         statusDiv.classList.add('signed');
         statusDiv.textContent = t('signed');
-    } else if (sharePercentage === 0) {
+    } else {
         // Unsigned owner
         statusDiv.classList.add('not-signed');
         statusDiv.textContent = t('not_signed');
@@ -933,38 +909,12 @@ function renderRepresentativeInfo(representativeOf) {
 }
 
 /**
- * Fetch all users from backend (admin only)
- * @returns {Promise<Array>} Array of user objects
- */
-async function fetchAllUsers() {
-    try {
-        const initData = getInitData();
-        if (!initData) {
-            console.error('No init data for fetching users');
-            return [];
-        }
-        
-        const response = await fetchWithTmaAuth('/api/mini-app/users', initData);
-        
-        if (!response.ok) {
-            console.error('Failed to fetch users:', response.status);
-            return [];
-        }
-        
-        const data = await response.json();
-        return data.users || [];
-    } catch (error) {
-        console.error('Error fetching users:', error);
-        return [];
-    }
-}
-
-/**
  * Render admin user selector dropdown
  * @param {boolean} isAdministrator - Whether authenticated user is admin
- * @param {number} authenticatedUserId - ID of authenticated user (for default selection)
+ * @param {number} currentUserId - ID of current target user (for default selection)
+ * @param {Array|null} users - Array of user objects from /init response (admin only)
  */
-async function renderAdminUserSelector(isAdministrator, authenticatedUserId) {
+function renderAdminUserSelector(isAdministrator, currentUserId, users = null) {
     const container = document.getElementById('representative-info-container');
     if (!container) {
         console.warn('Representative info container not found');
@@ -980,17 +930,17 @@ async function renderAdminUserSelector(isAdministrator, authenticatedUserId) {
         return;
     }
     
-    // Show container
-    container.style.display = 'flex';
+    // Use provided users or fall back to cached list
+    const usersList = users || __usersList;
     
-    // Fetch all users
-    const users = await fetchAllUsers();
-    
-    if (users.length === 0) {
+    if (!usersList || usersList.length === 0) {
         console.warn('No users available for admin selector');
         container.style.display = 'none';
         return;
     }
+    
+    // Show container
+    container.style.display = 'flex';
     
     // Create dropdown wrapper
     const selectorDiv = document.createElement('div');
@@ -1007,14 +957,14 @@ async function renderAdminUserSelector(isAdministrator, authenticatedUserId) {
     select.id = 'admin-user-select';
     
     // Add options
-    users.forEach(user => {
+    usersList.forEach(user => {
         const option = document.createElement('option');
         option.value = user.user_id;
         option.textContent = user.name;
         
-        // Pre-select current user (authenticated or admin-selected)
-        const currentUserId = __selectedUserId !== null ? __selectedUserId : authenticatedUserId;
-        if (user.user_id === currentUserId) {
+        // Pre-select current user (admin-selected or target from /init)
+        const selectedId = __selectedUserId !== null ? __selectedUserId : currentUserId;
+        if (user.user_id === selectedId) {
             option.selected = true;
         }
         
@@ -1049,24 +999,14 @@ async function renderAdminUserSelector(isAdministrator, authenticatedUserId) {
 async function handleMenuAction(action) {
     if (action === 'enjoy') {
         try {
-            const initData = getInitData();
-            if (!initData) {
-                tg.showAlert(t('auth_failed'));
-                return;
-            }
-            
-            // Fetch photo gallery URL from backend config
-            const response = await fetchWithTmaAuth('/api/mini-app/config', initData);
-            const data = await response.json();
-            
-            if (data.photoGalleryUrl) {
-                // Open external browser with photo gallery URL
-                tg.openLink(data.photoGalleryUrl);
+            // Get photo gallery URL from cached app context (available from /init)
+            if (__appContext && __appContext.photo_gallery_url) {
+                tg.openLink(__appContext.photo_gallery_url);
             } else {
                 tg.showAlert(t('gallery_not_configured'));
             }
         } catch (error) {
-            console.error('Error fetching config:', error);
+            console.error('Error opening gallery:', error);
             tg.showAlert(t('gallery_error'));
         }
         return;
@@ -1074,8 +1014,6 @@ async function handleMenuAction(action) {
     
     // Show Telegram alert for other features (placeholder)
     tg.showAlert(t('feature_coming_soon', { action: action }));
-    
-    // In future: POST to /api/mini-app/menu-action
 }
 
 /**
@@ -1088,11 +1026,11 @@ async function reloadAllDatasets(context) {
     
     // Render static data first (no backend calls needed)
     renderUserStatuses(context.roles);
-    renderStakeholderLink(context.stakeholderUrl, context.isOwner, context.sharePercentage);
+    renderStakeholderLink(context.stakeholderUrl, context.isOwner, context.isStakeholder);
     
     // Reload dynamic data from backend
     if (context.isOwner) {
-        await loadProperties(context);
+        await loadProperties();
     } else {
         // Hide properties if not owner
         const propsContainer = document.getElementById('properties-container');
@@ -1102,11 +1040,11 @@ async function reloadAllDatasets(context) {
     }
     
     // Load balance for all users (owners and staff)
-    await loadBalance(context);
+    await loadBalance();
     
     // Load transactions and bills
-    await loadTransactions('transactions-list', 'personal', context);
-    await loadBills('bills-list', context);
+    await loadTransactions('transactions-list', 'personal');
+    await loadBills('bills-list');
 }
 
 // ---------------------------------------------------------------------------
@@ -1218,7 +1156,7 @@ async function loadAccountDetails(accountId) {
         if (!initData) return;
         
         // Load balance
-        const balanceUrl = `/api/mini-app/balance?account_id=${accountId}`;
+        const balanceUrl = `/api/mini-app/account?account_id=${accountId}`;
         const balanceResp = await fetchWithTmaAuth(balanceUrl, initData);
         if (balanceResp.ok) {
             const balanceData = await balanceResp.json();
@@ -1234,7 +1172,7 @@ async function loadAccountDetails(accountId) {
         }
         
         // Load transactions for this account
-        const transUrl = `/api/mini-app/transactions-list?account_id=${accountId}&scope=personal`;
+        const transUrl = `/api/mini-app/transactions?account_id=${accountId}&scope=personal`;
         const transResp = await fetchWithTmaAuth(transUrl, initData);
         if (transResp.ok) {
             const transData = await transResp.json();
@@ -1262,9 +1200,8 @@ async function loadAccountDetails(accountId) {
  */
 /**
  * Load and render balance from backend
- * @param {boolean} isRepresenting - Whether the authenticated user is representing someone else
  */
-async function loadBalance(contextOrFlag = false) {
+async function loadBalance() {
     try {
         const initData = getInitData();
         
@@ -1278,7 +1215,7 @@ async function loadBalance(contextOrFlag = false) {
         }
         
         // Build URL with account_id parameter
-        let url = `/api/mini-app/balance?account_id=${__currentAccountId}`;
+        let url = `/api/mini-app/account?account_id=${__currentAccountId}`;
         
         const response = await fetchWithTmaAuth(url, initData);
 
@@ -1416,13 +1353,22 @@ function renderAccountsPage(accounts, containerId = 'accounts-list') {
     
     sorted.forEach((item, index) => {
         const row = document.createElement('div');
-        row.className = 'account-row clickable';
-        row.style.cursor = 'pointer';
         
-        // Make row clickable to navigate to account details
-        row.onclick = () => {
-            navigateToAccountDetails(item.account_id, item.account_name);
-        };
+        // Determine if account is clickable based on access rules
+        const isAdministrator = __authenticatedUserInfo?.is_administrator || false;
+        const isOwnAccount = item.account_id === __currentAccountId;
+        const isOrganization = item.account_type === 'organization';
+        const isStaff = item.account_type === 'staff';
+        const isClickable = isAdministrator || isOwnAccount || isOrganization || isStaff;
+        
+        row.className = isClickable ? 'account-row clickable' : 'account-row disabled';
+        
+        // Make row clickable to navigate to account details (if allowed)
+        if (isClickable) {
+            row.onclick = () => {
+                navigateToAccountDetails(item.account_id, item.account_name);
+            };
+        }
         
         // Account info (icon + name)
         const infoDiv = document.createElement('div');
@@ -1474,13 +1420,22 @@ async function initMiniApp() {
         }
         
         try {
-            // Call backend API to check registration status
-            const response = await fetchWithTmaAuth('/api/mini-app/init', initData);
+            // Check URL for persisted admin selection
+            const urlSelectedUserId = getSelectedUserIdFromUrl();
+            
+            // Build init URL with selected_user_id if present
+            let initUrl = '/api/mini-app/init';
+            if (urlSelectedUserId !== null) {
+                initUrl += `?selected_user_id=${urlSelectedUserId}`;
+                __selectedUserId = urlSelectedUserId;
+            }
+            
+            // Call backend API - single call returns registration + full user context
+            const response = await fetchWithTmaAuth(initUrl, initData);
             
             if (!response.ok) {
-                const errorText = await response.text();
                 if (response.status === 401) {
-                    renderError(t('auth_restart'));
+                    renderAccessDenied();
                 } else {
                     renderError(t('server_error'));
                 }
@@ -1489,38 +1444,73 @@ async function initMiniApp() {
             
             const data = await response.json();
             
-            // Render appropriate screen based on registration status
-            if (data.isRegistered) {
-                renderWelcomeScreen(data);
-                
-                // Get initial context (will restore selected_user_id from URL if present)
-                const context = await getAppContext();
-                if (context) {
-                    // Store authenticated user info (constant throughout session)
-                    // Note: context.isAdministrator is for the SELECTED user, we need the AUTH user's admin status
-                    // Get authenticated user's roles from the initial context
-                    const initAuthUserResponse = await fetchWithTmaAuth('/api/mini-app/user-status', initData);
-                    const authUserData = await initAuthUserResponse.json();
-                    const isAuthUserAdmin = (authUserData.roles || []).includes('administrator');
-                    
-                    __authenticatedUserInfo = {
-                        isAdministrator: isAuthUserAdmin,
-                        name: context.greetingName
-                    };
-                    
-                    // Render admin dropdown OR representative info (dropdown takes precedence, always shown if auth user is admin)
-                    if (__authenticatedUserInfo.isAdministrator) {
-                        await renderAdminUserSelector(__authenticatedUserInfo.isAdministrator, authUserData.user_id);
-                    } else {
-                        renderRepresentativeInfo(context.representativeOf);
-                    }
-                    
-                    // Load all datasets with context (either selected user or authenticated user)
-                    await reloadAllDatasets(context);
-                }
+            // If /init returns 200 OK, the user is registered and authenticated
+            // (we removed isRegistered field since all responses represent authenticated users)
+            renderWelcomeScreen(data);
+            
+            // Store account ID from user_context for endpoint calls
+            __currentAccountId = data.user_context?.account_id || null;
+            
+            // Store authenticated user info (constant throughout session)
+            __authenticatedUserInfo = {
+                is_administrator: data.is_administrator,
+                name: data.name,
+                representative_id: data.representative_id,
+                user_id: data.user_context?.user_id || null
+            };
+            
+            // Store users list for admin dropdown (admin only)
+            __usersList = data.users || null;
+            
+            // Build context from /init response using user_context object
+            const userCtx = data.user_context || {};
+            
+            // Check if representing: user has representative_id AND is not admin
+            const isRepresenting = !!data.representative_id && !data.is_administrator;
+            const roles = userCtx.roles || [];
+            const isOwner = roles.includes('owner');
+            const isStakeholder = roles.includes('stakeholder');
+            
+            const context = {
+                isRepresenting,
+                is_administrator: data.is_administrator,
+                authenticatedUserId: userCtx.user_id,
+                roles,
+                isOwner,
+                isStakeholder,
+                stakeholderUrl: data.stakeholder_url || null,
+                representativeOf: null,
+                greetingName: data.name,
+                photo_gallery_url: data.photo_gallery_url || null
+            };
+            
+            // Store static URLs (constant throughout session)
+            __staticUrls = {
+                stakeholder_url: data.stakeholder_url || null,
+                photo_gallery_url: data.photo_gallery_url || null
+            };
+            
+            // Cache the context
+            __appContext = context;
+            
+            // Render admin dropdown OR representative info based on authenticated user's status
+            if (__authenticatedUserInfo.is_administrator) {
+                // Admin: show user selector dropdown
+                renderAdminUserSelector(true, userCtx.user_id, __usersList);
+            } else if (isRepresenting) {
+                // Representative: show "Represents [TargetUserName]" block
+                renderRepresentativeInfo({ 
+                    user_id: userCtx.user_id, 
+                    name: userCtx.name 
+                });
             } else {
-                renderAccessDenied(data);
+                // Regular user: hide representative container
+                const container = document.getElementById('representative-info-container');
+                if (container) container.style.display = 'none';
             }
+            
+            // Load all datasets with context
+            await reloadAllDatasets(context);
             
         } catch (fetchError) {
             throw fetchError; // Re-throw to outer catch
@@ -1677,7 +1667,7 @@ function renderProperties(properties) {
 /**
  * Load properties from backend and render list
  */
-async function loadProperties(contextOrFlag = false) {
+async function loadProperties() {
     try {
         const initData = getInitData();
 
@@ -1686,12 +1676,10 @@ async function loadProperties(contextOrFlag = false) {
             return;
         }
 
-        const isRepresenting = (typeof contextOrFlag === 'object') ? !!contextOrFlag.isRepresenting : !!contextOrFlag;
-        
         // Build URL with parameters
-        let url = `/api/mini-app/properties?representing=${isRepresenting}`;
+        let url = `/api/mini-app/properties`;
         if (__selectedUserId !== null) {
-            url += `&selected_user_id=${__selectedUserId}`;
+            url += `?selected_user_id=${__selectedUserId}`;
         }
         
         const response = await fetchWithTmaAuth(url, initData);

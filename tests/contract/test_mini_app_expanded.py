@@ -189,7 +189,7 @@ class TestResolveTargetUser:
         mock_user_service = AsyncMock()
         mock_user_service.get_by_telegram_id = AsyncMock(return_value=mock_user)
 
-        with patch("src.api.mini_app.UserService", return_value=mock_user_service):
+        with patch("src.services.auth_service.UserService", return_value=mock_user_service):
             target_user, switched = await _resolve_target_user(
                 session=mock_session,
                 telegram_id=mock_user.telegram_id,
@@ -204,7 +204,7 @@ class TestResolveTargetUser:
         mock_user_service = AsyncMock()
         mock_user_service.get_by_telegram_id = AsyncMock(return_value=None)
 
-        with patch("src.api.mini_app.UserService", return_value=mock_user_service):
+        with patch("src.services.auth_service.UserService", return_value=mock_user_service):
             with pytest.raises(HTTPException):
                 await _resolve_target_user(
                     session=mock_session,
@@ -218,7 +218,7 @@ class TestResolveTargetUser:
         mock_user_service = AsyncMock()
         mock_user_service.get_by_telegram_id = AsyncMock(return_value=mock_user)
 
-        with patch("src.api.mini_app.UserService", return_value=mock_user_service):
+        with patch("src.services.auth_service.UserService", return_value=mock_user_service):
             with pytest.raises(HTTPException):
                 await _resolve_target_user(
                     session=mock_session,
@@ -233,7 +233,7 @@ class TestResolveTargetUser:
 
         mock_session.get = AsyncMock(return_value=mock_user)
 
-        with patch("src.api.mini_app.UserService", return_value=mock_admin_user_service):
+        with patch("src.services.auth_service.UserService", return_value=mock_admin_user_service):
             target_user, switched = await _resolve_target_user(
                 session=mock_session,
                 telegram_id=mock_admin_user.telegram_id,
@@ -251,7 +251,7 @@ class TestResolveTargetUser:
 
         mock_session.get = AsyncMock(return_value=None)
 
-        with patch("src.api.mini_app.UserService", return_value=mock_admin_user_service):
+        with patch("src.services.auth_service.UserService", return_value=mock_admin_user_service):
             with pytest.raises(HTTPException):
                 await _resolve_target_user(
                     session=mock_session,
@@ -269,7 +269,7 @@ class TestResolveTargetUser:
         mock_other_user.id = 99
         mock_session.get = AsyncMock(return_value=mock_other_user)
 
-        with patch("src.api.mini_app.UserService", return_value=mock_user_service):
+        with patch("src.services.auth_service.UserService", return_value=mock_user_service):
             target_user, switched = await _resolve_target_user(
                 session=mock_session,
                 telegram_id=mock_user.telegram_id,
@@ -279,24 +279,6 @@ class TestResolveTargetUser:
         # Regular user selection should be ignored, target stays same
         assert target_user == mock_user
         assert switched is False
-
-
-class TestMiniAppConfigEndpoint:
-    """Tests for /api/mini-app/config endpoint."""
-
-    def test_config_endpoint_exists(self, client):
-        """Test config endpoint is available."""
-        response = client.post("/api/mini-app/config", json={})
-
-        # Should not be 404
-        assert response.status_code != 404
-
-    def test_config_endpoint_returns_json(self, client):
-        """Test config endpoint returns JSON response."""
-        response = client.post("/api/mini-app/config", json={})
-
-        # Should return JSON (no exception on json())
-        assert response.headers.get("content-type") is not None
 
 
 class TestMiniAppInitEndpoint:
@@ -321,45 +303,6 @@ class TestMiniAppInitEndpoint:
         assert response.status_code != 404
 
 
-class TestMiniAppUserStatusEndpoint:
-    """Tests for /api/mini-app/user-status endpoint."""
-
-    def test_user_status_endpoint_exists(self, client):
-        """Test user-status endpoint is available."""
-        response = client.post("/api/mini-app/user-status", json={})
-
-        # Should not be 404
-        assert response.status_code != 404
-
-    def test_user_status_endpoint_returns_structured_response(self, client):
-        """Test user-status endpoint returns structured response."""
-        response = client.post("/api/mini-app/user-status", json={})
-
-        # Should have content type
-        assert response.headers.get("content-type") is not None
-
-
-class TestMiniAppUsersEndpoint:
-    """Tests for /api/mini-app/users endpoint."""
-
-    def test_users_endpoint_exists(self, client):
-        """Test users endpoint is available."""
-        response = client.post("/api/mini-app/users", json={})
-
-        # Should not be 404
-        assert response.status_code != 404
-
-    def test_users_endpoint_accepts_post(self, client):
-        """Test users endpoint accepts POST requests."""
-        response = client.post(
-            "/api/mini-app/users",
-            json={"initDataRaw": "test_data"},
-        )
-
-        # Should not be 404
-        assert response.status_code != 404
-
-
 class TestMiniAppPropertiesEndpoint:
     """Tests for /api/mini-app/properties endpoint."""
 
@@ -372,19 +315,19 @@ class TestMiniAppPropertiesEndpoint:
 
 
 class TestMiniAppTransactionsEndpoint:
-    """Tests for /api/mini-app/transactions-list endpoint."""
+    """Tests for /api/mini-app/transactions endpoint."""
 
     def test_transactions_endpoint_exists(self, client):
-        """Test transactions-list endpoint is available."""
-        response = client.post("/api/mini-app/transactions-list", json={})
+        """Test transactions endpoint is available."""
+        response = client.post("/api/mini-app/transactions", json={})
 
         # Should not be 404
         assert response.status_code != 404
 
     def test_transactions_endpoint_accepts_pagination(self, client):
-        """Test transactions-list endpoint accepts pagination params."""
+        """Test transactions endpoint accepts pagination params."""
         response = client.post(
-            "/api/mini-app/transactions-list",
+            "/api/mini-app/transactions",
             json={"limit": 10, "offset": 0},
         )
 
@@ -414,18 +357,18 @@ class TestMiniAppBillsEndpoint:
 
 
 class TestMiniAppBalanceEndpoint:
-    """Tests for /api/mini-app/balance endpoint."""
+    """Tests for /api/mini-app/account endpoint."""
 
     def test_balance_endpoint_exists(self, client):
-        """Test balance endpoint is available."""
-        response = client.post("/api/mini-app/balance", json={})
+        """Test account endpoint is available."""
+        response = client.post("/api/mini-app/account", json={})
 
         # Should not be 404
         assert response.status_code != 404
 
     def test_balance_endpoint_returns_balance_response(self, client):
-        """Test balance endpoint returns balance response."""
-        response = client.post("/api/mini-app/balance", json={})
+        """Test account endpoint returns balance response."""
+        response = client.post("/api/mini-app/account", json={})
 
         # Should have content type
         assert response.headers.get("content-type") is not None
@@ -447,45 +390,3 @@ class TestMiniAppBalancesEndpoint:
 
         # Should have content type
         assert response.headers.get("content-type") is not None
-
-
-class TestMiniAppVerifyRegistrationEndpoint:
-    """Tests for /api/mini-app/verify-registration endpoint."""
-
-    def test_verify_registration_endpoint_exists(self, client):
-        """Test verify-registration endpoint is available."""
-        response = client.post("/api/mini-app/verify-registration", json={})
-
-        # Should not be 404
-        assert response.status_code != 404
-
-    def test_verify_registration_endpoint_handles_signature(self, client):
-        """Test verify-registration endpoint handles signature verification."""
-        response = client.post(
-            "/api/mini-app/verify-registration",
-            json={"initDataRaw": "data", "signature": "sig"},
-        )
-
-        # Should not be 404
-        assert response.status_code != 404
-
-
-class TestMiniAppMenuActionEndpoint:
-    """Tests for /api/mini-app/menu-action endpoint."""
-
-    def test_menu_action_endpoint_exists(self, client):
-        """Test menu-action endpoint is available."""
-        response = client.post("/api/mini-app/menu-action", json={})
-
-        # Should not be 404
-        assert response.status_code != 404
-
-    def test_menu_action_endpoint_handles_actions(self, client):
-        """Test menu-action endpoint handles menu actions."""
-        response = client.post(
-            "/api/mini-app/menu-action",
-            json={"action": "open_app"},
-        )
-
-        # Should not be 404
-        assert response.status_code != 404

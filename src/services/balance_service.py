@@ -93,9 +93,7 @@ class BalanceCalculationService:
         result = await self.calculate_account_balance_with_display(account_id)
         return result.balance
 
-    async def calculate_account_balance_with_display(
-        self, account_id: int
-    ) -> BalanceResult:
+    async def calculate_account_balance_with_display(self, account_id: int) -> BalanceResult:
         """Calculate balance for an account with display information.
 
         Unified formula for all account types:

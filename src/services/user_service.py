@@ -67,7 +67,7 @@ class UserService:
         except Exception:
             return None
 
-    async def get_by_telegram_id(self, telegram_id: str) -> Optional[User]:
+    async def get_by_telegram_id(self, telegram_id: int) -> Optional[User]:
         """
         Get user by Telegram ID.
 
@@ -80,7 +80,7 @@ class UserService:
         result = await self.session.execute(select(User).where(User.telegram_id == telegram_id))
         return result.scalar_one_or_none()
 
-    async def can_access_mini_app(self, telegram_id: str) -> bool:
+    async def can_access_mini_app(self, telegram_id: int) -> bool:
         """
         Check if user can access Mini App (PRIMARY access gate).
 
@@ -93,7 +93,7 @@ class UserService:
         user = await self.get_by_telegram_id(telegram_id)
         return user is not None and user.is_active
 
-    async def can_access_invest(self, telegram_id: str) -> bool:
+    async def can_access_invest(self, telegram_id: int) -> bool:
         """
         Check if user can access Invest features.
 
@@ -108,7 +108,7 @@ class UserService:
         user = await self.get_by_telegram_id(telegram_id)
         return user is not None and user.is_active and user.is_investor
 
-    async def is_administrator(self, telegram_id: str) -> bool:
+    async def is_administrator(self, telegram_id: int) -> bool:
         """
         Check if user is an administrator.
 
@@ -164,7 +164,7 @@ class UserService:
         await self.session.refresh(user)
         return user
 
-    async def activate_user(self, telegram_id: str) -> Optional[User]:
+    async def activate_user(self, telegram_id: int) -> Optional[User]:
         """
         Activate user (set is_active=True).
 
@@ -181,7 +181,7 @@ class UserService:
             await self.session.refresh(user)
         return user
 
-    async def deactivate_user(self, telegram_id: str) -> Optional[User]:
+    async def deactivate_user(self, telegram_id: int) -> Optional[User]:
         """
         Deactivate user (set is_active=False) - soft delete.
 
@@ -229,6 +229,8 @@ class UserStatusService:
             roles.append("investor")
         if user.is_owner:
             roles.append("owner")
+        if user.is_stakeholder:
+            roles.append("stakeholder")
         if user.is_staff:
             roles.append("staff")
         if user.is_tenant:
@@ -240,30 +242,6 @@ class UserStatusService:
 
         # Sort alphabetically for consistency
         return sorted(roles)
-
-    @staticmethod
-    def get_share_percentage(user: User) -> Optional[int]:
-        """
-        Calculate stakeholder contract status indicator (CALCULATED FIELD - not stored).
-
-        Derived from existing User model flags: is_owner and is_stakeholder.
-
-        Returns:
-        - 1 if user is an owner with signed stakeholder contract (is_owner=True AND is_stakeholder=True)
-        - 0 if user is an owner without signed stakeholder contract (is_owner=True AND is_stakeholder=False)
-        - None if user is not an owner (is_owner=False)
-
-        NOTE: This field is computed in the API response layer only; no database column required.
-
-        Args:
-            user: User object
-
-        Returns:
-            1 (signed), 0 (unsigned), or None (not an owner)
-        """
-        if not user.is_owner:
-            return None
-        return 1 if user.is_stakeholder else 0
 
     async def get_represented_user(self, user_id: int) -> Optional[User]:
         """

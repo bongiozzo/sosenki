@@ -171,7 +171,7 @@ class TestTransactionsEndpoint:
             mock_verify.return_value = {"user": f'{{"id": {telegram_id}}}'}
 
             response = client.post(
-                f"/api/mini-app/transactions-list?account_id={account_id}",
+                f"/api/mini-app/transactions?account_id={account_id}",
                 headers={"Authorization": f"tma {telegram_id}"},
                 json={},
             )
@@ -190,7 +190,7 @@ class TestTransactionsEndpoint:
             mock_verify.return_value = {"user": f'{{"id": {telegram_id}}}'}
 
             response = client.post(
-                f"/api/mini-app/transactions-list?account_id={account_id}",
+                f"/api/mini-app/transactions?account_id={account_id}",
                 headers={"Authorization": f"tma {telegram_id}"},
                 json={},
             )
@@ -258,7 +258,7 @@ class TestBalanceEndpoint:
             mock_verify.return_value = {"user": f'{{"id": {telegram_id}}}'}
 
             response = client.post(
-                f"/api/mini-app/balance?account_id={account_id}",
+                f"/api/mini-app/account?account_id={account_id}",
                 headers={"Authorization": f"tma {telegram_id}"},
                 json={},
             )
@@ -278,7 +278,7 @@ class TestBalanceEndpoint:
             mock_verify.return_value = {"user": f'{{"id": {telegram_id}}}'}
 
             response = client.post(
-                f"/api/mini-app/balance?account_id={account_id}",
+                f"/api/mini-app/account?account_id={account_id}",
                 headers={"Authorization": f"tma {telegram_id}"},
                 json={},
             )
