@@ -21,7 +21,7 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 # Load translations once at import time
-_TRANSLATIONS_PATH = Path(__file__).parent / "locales" / "ru.json"
+_TRANSLATIONS_PATH = Path(__file__).parent.parent / "static" / "mini_app" / "translations.json"
 _TRANSLATIONS: dict[str, Any] = {}
 
 try:

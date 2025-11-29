@@ -13,41 +13,18 @@ async function loadTranslations() {
     if (__translations) return __translations;
     
     try {
-        // Build request headers for cache validation
-        const headers = {};
-        const cachedETag = localStorage.getItem('translations_etag');
-        if (cachedETag) {
-            headers['If-None-Match'] = cachedETag;
-        }
+        // Load translations from static JSON file (no backend endpoint needed)
+        const response = await fetch('/mini-app/translations.json');
         
-        const response = await fetch('/api/mini-app/translations', {
-            headers: headers,
-            credentials: 'include'
-        });
-        
-        // 304 Not Modified - use cached translations
-        if (response.status === 304) {
-            const cached = localStorage.getItem('translations_cache');
-            if (cached) {
-                __translations = JSON.parse(cached);
-                console.debug('Loaded translations from client cache (304 Not Modified)');
-                return __translations;
-            }
-        }
-        
-        // 200 OK - update cache with new data and ETag
-        if (response.ok) {
-            __translations = await response.json();
-            const etag = response.headers.get('ETag');
-            if (etag) {
-                localStorage.setItem('translations_etag', etag);
-                localStorage.setItem('translations_cache', JSON.stringify(__translations));
-                console.debug('Updated translations cache with new ETag');
-            }
-        } else {
+        if (!response.ok) {
             console.error('Failed to load translations:', response.status);
             __translations = {};
+            return __translations;
         }
+        
+        __translations = await response.json();
+        console.debug('Loaded translations from static file');
+        
     } catch (error) {
         console.error('Error loading translations:', error);
         __translations = {};
@@ -68,9 +45,10 @@ function t(key, params = {}) {
         return key;
     }
     
-    let value = __translations[key];
+    // Automatically prepend mini_app. namespace for mini app translations
+    let value = __translations?.mini_app?.[key];
     if (value === undefined) {
-        console.warn('Translation key not found:', key);
+        console.warn('Translation key not found: mini_app.' + key);
         return key;
     }
     
@@ -1676,8 +1654,8 @@ async function loadProperties() {
             return;
         }
 
-        // Build URL with parameters
-        let url = `/api/mini-app/properties`;
+        // Build URL with selected_user_id if admin has selected a user, otherwise no parameters needed
+        let url = '/api/mini-app/properties';
         if (__selectedUserId !== null) {
             url += `?selected_user_id=${__selectedUserId}`;
         }

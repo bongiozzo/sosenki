@@ -2,11 +2,11 @@
 """
 Translation completeness validation script for SOSenki.
 
-Validates that ru.json contains all required translation keys used in:
+Validates that translations.json contains all required translation keys used in:
 1. Bot handlers - t("bot.key") pattern in Python files
 2. Mini App - t("key") pattern in JavaScript files
 
-Single source of truth: src/services/locales/ru.json
+Single source of truth: src/static/mini_app/translations.json
 
 Provides warnings for:
 - Missing keys in ru.json
@@ -91,7 +91,7 @@ def check_translations():  # noqa: C901
     project_root = Path(__file__).parent.parent
 
     # Single source of truth
-    ru_json_path = project_root / "src" / "services" / "locales" / "ru.json"
+    ru_json_path = project_root / "src" / "static" / "mini_app" / "translations.json"
 
     # Python files that use t() for bot translations
     python_files = [

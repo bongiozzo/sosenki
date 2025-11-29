@@ -1,7 +1,5 @@
 """Mini App API endpoints."""
 
-import hashlib
-import json
 import logging
 import os
 from typing import Any
@@ -157,48 +155,6 @@ class PropertiesResponse(BaseModel):
     total_count: int
 
     model_config = ConfigDict(from_attributes=True)
-
-
-@router.get("/translations")
-async def get_translations(if_none_match: str | None = Header(None)) -> Response:
-    """
-    Get all translations for the Mini App.
-
-    Returns the full translations dictionary (mini_app section only).
-    Public endpoint - no authentication required.
-    Response is cacheable with 1-hour expiration and ETag validation.
-
-    Supports HTTP 304 Not Modified when If-None-Match header matches current ETag.
-
-    Args:
-        if_none_match: ETag value from client for cache validation (If-None-Match header)
-
-    Returns:
-        Response with translations dictionary or 304 Not Modified.
-    """
-    from src.services.localizer import get_translations as fetch_translations
-
-    translations = fetch_translations()
-    data = translations.get("mini_app", {})
-
-    # Compute ETag from translations JSON
-    data_json = json.dumps(data, sort_keys=True, separators=(",", ":"))
-    etag = f'"{hashlib.md5(data_json.encode()).hexdigest()}"'
-
-    # Return 304 Not Modified if client has current version
-    if if_none_match and if_none_match == etag:
-        return Response(status_code=304, headers={"ETag": etag})
-
-    # Return 200 OK with full data and cache headers
-    return Response(
-        content=json.dumps(data),
-        status_code=200,
-        headers={
-            "Cache-Control": "public, max-age=3600",
-            "ETag": etag,
-            "Content-Type": "application/json",
-        },
-    )
 
 
 async def _build_user_context_data(
