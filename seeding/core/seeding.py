@@ -391,6 +391,11 @@ class SeededService:
                         period_info.get("name"),
                         period_info.get("start_date"),
                         period_info.get("end_date"),
+                        electricity_start=period_info.get("electricity_start"),
+                        electricity_end=period_info.get("electricity_end"),
+                        electricity_multiplier=period_info.get("electricity_multiplier"),
+                        electricity_rate=period_info.get("electricity_rate"),
+                        electricity_losses=period_info.get("electricity_losses"),
                     )
 
                 self.logger.info(f"✓ Pre-created {service_periods_count} service periods")

@@ -15,6 +15,7 @@ from seeding.core.parsers import (
     parse_boolean,
     parse_russian_currency,
     parse_russian_decimal,
+    parse_russian_percentage,
 )
 from src.models.property import Property
 from src.models.user import User
@@ -61,7 +62,7 @@ def parse_property_row(row_dict: Dict[str, str], owner: User) -> List[Dict]:
         # Parse numeric fields
         try:
             share_weight_column = main_field_mappings.get("share_weight_column")
-            share_weight = parse_russian_decimal(row_dict.get(share_weight_column, ""))
+            share_weight = parse_russian_percentage(row_dict.get(share_weight_column, ""))
         except ValueError as e:
             logger.warning(f"Invalid share_weight format: {e}, skipping row")
             return []

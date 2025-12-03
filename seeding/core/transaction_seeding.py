@@ -18,7 +18,15 @@ from src.models.user import User
 
 
 def get_or_create_service_period(
-    session: Session, period_name: str, start_date_str: str, end_date_str: str
+    session: Session,
+    period_name: str,
+    start_date_str: str,
+    end_date_str: str,
+    electricity_start: str | None = None,
+    electricity_end: str | None = None,
+    electricity_multiplier: str | None = None,
+    electricity_rate: str | None = None,
+    electricity_losses: str | None = None,
 ) -> ServicePeriod:
     """Get existing service period or create new one.
 
@@ -27,6 +35,11 @@ def get_or_create_service_period(
         period_name: Period name (e.g., "2024-2025")
         start_date_str: Start date as DD.MM.YYYY string
         end_date_str: End date as DD.MM.YYYY string
+        electricity_start: Starting meter reading (optional)
+        electricity_end: Ending meter reading (optional)
+        electricity_multiplier: Consumption multiplier (optional)
+        electricity_rate: Rate per kWh (optional)
+        electricity_losses: Transmission losses ratio (optional)
 
     Returns:
         ServicePeriod instance
@@ -34,15 +47,13 @@ def get_or_create_service_period(
     Raises:
         DataValidationError: On creation failure
     """
+    from decimal import Decimal
+
     logger = logging.getLogger("sosenki.seeding.transactions")
 
     try:
         # Query for existing period
         period = session.query(ServicePeriod).filter(ServicePeriod.name == period_name).first()
-
-        if period:
-            logger.debug(f"Found existing service period: {period_name}")
-            return period
 
         # Parse dates
         from datetime import datetime as dt
@@ -50,11 +61,38 @@ def get_or_create_service_period(
         start_date = dt.strptime(start_date_str, "%d.%m.%Y").date()
         end_date = dt.strptime(end_date_str, "%d.%m.%Y").date()
 
+        # Parse electricity fields (convert to Decimal if provided)
+        elec_start = Decimal(str(electricity_start)) if electricity_start is not None else None
+        elec_end = Decimal(str(electricity_end)) if electricity_end is not None else None
+        elec_multiplier = Decimal(str(electricity_multiplier)) if electricity_multiplier is not None else None
+        elec_rate = Decimal(str(electricity_rate)) if electricity_rate is not None else None
+        elec_losses = Decimal(str(electricity_losses)) if electricity_losses is not None else None
+
+        if period:
+            logger.debug(f"Found existing service period: {period_name}")
+            # Update electricity fields if provided
+            if electricity_start is not None:
+                period.electricity_start = elec_start
+            if electricity_end is not None:
+                period.electricity_end = elec_end
+            if electricity_multiplier is not None:
+                period.electricity_multiplier = elec_multiplier
+            if electricity_rate is not None:
+                period.electricity_rate = elec_rate
+            if electricity_losses is not None:
+                period.electricity_losses = elec_losses
+            return period
+
         # Create new period
         period = ServicePeriod(
             name=period_name,
             start_date=start_date,
             end_date=end_date,
+            electricity_start=elec_start,
+            electricity_end=elec_end,
+            electricity_multiplier=elec_multiplier,
+            electricity_rate=elec_rate,
+            electricity_losses=elec_losses,
         )
         session.add(period)
         session.flush()

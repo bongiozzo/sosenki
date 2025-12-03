@@ -1,9 +1,10 @@
 """Service period ORM model for grouping transactions into billing cycles."""
 
 from datetime import date
+from decimal import Decimal
 from enum import Enum
 
-from sqlalchemy import Date
+from sqlalchemy import Date, Numeric
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -47,6 +48,32 @@ class ServicePeriod(Base, BaseModel):
         nullable=False,
         default=PeriodStatus.OPEN,
         comment="Period status (open for transactions, closed for calculation)",
+    )
+    # Electricity configuration (optional, for billing calculations)
+    electricity_start: Mapped[Decimal | None] = mapped_column(
+        Numeric(10, 2),
+        nullable=True,
+        comment="Starting electricity meter reading (kWh)",
+    )
+    electricity_end: Mapped[Decimal | None] = mapped_column(
+        Numeric(10, 2),
+        nullable=True,
+        comment="Ending electricity meter reading (kWh)",
+    )
+    electricity_multiplier: Mapped[Decimal | None] = mapped_column(
+        Numeric(10, 2),
+        nullable=True,
+        comment="Electricity consumption multiplier for calculation",
+    )
+    electricity_rate: Mapped[Decimal | None] = mapped_column(
+        Numeric(10, 2),
+        nullable=True,
+        comment="Electricity rate per kWh",
+    )
+    electricity_losses: Mapped[Decimal | None] = mapped_column(
+        Numeric(10, 2),
+        nullable=True,
+        comment="Electricity transmission losses ratio",
     )
     # Relationships
     transactions: Mapped[list["Transaction"]] = relationship(  # noqa: F821

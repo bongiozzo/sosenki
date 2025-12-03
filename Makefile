@@ -1,4 +1,5 @@
-# TODO feat: Management from bot - MCP server for query and Endpoints for actions, 
+# TODO feat: Management from bot - MCP server for query and Endpoints for actions
+# TODO New Electricity Service Period 1 Sept 2025 - 31 Dec 2025
 # TODO feat: Production from branch main and Dev from dev
 # TODO Add Open Mini app button to bot /setmenubutton
 # TODO refactor: Make git-filter-repo to clean history

@@ -251,6 +251,36 @@ def upgrade() -> None:
             server_default="open",
         ),
         sa.Column(
+            "electricity_start",
+            sa.Numeric(precision=10, scale=2),
+            nullable=True,
+            comment="Starting electricity meter reading (kWh)",
+        ),
+        sa.Column(
+            "electricity_end",
+            sa.Numeric(precision=10, scale=2),
+            nullable=True,
+            comment="Ending electricity meter reading (kWh)",
+        ),
+        sa.Column(
+            "electricity_multiplier",
+            sa.Numeric(precision=10, scale=2),
+            nullable=True,
+            comment="Electricity consumption multiplier for calculation",
+        ),
+        sa.Column(
+            "electricity_rate",
+            sa.Numeric(precision=10, scale=2),
+            nullable=True,
+            comment="Electricity rate per kWh",
+        ),
+        sa.Column(
+            "electricity_losses",
+            sa.Numeric(precision=10, scale=2),
+            nullable=True,
+            comment="Electricity transmission losses ratio",
+        ),
+        sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
             nullable=False,
@@ -264,9 +294,7 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id"),
         sa.Index("ix_service_periods_name", "name", unique=True),
-    )
-
-    # Create budget_items table
+    )    # Create budget_items table
     op.create_table(
         "budget_items",
         sa.Column("id", sa.Integer(), nullable=False),
