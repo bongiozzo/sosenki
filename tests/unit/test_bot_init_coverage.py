@@ -74,12 +74,13 @@ class TestCreateBotApp:
                 with patch("src.bot.CommandHandler"):
                     with patch("src.bot.MessageHandler") as mock_msg_handler_class:
                         with patch("src.bot.CallbackQueryHandler"):
-                            with patch("src.bot.handle_admin_response"):
-                                with patch("src.bot.handle_admin_callback"):
-                                    await create_bot_app()
+                            with patch("src.bot.ConversationHandler"):
+                                with patch("src.bot.handle_admin_response"):
+                                    with patch("src.bot.handle_admin_callback"):
+                                        await create_bot_app()
 
-                                    # Verify MessageHandler was instantiated
-                                    mock_msg_handler_class.assert_called_once()
+                                        # Verify MessageHandler was instantiated at least once
+                                        assert mock_msg_handler_class.call_count >= 1
 
     @pytest.mark.asyncio
     async def test_create_bot_app_registers_callback_handler(self):
@@ -98,11 +99,13 @@ class TestCreateBotApp:
                 with patch("src.bot.CommandHandler"):
                     with patch("src.bot.MessageHandler"):
                         with patch("src.bot.CallbackQueryHandler") as mock_callback_class:
-                            with patch("src.bot.handle_admin_callback"):
-                                await create_bot_app()
+                            with patch("src.bot.ConversationHandler"):
+                                with patch("src.bot.handle_admin_callback"):
+                                    await create_bot_app()
 
-                                # Verify CallbackQueryHandler was instantiated
-                                mock_callback_class.assert_called_once()
+                                    # Verify CallbackQueryHandler was instantiated
+                                    # Note: Should be called at least once for admin callback
+                                    assert mock_callback_class.call_count >= 1
 
     @pytest.mark.asyncio
     async def test_create_bot_app_returns_application_instance(self):

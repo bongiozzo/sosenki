@@ -17,7 +17,7 @@ class RequestService:
         self.db = db_session
 
     async def create_request(
-        self, user_telegram_id: str, request_message: str, user_telegram_username: str | None = None
+        self, user_telegram_id: int, request_message: str, user_telegram_username: str | None = None
     ) -> AccessRequest | None:
         """Create a new request from a client.
 
@@ -60,7 +60,7 @@ class RequestService:
 
         return new_request
 
-    async def get_pending_request(self, user_telegram_id: str) -> AccessRequest | None:
+    async def get_pending_request(self, user_telegram_id: int) -> AccessRequest | None:
         """Get pending request for a client.
 
         Args:
@@ -94,7 +94,7 @@ class RequestService:
         self,
         request_id: int,
         new_status: RequestStatus,
-        admin_telegram_id: str,
+        admin_telegram_id: int,
         admin_response: str | None = None,
     ) -> bool:
         """Update request status after admin action.

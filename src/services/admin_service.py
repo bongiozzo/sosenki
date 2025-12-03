@@ -20,7 +20,7 @@ class AdminService:
     async def approve_request(
         self,
         request_id: int,
-        admin_telegram_id: str,
+        admin_telegram_id: int,
         selected_user_id: int | None = None,
     ) -> AccessRequest | None:
         """Approve a client request.
@@ -109,7 +109,7 @@ class AdminService:
     async def reject_request(
         self,
         request_id: int,
-        admin_telegram_id: str,
+        admin_telegram_id: int,
     ) -> AccessRequest | None:
         """Reject a client request.
 

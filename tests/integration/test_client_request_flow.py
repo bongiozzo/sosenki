@@ -157,7 +157,7 @@ class TestAccessRequestFlow:
         try:
             stored_requests = (
                 db.query(AccessRequest)
-                .filter(AccessRequest.user_telegram_id == str(client_id))
+                .filter(AccessRequest.user_telegram_id == client_id)
                 .all()
             )
 
@@ -165,7 +165,7 @@ class TestAccessRequestFlow:
             stored_request = stored_requests[0]
 
             # Verify request details
-            assert stored_request.user_telegram_id == str(client_id)
+            assert stored_request.user_telegram_id == client_id
             assert stored_request.request_message == request_message
             assert stored_request.status == RequestStatus.PENDING
             assert stored_request.created_at is not None

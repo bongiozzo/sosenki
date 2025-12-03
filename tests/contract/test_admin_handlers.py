@@ -167,7 +167,7 @@ class TestAdminHandlers:
             updated_request = db.query(AccessRequest).filter(AccessRequest.id == request.id).first()
             assert updated_request is not None
             assert updated_request.status == RequestStatus.APPROVED
-            assert updated_request.admin_telegram_id == str(admin_id)
+            assert updated_request.admin_telegram_id == admin_id
         finally:
             db.close()
 
@@ -252,7 +252,7 @@ class TestAdminHandlers:
             updated_request = db.query(AccessRequest).filter(AccessRequest.id == request.id).first()
             assert updated_request is not None
             assert updated_request.status == RequestStatus.REJECTED
-            assert updated_request.admin_telegram_id == str(admin_id)
+            assert updated_request.admin_telegram_id == admin_id
         finally:
             db.close()
 

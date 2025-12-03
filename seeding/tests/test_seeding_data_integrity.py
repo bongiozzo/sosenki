@@ -42,9 +42,9 @@ EXPECTED_DATA_COUNTS = {
     "properties": 72,
     "accounts": 28,
     "transactions": 72,
-    "service_periods": 3,
-    "electricity_readings": 77,
-    "bills": 142,
+    "service_periods": 4,
+    "electricity_readings": 103,
+    "bills": 168,
     "access_requests": 0,
     "budget_items": 3,
 }

@@ -76,7 +76,7 @@ make coverage                                 # Full coverage report (uses uv ru
 
 For tasks involving external libraries (Google Sheets, Telegram API, FastAPI, SQLAlchemy):
 - **Always query Context7 documentation first** for non-trivial implementations
-- Check `/mongodb/docs`, `/google-api-python-client`, `/fastapi`, `/sqlalchemy` patterns
+- Check `/google-api-python-client`, `/fastapi`, `/sqlalchemy` patterns
 - Validate API signatures against Context7 before coding
 - This prevents outdated code patterns and API mismatches
 

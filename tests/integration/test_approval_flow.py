@@ -197,7 +197,7 @@ class TestApprovalFlow:
             updated_request = db.query(AccessRequest).filter(AccessRequest.id == request_id).first()
             assert updated_request is not None
             assert updated_request.status == RequestStatus.APPROVED
-            assert updated_request.admin_telegram_id == str(admin_id)
+            assert updated_request.admin_telegram_id == admin_id
             assert updated_request.admin_response == "approved"
             assert updated_request.updated_at is not None
         finally:

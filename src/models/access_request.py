@@ -2,7 +2,7 @@
 
 from enum import Enum as PyEnum
 
-from sqlalchemy import Enum, ForeignKey, Index, String, Text
+from sqlalchemy import Enum, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.models import Base, BaseModel
@@ -31,8 +31,8 @@ class AccessRequest(Base, BaseModel):
     __tablename__ = "access_requests"
 
     # Core request fields
-    user_telegram_id: Mapped[str] = mapped_column(
-        String(50), nullable=False, index=True, comment="User's Telegram ID"
+    user_telegram_id: Mapped[int] = mapped_column(
+        Integer, nullable=False, index=True, comment="User's Telegram ID"
     )
     user_telegram_username: Mapped[str | None] = mapped_column(
         String(255), nullable=True, comment="User's Telegram username (@username)"
@@ -49,9 +49,8 @@ class AccessRequest(Base, BaseModel):
     )
 
     # Admin response fields (nullable until admin responds)
-    admin_telegram_id: Mapped[str | None] = mapped_column(
-        String(50),
-        ForeignKey("users.telegram_id"),
+    admin_telegram_id: Mapped[int | None] = mapped_column(
+        Integer,
         nullable=True,
         index=True,
         comment="Admin Telegram ID (who responded)",

@@ -7,6 +7,7 @@ from sqlalchemy import select
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, WebAppInfo
 from telegram.ext import ContextTypes
 
+from src.models.service_period import ServicePeriod
 from src.models.user import User
 from src.services import SessionLocal
 from src.services.admin_service import AdminService
@@ -74,7 +75,7 @@ async def handle_request_command(  # noqa: C901
         text_parts = update.message.text.split(maxsplit=1)
         request_message = text_parts[1] if len(text_parts) > 1 else ""
 
-        requester_id = str(update.message.from_user.id)
+        requester_id = update.message.from_user.id
 
         # Build requester identifier: prefer username, then first+last name, then phone, then user_id
         if update.message.from_user.username:
@@ -183,7 +184,7 @@ async def handle_admin_approve(update: Update, context: ContextTypes.DEFAULT_TYP
             logger.warning("Received approval without message or user info")
             return
 
-        admin_id = str(update.message.from_user.id)
+        admin_id = update.message.from_user.id
         admin_name = update.message.from_user.first_name or "Admin"
 
         # T046: Validate message is "Approve"
@@ -266,7 +267,7 @@ async def handle_admin_reject(update: Update, context: ContextTypes.DEFAULT_TYPE
             logger.warning("Received rejection without message or user info")
             return
 
-        admin_id = str(update.message.from_user.id)
+        admin_id = update.message.from_user.id
         admin_name = update.message.from_user.first_name or "Admin"
 
         # T054: Validate message is "Reject"
@@ -629,3 +630,584 @@ async def handle_admin_callback(  # noqa: C901
 
     except Exception as e:
         logger.error("Unhandled error in callback handler: %s", e, exc_info=True)
+
+
+# Electricity bills management handlers (T050+)
+async def handle_electricity_bills_command(  # noqa: C901
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    """Start electricity bills management workflow.
+
+    Admin command to interactively calculate and create shared electricity bills.
+    Entry point for multi-step conversation.
+
+    T050: Implement electricity bills admin command
+
+    Returns:
+        Conversation state for next step (SELECT_PERIOD)
+    """
+    try:
+        if not update.message or not update.message.from_user:
+            logger.warning("Received electricity command without message or user")
+            return -1  # End conversation
+
+        # TODO: Add admin authorization check here
+        # For MVP, assume admin access (will be added in future)
+
+        db = SessionLocal()
+
+        try:
+            # Query open service periods
+            open_periods = db.query(ServicePeriod).filter(
+                ServicePeriod.status == "open"
+            ).order_by(ServicePeriod.start_date.desc()).all()
+
+            # Build inline buttons for period selection
+            buttons = []
+            for period in open_periods[:5]:  # Limit to 5 recent periods
+                buttons.append(
+                    [InlineKeyboardButton(
+                        f"📅 {period.name}",
+                        callback_data=f"elec_period:{period.id}"
+                    )]
+                )
+
+            # Add "Create New" button
+            buttons.append(
+                [InlineKeyboardButton(
+                    t("electricity.new_period"),
+                    callback_data="elec_period:new"
+                )]
+            )
+
+            keyboard = InlineKeyboardMarkup(buttons)
+
+            await update.message.reply_text(
+                t("electricity.select_period"),
+                reply_markup=keyboard,
+            )
+
+            logger.info("Electricity bills workflow started for user %s", update.message.from_user.id)
+
+            # Store initial context
+            context.user_data["electricity_admin_id"] = update.message.from_user.id
+
+            return 1  # Next state: SELECT_PERIOD (callback handler will advance)
+
+        finally:
+            db.close()
+
+    except Exception as e:
+        logger.error("Error starting electricity bills workflow: %s", e, exc_info=True)
+        await update.message.reply_text(t("bot.error_processing"))
+        return -1  # End conversation
+
+
+async def handle_electricity_period_selection(  # noqa: C901
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    """Handle service period selection for electricity bills.
+
+    User selects existing period or chooses to create new one.
+    """
+    try:
+        cq = update.callback_query
+        if not cq or not cq.data:
+            logger.warning("Received period selection callback without data")
+            return -1
+
+        await cq.answer()
+
+        db = SessionLocal()
+
+        try:
+            if cq.data == "elec_period:new":
+                # Ask for start date
+                await cq.edit_message_text(t("electricity.start_date_prompt"))
+                context.user_data["electricity_create_new"] = True
+                return 2  # INPUT_START_DATE
+            else:
+                # Extract period ID
+                try:
+                    period_id = int(cq.data.split(":")[1])
+                except (IndexError, ValueError):
+                    logger.warning("Invalid period callback data: %s", cq.data)
+                    await cq.edit_message_text(t("bot.error_processing"))
+                    return -1
+
+                # Fetch period
+                period = db.query(ServicePeriod).filter(ServicePeriod.id == period_id).first()
+                if not period:
+                    logger.warning("Period %d not found", period_id)
+                    await cq.edit_message_text(t("bot.error_processing"))
+                    return -1
+
+                # Store selected period
+                context.user_data["electricity_period_id"] = period_id
+                context.user_data["electricity_period_name"] = period.name
+
+                # Ask for electricity_start (with default from period.electricity_end if available)
+                default_start = period.electricity_end if period.electricity_end else "?"
+                prompt = f"{t('electricity.meter_start_label')}\n\n(Предыдущее значение: {default_start})"
+                await cq.edit_message_text(prompt)
+
+                return 3  # INPUT_ELECTRICITY_START
+
+        finally:
+            db.close()
+
+    except Exception as e:
+        logger.error("Error in period selection: %s", e, exc_info=True)
+        try:
+            await update.callback_query.edit_message_text(t("bot.error_processing"))
+        except Exception:
+            logger.debug("Could not edit message after error", exc_info=True)
+        return -1
+
+
+async def handle_electricity_start_date_input(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    """Handle start date input for new service period."""
+    try:
+        if not update.message or not update.message.text:
+            return 2
+
+        text = update.message.text.strip()
+
+        # Validate date format DD.MM.YYYY
+        from datetime import datetime
+        try:
+            start_date = datetime.strptime(text, "%d.%m.%Y").date()
+        except ValueError:
+            await update.message.reply_text(t("electricity.invalid_date_format"))
+            return 2  # Re-ask
+
+        context.user_data["electricity_start_date"] = start_date
+
+        # Ask for end date
+        await update.message.reply_text(t("electricity.end_date_prompt"))
+        return 4  # INPUT_END_DATE
+
+    except Exception as e:
+        logger.error("Error in start date input: %s", e, exc_info=True)
+        await update.message.reply_text(t("bot.error_processing"))
+        return -1
+
+
+async def handle_electricity_end_date_input(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    """Handle end date input for new service period."""
+    try:
+        if not update.message or not update.message.text:
+            return 4
+
+        text = update.message.text.strip()
+
+        # Validate date format DD.MM.YYYY
+        from datetime import datetime
+        try:
+            end_date = datetime.strptime(text, "%d.%m.%Y").date()
+        except ValueError:
+            await update.message.reply_text(t("electricity.invalid_date_format"))
+            return 4  # Re-ask
+
+        start_date = context.user_data.get("electricity_start_date")
+        if end_date <= start_date:
+            await update.message.reply_text(t("electricity.end_date_before_start"))
+            return 4  # Re-ask
+
+        context.user_data["electricity_end_date"] = end_date
+
+        # Ask for electricity_start
+        await update.message.reply_text(t("electricity.meter_start_label"))
+        return 3  # INPUT_ELECTRICITY_START
+
+    except Exception as e:
+        logger.error("Error in end date input: %s", e, exc_info=True)
+        await update.message.reply_text(t("bot.error_processing"))
+        return -1
+
+
+async def handle_electricity_meter_start(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    """Handle electricity meter start reading input."""
+    try:
+        if not update.message or not update.message.text:
+            return 3
+
+        text = update.message.text.strip()
+
+        # Validate numeric input
+        from decimal import Decimal, InvalidOperation
+        try:
+            electricity_start = Decimal(text.replace(",", "."))
+            if electricity_start < 0:
+                raise ValueError()
+        except (InvalidOperation, ValueError):
+            await update.message.reply_text(t("electricity.invalid_number"))
+            return 3  # Re-ask
+
+        context.user_data["electricity_start"] = electricity_start
+
+        # Ask for electricity_end
+        await update.message.reply_text(t("electricity.meter_end_label"))
+        return 5  # INPUT_ELECTRICITY_END
+
+    except Exception as e:
+        logger.error("Error in meter start input: %s", e, exc_info=True)
+        await update.message.reply_text(t("bot.error_processing"))
+        return -1
+
+
+async def handle_electricity_meter_end(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    """Handle electricity meter end reading input."""
+    try:
+        if not update.message or not update.message.text:
+            return 5
+
+        text = update.message.text.strip()
+
+        # Validate numeric input
+        from decimal import Decimal, InvalidOperation
+        try:
+            electricity_end = Decimal(text.replace(",", "."))
+            if electricity_end < 0:
+                raise ValueError()
+        except (InvalidOperation, ValueError):
+            await update.message.reply_text(t("electricity.invalid_number"))
+            return 5  # Re-ask
+
+        electricity_start = context.user_data.get("electricity_start")
+        if electricity_end <= electricity_start:
+            await update.message.reply_text(t("electricity.meter_end_less_than_start"))
+            return 5  # Re-ask
+
+        context.user_data["electricity_end"] = electricity_end
+
+        # Ask for multiplier
+        await update.message.reply_text(t("electricity.multiplier_label"))
+        return 6  # INPUT_MULTIPLIER
+
+    except Exception as e:
+        logger.error("Error in meter end input: %s", e, exc_info=True)
+        await update.message.reply_text(t("bot.error_processing"))
+        return -1
+
+
+async def handle_electricity_multiplier(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    """Handle electricity multiplier input."""
+    try:
+        if not update.message or not update.message.text:
+            return 6
+
+        text = update.message.text.strip()
+
+        # Validate numeric input
+        from decimal import Decimal, InvalidOperation
+        try:
+            multiplier = Decimal(text.replace(",", "."))
+            if multiplier <= 0:
+                raise ValueError()
+        except (InvalidOperation, ValueError):
+            await update.message.reply_text(t("electricity.invalid_number"))
+            return 6  # Re-ask
+
+        context.user_data["electricity_multiplier"] = multiplier
+
+        # Ask for rate
+        await update.message.reply_text(t("electricity.rate_label"))
+        return 7  # INPUT_RATE
+
+    except Exception as e:
+        logger.error("Error in multiplier input: %s", e, exc_info=True)
+        await update.message.reply_text(t("bot.error_processing"))
+        return -1
+
+
+async def handle_electricity_rate(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    """Handle electricity rate input."""
+    try:
+        if not update.message or not update.message.text:
+            return 7
+
+        text = update.message.text.strip()
+
+        # Validate numeric input
+        from decimal import Decimal, InvalidOperation
+        try:
+            rate = Decimal(text.replace(",", "."))
+            if rate <= 0:
+                raise ValueError()
+        except (InvalidOperation, ValueError):
+            await update.message.reply_text(t("electricity.invalid_number"))
+            return 7  # Re-ask
+
+        context.user_data["electricity_rate"] = rate
+
+        # Ask for losses
+        await update.message.reply_text(t("electricity.losses_label"))
+        return 8  # INPUT_LOSSES
+
+    except Exception as e:
+        logger.error("Error in rate input: %s", e, exc_info=True)
+        await update.message.reply_text(t("bot.error_processing"))
+        return -1
+
+
+async def handle_electricity_losses(  # noqa: C901
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    """Handle electricity losses input and calculate total cost."""
+    try:
+        if not update.message or not update.message.text:
+            return 8
+
+        text = update.message.text.strip()
+
+        # Validate numeric input between 0 and 1
+        from decimal import Decimal, InvalidOperation
+        try:
+            losses = Decimal(text.replace(",", "."))
+            if losses < 0 or losses > 1:
+                raise ValueError()
+        except (InvalidOperation, ValueError):
+            await update.message.reply_text(t("electricity.invalid_losses"))
+            return 8  # Re-ask
+
+        context.user_data["electricity_losses"] = losses
+
+        # Calculate total electricity cost
+        from src.services.electricity_service import ElectricityService
+
+        db = SessionLocal()
+        try:
+            electricity_service = ElectricityService(db)
+
+            start = context.user_data.get("electricity_start")
+            end = context.user_data.get("electricity_end")
+            multiplier = context.user_data.get("electricity_multiplier")
+            rate = context.user_data.get("electricity_rate")
+
+            total_cost = electricity_service.calculate_total_electricity(
+                start, end, multiplier, rate, losses
+            )
+
+            context.user_data["electricity_total_cost"] = total_cost
+
+            # Show calculation and ask for confirmation
+            message = t("electricity.total_cost_calculated", amount=float(total_cost))
+
+            buttons = [
+                [
+                    InlineKeyboardButton(t("common.next"), callback_data="elec_confirm:yes"),
+                    InlineKeyboardButton(t("common.cancel"), callback_data="elec_confirm:no"),
+                ]
+            ]
+            keyboard = InlineKeyboardMarkup(buttons)
+
+            await update.message.reply_text(message, reply_markup=keyboard)
+
+            return 9  # CONFIRM_CALCULATION
+
+        finally:
+            db.close()
+
+    except Exception as e:
+        logger.error("Error in losses input: %s", e, exc_info=True)
+        await update.message.reply_text(t("bot.error_processing"))
+        return -1
+
+
+async def handle_electricity_confirm_calculation(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    """Handle confirmation of electricity cost calculation."""
+    try:
+        cq = update.callback_query
+        if not cq or not cq.data:
+            return 9
+
+        await cq.answer()
+
+        if cq.data == "elec_confirm:no":
+            await cq.edit_message_text(t("electricity.operation_cancelled"))
+            return -1  # End conversation
+
+        # Proceed to distribute costs among owners
+        db = SessionLocal()
+        try:
+            from src.services.electricity_service import ElectricityService
+
+            electricity_service = ElectricityService(db)
+
+            period_id = context.user_data.get("electricity_period_id")
+            total_cost = context.user_data.get("electricity_total_cost")
+
+            # Get existing electricity bills sum
+            personal_bills_sum = electricity_service.get_electricity_bills_for_period(period_id)
+
+            # Calculate shared cost
+            shared_cost = total_cost - personal_bills_sum
+
+            context.user_data["electricity_personal_bills_sum"] = personal_bills_sum
+            context.user_data["electricity_shared_cost"] = shared_cost
+
+            # Fetch the service period
+            period = db.query(ServicePeriod).filter(ServicePeriod.id == period_id).first()
+            if not period:
+                await cq.edit_message_text(t("bot.error_processing"))
+                return -1
+
+            # Distribute costs
+            owner_shares = electricity_service.distribute_shared_costs(shared_cost, period)
+
+            context.user_data["electricity_owner_shares"] = owner_shares
+
+            # Show distribution message
+            distribution_text = t(
+                "electricity.existing_bills_sum",
+                personal_sum=float(personal_bills_sum),
+                difference=float(shared_cost),
+            )
+
+            await cq.edit_message_text(distribution_text)
+
+            # Now show the proposed bills table
+            return await show_electricity_bills_table(update, context)
+
+        finally:
+            db.close()
+
+    except Exception as e:
+        logger.error("Error in calculation confirmation: %s", e, exc_info=True)
+        try:
+            await update.callback_query.edit_message_text(t("bot.error_processing"))
+        except Exception:
+            pass
+        return -1
+
+
+async def show_electricity_bills_table(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    """Display proposed electricity bills table and ask for confirmation."""
+    try:
+        owner_shares = context.user_data.get("electricity_owner_shares", [])
+
+        # Build bills table
+        bills_text = ""
+        for share in owner_shares:
+            bills_text += (
+                f"• {share.user_name}: "
+                f"{share.total_share_weight:.2f} → "
+                f"{share.calculated_bill_amount:.2f} ₽\n"
+            )
+
+        message = t("electricity.confirm_bills_message", bills_table=bills_text)
+
+        buttons = [
+            [
+                InlineKeyboardButton(t("electricity.create_bills"), callback_data="elec_bills:create"),
+                InlineKeyboardButton(t("common.cancel"), callback_data="elec_bills:cancel"),
+            ]
+        ]
+        keyboard = InlineKeyboardMarkup(buttons)
+
+        if update.callback_query:
+            await update.callback_query.edit_message_text(message, reply_markup=keyboard)
+        else:
+            await update.message.reply_text(message, reply_markup=keyboard)
+
+        return 10  # CONFIRM_BILLS
+
+    except Exception as e:
+        logger.error("Error showing bills table: %s", e, exc_info=True)
+        return -1
+
+
+async def handle_electricity_create_bills(  # noqa: C901
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    """Create shared electricity bills in the database."""
+    try:
+        cq = update.callback_query
+        if not cq or not cq.data:
+            return 10
+
+        await cq.answer()
+
+        if cq.data == "elec_bills:cancel":
+            await cq.edit_message_text(t("electricity.operation_cancelled"))
+            return -1  # End conversation
+
+        # Create bills
+        db = SessionLocal()
+        try:
+            owner_shares = context.user_data.get("electricity_owner_shares", [])
+            period_id = context.user_data.get("electricity_period_id")
+
+            if not owner_shares or not period_id:
+                await cq.edit_message_text(t("bot.error_processing"))
+                return -1
+
+            # Create bills for each owner
+            from src.models.account import Account
+            from src.models.bill import Bill, BillType
+
+            bills_created = 0
+
+            for share in owner_shares:
+                # Find account for this user
+                account = (
+                    db.query(Account)
+                    .filter(Account.user_id == share.user_id, Account.account_type == "owner")
+                    .first()
+                )
+
+                if account:
+                    bill = Bill(
+                        service_period_id=period_id,
+                        account_id=account.id,
+                        property_id=None,
+                        bill_type=BillType.SHARED_ELECTRICITY,
+                        bill_amount=share.calculated_bill_amount,
+                    )
+                    db.add(bill)
+                    bills_created += 1
+
+            db.commit()
+
+            # Confirm success
+            message = t("electricity.bills_created", count=bills_created)
+            await cq.edit_message_text(message)
+
+            logger.info("Created %d shared electricity bills for period %d", bills_created, period_id)
+
+            return -1  # End conversation
+
+        except Exception as e:
+            db.rollback()
+            logger.error("Error creating bills: %s", e, exc_info=True)
+            await cq.edit_message_text(t("bot.error_processing"))
+            return -1
+
+        finally:
+            db.close()
+
+    except Exception as e:
+        logger.error("Error in create bills handler: %s", e, exc_info=True)
+        try:
+            await update.callback_query.edit_message_text(t("bot.error_processing"))
+        except Exception:
+            pass
+        return -1
+
