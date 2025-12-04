@@ -72,15 +72,4 @@ def t(key: str, **kwargs: Any) -> str:
     return value
 
 
-def get_translations() -> dict[str, Any]:
-    """Get all translations as a dictionary.
-
-    Used by API endpoint to serve translations to frontend.
-
-    Returns:
-        Full translations dictionary.
-    """
-    return _TRANSLATIONS
-
-
-__all__ = ["t", "get_translations"]
+__all__ = ["t"]

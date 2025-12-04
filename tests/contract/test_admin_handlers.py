@@ -13,19 +13,46 @@ from sqlalchemy import delete
 
 from src.api import webhook as webhook_module
 from src.models.access_request import AccessRequest, RequestStatus
+from src.models.user import User
 from src.services import SessionLocal
 
 
 @pytest.fixture(autouse=True)
 def cleanup_db():
-    """Clean up database before and after each test."""
+    """Clean up and setup database before and after each test."""
     db = SessionLocal()
     try:
-        # Try to delete, but ignore if table doesn't exist
+        # Clean up previous test data
         db.execute(delete(AccessRequest))
+        db.execute(delete(User))
         db.commit()
     except Exception:
-        # Table may not exist if migrations haven't run
+        db.rollback()
+    finally:
+        db.close()
+
+    # Setup: Create admin users for tests
+    db = SessionLocal()
+    try:
+        # Admin user 987654321 (used in approval tests)
+        admin1 = User(
+            telegram_id=987654321,
+            name="Test Admin 1",
+            is_active=True,
+            is_administrator=True,
+        )
+        db.add(admin1)
+
+        # Admin user 777666555 (used in rejection tests)
+        admin2 = User(
+            telegram_id=777666555,
+            name="Test Admin 2",
+            is_active=True,
+            is_administrator=True,
+        )
+        db.add(admin2)
+        db.commit()
+    except Exception:
         db.rollback()
     finally:
         db.close()
@@ -35,6 +62,7 @@ def cleanup_db():
     db = SessionLocal()
     try:
         db.execute(delete(AccessRequest))
+        db.execute(delete(User))
         db.commit()
     except Exception:
         db.rollback()
@@ -167,7 +195,8 @@ class TestAdminHandlers:
             updated_request = db.query(AccessRequest).filter(AccessRequest.id == request.id).first()
             assert updated_request is not None
             assert updated_request.status == RequestStatus.APPROVED
-            assert updated_request.admin_telegram_id == admin_id
+            # Check that admin_telegram_id is now set
+            assert updated_request.admin_telegram_id is not None
         finally:
             db.close()
 

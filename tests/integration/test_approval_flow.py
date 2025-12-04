@@ -15,6 +15,7 @@ from telegram import Update
 
 from src.api import webhook as webhook_module
 from src.models.access_request import AccessRequest, RequestStatus
+from src.models.user import User
 from src.services import SessionLocal
 
 
@@ -23,13 +24,44 @@ class TestApprovalFlow:
 
     @pytest.fixture(autouse=True)
     def cleanup_db(self):
-        """Clean up database before and after each test."""
+        """Clean up and setup database before and after each test."""
         db = SessionLocal()
         try:
             db.execute(delete(AccessRequest))
+            db.execute(delete(User))
             db.commit()
         except Exception:
             # Table may not exist if migrations haven't run
+            db.rollback()
+        finally:
+            db.close()
+
+        # Setup: Create admin users for tests
+        db = SessionLocal()
+        try:
+            admin1 = User(
+                telegram_id=999888777,
+                name="Test Admin",
+                is_active=True,
+                is_administrator=True,
+            )
+            admin2 = User(
+                telegram_id=888777666,
+                name="Test Admin 2",
+                is_active=True,
+                is_administrator=True,
+            )
+            admin3 = User(
+                telegram_id=777666555,
+                name="Test Admin 3",
+                is_active=True,
+                is_administrator=True,
+            )
+            db.add(admin1)
+            db.add(admin2)
+            db.add(admin3)
+            db.commit()
+        except Exception:
             db.rollback()
         finally:
             db.close()
@@ -40,6 +72,7 @@ class TestApprovalFlow:
         db = SessionLocal()
         try:
             db.execute(delete(AccessRequest))
+            db.execute(delete(User))
             db.commit()
         except Exception:
             db.rollback()
@@ -98,7 +131,7 @@ class TestApprovalFlow:
             async def process_update_impl(update):
                 """Process update through the handler."""
                 if update.message and update.message.text:
-                    from src.bot.handlers import handle_admin_approve, handle_request_command
+                    from src.bot.handlers import handle_admin_response, handle_request_command
 
                     ctx = MagicMock()
                     ctx.application = mock_app
@@ -108,7 +141,7 @@ class TestApprovalFlow:
                     if update.message.text.startswith("/request"):
                         await handle_request_command(update, ctx)
                     elif "approve" in update.message.text.lower():
-                        await handle_admin_approve(update, ctx)
+                        await handle_admin_response(update, ctx)
 
             mock_app.process_update.side_effect = process_update_impl
 

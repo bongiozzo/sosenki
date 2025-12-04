@@ -20,7 +20,7 @@ class AdminService:
     async def approve_request(
         self,
         request_id: int,
-        admin_telegram_id: int,
+        admin_user: User,
         selected_user_id: int | None = None,
     ) -> AccessRequest | None:
         """Approve a client request.
@@ -32,7 +32,7 @@ class AdminService:
 
         Args:
             request_id: Request ID to approve
-            admin_telegram_id: Admin's Telegram ID
+            admin_user: Verified admin User object (guaranteed is_administrator=True)
             selected_user_id: If provided, assign Telegram ID to user with this ID
 
         Returns:
@@ -70,8 +70,8 @@ class AdminService:
 
             # Update request status to approved
             request.status = RequestStatus.APPROVED
-            request.admin_telegram_id = admin_telegram_id
             request.admin_response = "approved"
+            request.admin_telegram_id = admin_user.telegram_id
 
             # T042: Activate the user (set is_active=True)
             # If selected_user_id was provided, we already updated that user above
@@ -98,7 +98,9 @@ class AdminService:
                     logger.info("Created new user %s on approval", request.user_telegram_id)
 
             self.db.commit()
-            logger.info("Request %d approved by admin %s", request_id, admin_telegram_id)
+            logger.info(
+                "Request %d approved by admin telegram_id=%d", request_id, admin_user.telegram_id
+            )
             return request
 
         except Exception as e:
@@ -109,7 +111,7 @@ class AdminService:
     async def reject_request(
         self,
         request_id: int,
-        admin_telegram_id: int,
+        admin_user: User,
     ) -> AccessRequest | None:
         """Reject a client request.
 
@@ -117,7 +119,7 @@ class AdminService:
 
         Args:
             request_id: Request ID to reject
-            admin_telegram_id: Admin's Telegram ID
+            admin_user: Verified admin User object (guaranteed is_administrator=True)
 
         Returns:
             Updated request object if successful, None otherwise
@@ -132,11 +134,13 @@ class AdminService:
 
             # Update request status to rejected
             request.status = RequestStatus.REJECTED
-            request.admin_telegram_id = admin_telegram_id
+            request.admin_telegram_id = admin_user.telegram_id
             request.admin_response = "rejected"
 
             self.db.commit()
-            logger.info("Request %d rejected by admin %s", request_id, admin_telegram_id)
+            logger.info(
+                "Request %d rejected by admin telegram_id=%d", request_id, admin_user.telegram_id
+            )
             return request
 
         except Exception as e:

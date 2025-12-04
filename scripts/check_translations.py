@@ -37,9 +37,10 @@ def load_translations(file_path: Path) -> dict:
 
 def extract_keys_from_code(code: str) -> set:
     """Extract translation keys from Python/JavaScript code using t("category.key") pattern."""
-    # Pattern: t("category.key_name" or t('category.key_name' with optional format args
-    pattern = r't\(\s*["\']([a-z_]+\.[a-z_]+)["\']'
-    matches = re.findall(pattern, code)
+    # Pattern: t("category.key_name") or t('category.key_name') with optional format args
+    # Use DOTALL flag to handle multiline function calls
+    pattern = r"t\(\s*['\"]([a-z_]+\.[a-z_]+)['\"]\s*[,\)]"
+    matches = re.findall(pattern, code, re.DOTALL)
     return set(matches)
 
 
@@ -49,6 +50,40 @@ def extract_keys_from_html(code: str) -> set:
     pattern = r'data-i18n(?:-html)?=["\']([a-z_]+\.[a-z_]+)["\']'
     matches = re.findall(pattern, code)
     return set(matches)
+
+
+def find_hardcoded_russian_text(code: str, file_path: str) -> list:
+    """Find hardcoded Russian/Cyrillic text that should use translations.
+
+    Returns list of (line_num, snippet) tuples for hardcoded Russian text outside comments.
+    """
+    issues = []
+    cyrillic_pattern = r"[а-яёА-ЯЁ]"
+
+    for line_num, line in enumerate(code.split("\n"), 1):
+        # Skip comments
+        if line.strip().startswith("#") or line.strip().startswith("//"):
+            continue
+        if '"""' in line or "'''" in line:
+            continue
+
+        # Skip lines that already use t() function
+        if "t(" in line and "data-i18n" not in line:
+            continue
+
+        # Skip data-i18n attributes
+        if "data-i18n" in line:
+            continue
+
+        # Check for hardcoded Russian text
+        if re.search(cyrillic_pattern, line):
+            # Skip false positives (like in t() calls or docstrings)
+            if "t('" in line or 't("' in line or "Предыдущее значение:" not in line:
+                # But DO catch "Предыдущее значение:" as it's hardcoded
+                if "Предыдущое значение:" in line or "(Предыдущее значение:" in line:
+                    issues.append((line_num, line.strip()[:80]))
+
+    return issues
 
 
 def flatten_keys(translations: dict, prefix: str = "") -> set:
@@ -71,10 +106,12 @@ def check_translations():  # noqa: C901
     ru_json_path = project_root / "src" / "static" / "mini_app" / "translations.json"
 
     # Python files that use t("category.key")
-    python_files = [
-        project_root / "src" / "bot" / "handlers.py",
-        project_root / "src" / "services" / "notification_service.py",
-    ]
+    python_files = list((project_root / "src" / "bot" / "handlers").glob("*.py"))
+    python_files.extend(
+        [
+            project_root / "src" / "services" / "notification_service.py",
+        ]
+    )
 
     # JavaScript files that use t("category.key")
     js_files = [
@@ -129,6 +166,42 @@ def check_translations():  # noqa: C901
     print(f"📋 Found {len(js_keys)} keys used in JavaScript")
     print(f"📋 Found {len(html_keys)} keys used in HTML")
     print(f"📚 Found {len(available_keys)} total keys defined in translations.json\n")
+
+    # Check for hardcoded Russian text
+    print("🔍 Checking for hardcoded Russian text...\n")
+    all_hardcoded = []
+
+    for py_file in python_files:
+        if py_file.exists():
+            with open(py_file, encoding="utf-8") as f:
+                code = f.read()
+                hardcoded = find_hardcoded_russian_text(code, str(py_file))
+                for line_num, snippet in hardcoded:
+                    all_hardcoded.append((py_file.name, line_num, snippet))
+
+    for js_file in js_files:
+        if js_file.exists():
+            with open(js_file, encoding="utf-8") as f:
+                code = f.read()
+                hardcoded = find_hardcoded_russian_text(code, str(js_file))
+                for line_num, snippet in hardcoded:
+                    all_hardcoded.append((js_file.name, line_num, snippet))
+
+    for html_file in html_files:
+        if html_file.exists():
+            with open(html_file, encoding="utf-8") as f:
+                code = f.read()
+                hardcoded = find_hardcoded_russian_text(code, str(html_file))
+                for line_num, snippet in hardcoded:
+                    all_hardcoded.append((html_file.name, line_num, snippet))
+
+    if all_hardcoded:
+        print(
+            f"⚠️  Found {len(all_hardcoded)} hardcoded Russian text(s) (should use translations.json):"
+        )
+        for filename, line_num, snippet in all_hardcoded:
+            print(f"   {filename}:{line_num} → {snippet}")
+        print()
 
     # Check for missing keys
     missing_keys = used_keys - available_keys

@@ -380,13 +380,8 @@ async def get_properties(
 
 
 # Helper functions for bills endpoint
-def _build_electricity_reading_subqueries(
-    reading_date_comparison: str,
-) -> tuple:
+def _build_electricity_reading_subqueries() -> tuple:
     """Build start and end reading subqueries for electricity bills.
-
-    Args:
-        reading_date_comparison: Either "start" or "end" to build appropriate query
 
     Returns:
         Tuple of (start_reading_alias, end_reading_alias) scalar subqueries
@@ -682,7 +677,7 @@ async def get_bills(
             user_property_ids = [row[0] for row in result.all()]
 
         # Build reading subqueries
-        start_reading_alias, end_reading_alias = _build_electricity_reading_subqueries("both")
+        start_reading_alias, end_reading_alias = _build_electricity_reading_subqueries()
 
         # Build where clause for account and owner properties
         where_clause = [Bill.account_id == account_id]
@@ -750,6 +745,9 @@ class AccountItem(BaseModel):
     account_type: str  # 'owner', 'staff', or 'organization'
     balance: float
     invert_for_display: bool = False  # True for OWNER accounts
+    representative_id: int | None = (
+        None  # User's representative_id (if set, they represent someone)
+    )
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -844,9 +842,11 @@ async def get_accounts(
         )
 
         # Get all accounts for balance display
+        from sqlalchemy.orm import selectinload
+
         from src.services.balance_service import BalanceCalculationService
 
-        stmt = select(Account)
+        stmt = select(Account).options(selectinload(Account.user))
         result = await session.execute(stmt)
         accounts = result.scalars().all()
 
@@ -864,6 +864,9 @@ async def get_accounts(
                 else str(account.account_type)
             )
 
+            # Get representative_id from the user relationship (if account has a user)
+            representative_id = account.user.representative_id if account.user else None
+
             accounts_list.append(
                 AccountItem(
                     account_id=account.id,
@@ -871,6 +874,7 @@ async def get_accounts(
                     account_type=account_type_str,
                     balance=result.balance,
                     invert_for_display=result.invert_for_display,
+                    representative_id=representative_id,
                 )
             )
 

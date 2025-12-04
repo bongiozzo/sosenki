@@ -5,7 +5,7 @@ from decimal import Decimal
 
 import pytest
 
-from seeding.core.parsers import (
+from src.utils.parsers import (
     parse_boolean,
     parse_date,
     parse_russian_currency,

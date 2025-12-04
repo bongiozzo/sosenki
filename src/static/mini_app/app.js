@@ -1318,8 +1318,16 @@ function renderAccountsPage(accounts, containerId = 'accounts-list') {
         return;
     }
     
+    // Filter out accounts of users who represent others (have representative_id set)
+    const filteredAccounts = accounts.filter(acc => !acc.representative_id);
+    
+    if (filteredAccounts.length === 0) {
+        container.innerHTML = `<div class="account-empty">${t('ui.no_accounts')}</div>`;
+        return;
+    }
+    
     // Sort: Owners first (biggest debt), then Organization, then Staff
-    const sorted = [...accounts].sort((a, b) => {
+    const sorted = [...filteredAccounts].sort((a, b) => {
         // Define type priority: owner (0), organization (1), staff (2)
         const typePriority = { 'owner': 0, 'organization': 1, 'staff': 2 };
         const aPriority = typePriority[a.account_type] ?? 3;

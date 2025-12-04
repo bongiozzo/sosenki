@@ -1,4 +1,4 @@
-"""Russian data type parsing utilities for Google Sheets data.
+"""Russian data type parsing utilities.
 
 Handles Russian-specific number formatting:
 - Decimal separator: comma (,)
@@ -26,12 +26,10 @@ Example:
 
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
-from typing import Optional
 
 
-def parse_russian_decimal(value: Optional[str]) -> Optional[Decimal]:
-    """
-    Parse a Russian-formatted decimal number to Python Decimal.
+def parse_russian_decimal(value: str | None) -> Decimal | None:
+    """Parse a Russian-formatted decimal number to Python Decimal.
 
     Russian format uses comma as decimal separator and space as thousand separator.
 
@@ -70,9 +68,8 @@ def parse_russian_decimal(value: Optional[str]) -> Optional[Decimal]:
         raise ValueError(f"Cannot parse Russian decimal '{value}': {e}") from e
 
 
-def parse_russian_percentage(value: Optional[str]) -> Optional[Decimal]:
-    """
-    Parse a Russian-formatted percentage to Python Decimal.
+def parse_russian_percentage(value: str | None) -> Decimal | None:
+    """Parse a Russian-formatted percentage to Python Decimal.
 
     Handles Russian format with comma decimal separator and % suffix.
 
@@ -109,9 +106,8 @@ def parse_russian_percentage(value: Optional[str]) -> Optional[Decimal]:
         raise ValueError(f"Cannot parse Russian percentage '{value}': {e}") from e
 
 
-def parse_russian_currency(value: Optional[str]) -> Optional[Decimal]:
-    """
-    Parse a Russian-formatted currency value to Python Decimal.
+def parse_russian_currency(value: str | None) -> Decimal | None:
+    """Parse a Russian-formatted currency value to Python Decimal.
 
     Handles Russian format with рuble symbol (р.), comma decimal separator,
     and space thousand separators.
@@ -149,9 +145,8 @@ def parse_russian_currency(value: Optional[str]) -> Optional[Decimal]:
         raise ValueError(f"Cannot parse Russian currency '{value}': {e}") from e
 
 
-def parse_boolean(value: Optional[str]) -> bool:
-    """
-    Parse a Russian boolean value ("Да"/"Нет") to Python bool.
+def parse_boolean(value: str | None) -> bool:
+    """Parse a Russian boolean value ("Да"/"Нет") to Python bool.
 
     Args:
         value: Russian boolean string ("Да" for True, anything else for False) or None/empty
@@ -175,7 +170,7 @@ def parse_boolean(value: Optional[str]) -> bool:
     return value.strip().lower() == "да"
 
 
-def parse_date(value: Optional[str]) -> Optional[date]:
+def parse_date(value: str | None) -> date | None:
     """Parse a Russian-formatted date string to Python date object.
 
     Handles format: "DD.MM.YYYY" (e.g., "23.06.2025")

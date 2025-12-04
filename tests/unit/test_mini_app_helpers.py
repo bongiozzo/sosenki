@@ -1,5 +1,13 @@
 """Unit tests for mini app helper functions and utilities."""
 
+from datetime import date
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+from fastapi import HTTPException
+from sqlalchemy.sql.selectable import ScalarSelect
+
 
 class TestExtractInitData:
     """Test _extract_init_data function with various input combinations."""
@@ -231,3 +239,227 @@ class TestTelegramSignatureVerification:
         init_data = "query_id=123&user={"
         result = UserService.verify_telegram_webapp_signature(init_data, "test_token")
         assert result is None
+
+
+class TestInitBuildResponse:
+    """Tests for _init_build_response helper."""
+
+    @pytest.mark.asyncio
+    async def test_init_build_response_admin_includes_users(self, monkeypatch):
+        """Admin should see users list and stakeholder link."""
+        from src.api.mini_app import InitResponse, UserContextResponse, _init_build_response
+
+        session = AsyncMock()
+        authenticated_user = SimpleNamespace(
+            id=1,
+            name="Admin",
+            is_administrator=True,
+            is_owner=False,
+            representative_id=42,
+        )
+        target_user = SimpleNamespace(id=2, name="Target")
+        user_context = UserContextResponse(user_id=2, name="Target", account_id=5, roles=["owner"])
+
+        monkeypatch.setenv("PHOTO_GALLERY_URL", "https://photos")
+        monkeypatch.setenv("STAKEHOLDER_SHARES_URL", "https://stakeholders")
+
+        with (
+            patch(
+                "src.api.mini_app._build_user_context_data",
+                new=AsyncMock(return_value=user_context),
+            ),
+            patch("src.api.mini_app.UserService") as mock_user_service,
+        ):
+            service_instance = MagicMock()
+            service_instance.get_all_users = AsyncMock(
+                return_value=[SimpleNamespace(id=99, name="Alice")]
+            )
+            mock_user_service.return_value = service_instance
+
+            response = await _init_build_response(session, authenticated_user, target_user)
+
+        assert isinstance(response, InitResponse)
+        assert response.users and response.users[0].user_id == 99
+        assert response.stakeholder_url == "https://stakeholders"
+        assert response.photo_gallery_url == "https://photos"
+
+    @pytest.mark.asyncio
+    async def test_init_build_response_owner_without_admin(self, monkeypatch):
+        """Owner (non-admin) should not load users list but gets stakeholder link."""
+        from src.api.mini_app import InitResponse, UserContextResponse, _init_build_response
+
+        session = AsyncMock()
+        authenticated_user = SimpleNamespace(
+            id=5,
+            name="Owner",
+            is_administrator=False,
+            is_owner=True,
+            representative_id=None,
+        )
+        target_user = SimpleNamespace(id=5, name="Owner")
+        user_context = UserContextResponse(user_id=5, name="Owner", account_id=7, roles=["owner"])
+
+        monkeypatch.setenv("PHOTO_GALLERY_URL", "https://photos")
+        monkeypatch.setenv("STAKEHOLDER_SHARES_URL", "https://stakeholders")
+
+        with (
+            patch(
+                "src.api.mini_app._build_user_context_data",
+                new=AsyncMock(return_value=user_context),
+            ),
+            patch("src.api.mini_app.UserService") as mock_user_service,
+        ):
+            service_instance = MagicMock()
+            service_instance.get_all_users = AsyncMock()
+            mock_user_service.return_value = service_instance
+
+            response = await _init_build_response(session, authenticated_user, target_user)
+
+        assert isinstance(response, InitResponse)
+        assert response.users is None
+        assert response.stakeholder_url == "https://stakeholders"
+        service_instance.get_all_users.assert_not_awaited()
+
+
+class TestBuildUserContextData:
+    """Tests for _build_user_context_data helper."""
+
+    @pytest.mark.asyncio
+    async def test_build_user_context_data_success(self):
+        """Should return context when account exists."""
+        from src.api.mini_app import UserContextResponse, _build_user_context_data
+
+        session = AsyncMock()
+        target_user = SimpleNamespace(
+            id=7,
+            name="Target",
+            is_administrator=False,
+            is_investor=False,
+            is_owner=True,
+            is_stakeholder=False,
+            is_staff=True,
+            is_tenant=False,
+        )
+
+        account = SimpleNamespace(id=55)
+        result = MagicMock()
+        result.scalar_one_or_none.return_value = account
+        session.execute = AsyncMock(return_value=result)
+
+        context = await _build_user_context_data(session, target_user)
+
+        assert isinstance(context, UserContextResponse)
+        assert context.account_id == 55
+        assert "owner" in context.roles
+        assert "staff" in context.roles
+
+    @pytest.mark.asyncio
+    async def test_build_user_context_data_missing_account(self):
+        """Should raise when account is missing."""
+        from src.api.mini_app import _build_user_context_data
+
+        session = AsyncMock()
+        result = MagicMock()
+        result.scalar_one_or_none.return_value = None
+        session.execute = AsyncMock(return_value=result)
+
+        target_user = SimpleNamespace(
+            id=8,
+            name="NoAccount",
+            is_administrator=False,
+            is_investor=False,
+            is_owner=False,
+            is_stakeholder=False,
+            is_staff=False,
+            is_tenant=False,
+        )
+
+        with pytest.raises(HTTPException) as exc:
+            await _build_user_context_data(session, target_user)
+
+        assert exc.value.status_code == 500
+
+
+class TestBillFormattingHelpers:
+    """Tests for bill helper utilities."""
+
+    def test_format_bill_response_with_consumption(self):
+        """Consumption computed when both readings present."""
+        from src.api.mini_app import _format_bill_response
+
+        bill = SimpleNamespace(
+            comment="Property A",
+            bill_amount=150,
+            bill_type=SimpleNamespace(value="electricity"),
+        )
+        service_period = SimpleNamespace(
+            name="2025-01",
+            start_date=date(2025, 1, 1),
+            end_date=date(2025, 1, 31),
+        )
+        property_obj = SimpleNamespace(property_name="A", type="apartment")
+
+        response = _format_bill_response(bill, service_period, property_obj, 10, 25)
+
+        assert response["consumption"] == 15
+        assert response["property_name"] == "A"
+        assert response["bill_amount"] == 150
+
+    def test_format_bill_response_without_readings(self):
+        """Consumption remains None when readings missing."""
+        from src.api.mini_app import _format_bill_response
+
+        bill = SimpleNamespace(
+            comment=None,
+            bill_amount=200,
+            bill_type=SimpleNamespace(value="shared_electricity"),
+        )
+        service_period = SimpleNamespace(
+            name="2025-02",
+            start_date=date(2025, 2, 1),
+            end_date=date(2025, 2, 28),
+        )
+
+        response = _format_bill_response(bill, service_period, None, None, None)
+
+        assert response["consumption"] is None
+        assert response["property_name"] is None
+
+    def test_build_electricity_reading_subqueries_returns_scalar(self):
+        """Verify helper returns scalar select statements."""
+        from src.api.mini_app import _build_electricity_reading_subqueries
+
+        start_alias, end_alias = _build_electricity_reading_subqueries()
+
+        assert isinstance(start_alias, ScalarSelect)
+        assert isinstance(end_alias, ScalarSelect)
+
+
+class TestUserContextResponseBuilder:
+    """Tests for higher-level helper flows."""
+
+    @pytest.mark.asyncio
+    async def test_build_user_context_data_roles_default_member(self):
+        """Ensure member role used when user has no flags."""
+        from src.api.mini_app import _build_user_context_data
+
+        session = AsyncMock()
+        account = SimpleNamespace(id=77)
+        result = MagicMock()
+        result.scalar_one_or_none.return_value = account
+        session.execute = AsyncMock(return_value=result)
+
+        target_user = SimpleNamespace(
+            id=11,
+            name="Member",
+            is_administrator=False,
+            is_investor=False,
+            is_owner=False,
+            is_stakeholder=False,
+            is_staff=False,
+            is_tenant=False,
+        )
+
+        context = await _build_user_context_data(session, target_user)
+
+        assert context.roles == ["member"]

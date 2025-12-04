@@ -3,7 +3,6 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from telegram import Bot
 from telegram.ext import Application
@@ -141,28 +140,26 @@ class TestSetupWebhookRoute:
     """Tests for setup_webhook_route function."""
 
     @pytest.mark.asyncio
-    async def test_setup_webhook_route_registers_endpoint(self, mock_bot_app):
-        """Test setup_webhook_route registers telegram webhook endpoint."""
-        from fastapi.testclient import TestClient
+    async def test_setup_webhook_route_sets_bot_app(self, mock_bot_app):
+        """Test setup_webhook_route sets the global bot app."""
+        import src.api.webhook as webhook_module
 
-        # Create a new FastAPI app instance for this test
-        test_app = FastAPI()
+        # Clear any existing bot app
+        webhook_module._bot_app = None
 
-        # Call setup_webhook_route to register the endpoint
-        await setup_webhook_route(test_app, mock_bot_app)
+        # Call setup_webhook_route
+        await setup_webhook_route(mock_bot_app)
 
-        # Create test client and verify endpoint was registered
-        client = TestClient(test_app)
-        response = client.post("/webhook/telegram", json={"update_id": 123})
+        # Verify bot app was set
+        assert webhook_module._bot_app is mock_bot_app
 
-        # Should return {"ok": True} response
-        assert response.status_code == 200
-        assert response.json() == {"ok": True}
+        # Clean up
+        webhook_module._bot_app = None
 
     @pytest.mark.asyncio
     async def test_setup_webhook_route_endpoint_processes_update(self, mock_bot_app):
         """Test webhook endpoint created by setup processes updates."""
-        await setup_webhook_route(app, mock_bot_app)
+        await setup_webhook_route(mock_bot_app)
 
         client = TestClient(app)
         update_data = {

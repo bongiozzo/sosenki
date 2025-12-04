@@ -3,16 +3,18 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from sqlalchemy import delete
 from telegram import Chat, Message, Update
 from telegram import User as TelegramUser
 from telegram.ext import ContextTypes
 
 from src.bot.handlers import (
-    handle_admin_approve,
     handle_admin_callback,
     handle_admin_response,
     handle_request_command,
 )
+from src.models.user import User
+from src.services import SessionLocal
 
 # ============================================================================
 # Fixtures
@@ -141,8 +143,8 @@ class TestRequestCommandEdgeCases:
         context.application = AsyncMock()
 
         with patch("src.services.SessionLocal") as mock_session:
-            with patch("src.bot.handlers.RequestService") as mock_req_service:
-                with patch("src.bot.handlers.NotificationService") as mock_notif:
+            with patch("src.bot.handlers.common.RequestService") as mock_req_service:
+                with patch("src.bot.handlers.common.NotificationService") as mock_notif:
                     db_instance = MagicMock()
                     mock_session.return_value = db_instance
                     db_instance.execute.return_value.scalar_one_or_none.return_value = None
@@ -177,7 +179,7 @@ class TestRequestCommandEdgeCases:
         context.application = AsyncMock()
 
         with patch("src.services.SessionLocal") as mock_session:
-            with patch("src.bot.handlers.RequestService") as mock_req_service:
+            with patch("src.bot.handlers.common.RequestService") as mock_req_service:
                 db_instance = MagicMock()
                 mock_session.return_value = db_instance
                 db_instance.execute.return_value.scalar_one_or_none.return_value = None
@@ -190,142 +192,6 @@ class TestRequestCommandEdgeCases:
                 await handle_request_command(update, context)
 
                 # Should inform user of pending request (message is in Russian from localizer)
-                update.message.reply_text.assert_called_once()
-
-
-# ============================================================================
-# handle_admin_approve Error Cases
-# ============================================================================
-
-
-class TestAdminApproveErrorCases:
-    """Test error cases for admin approval handler."""
-
-    async def test_approve_without_message(self):
-        """Test approval when update.message is None."""
-        update = MagicMock(spec=Update)
-        update.message = None
-
-        context = MagicMock(spec=ContextTypes.DEFAULT_TYPE)
-
-        await handle_admin_approve(update, context)
-
-    async def test_approve_without_from_user(self):
-        """Test approval when from_user is None."""
-        update = MagicMock(spec=Update)
-        update.message = MagicMock(spec=Message)
-        update.message.from_user = None
-
-        context = MagicMock(spec=ContextTypes.DEFAULT_TYPE)
-
-        await handle_admin_approve(update, context)
-
-    async def test_approve_non_approval_message(self, mock_admin_user, mock_chat):
-        """Test approval with non-approval message."""
-        update = MagicMock(spec=Update)
-        update.message = MagicMock(spec=Message)
-        update.message.from_user = mock_admin_user
-        update.message.chat = mock_chat
-        update.message.text = "Some random text"
-        update.message.reply_text = AsyncMock()
-
-        context = MagicMock(spec=ContextTypes.DEFAULT_TYPE)
-
-        await handle_admin_approve(update, context)
-
-        # Should send instruction message
-        update.message.reply_text.assert_called_once()
-
-    async def test_approve_without_reply_to_message(self, mock_admin_user, mock_chat):
-        """Test approval without replying to a message."""
-        update = MagicMock(spec=Update)
-        update.message = MagicMock(spec=Message)
-        update.message.from_user = mock_admin_user
-        update.message.chat = mock_chat
-        update.message.text = "Approve"
-        update.message.reply_to_message = None
-        update.message.reply_text = AsyncMock()
-
-        context = MagicMock(spec=ContextTypes.DEFAULT_TYPE)
-
-        await handle_admin_approve(update, context)
-
-        update.message.reply_text.assert_called_once()
-
-    async def test_approve_invalid_request_id_format(self, mock_admin_user, mock_chat):
-        """Test approval with invalid request ID format."""
-        original_message = MagicMock(spec=Message)
-        original_message.text = "Some message without request ID"
-
-        update = MagicMock(spec=Update)
-        update.message = MagicMock(spec=Message)
-        update.message.from_user = mock_admin_user
-        update.message.chat = mock_chat
-        update.message.text = "Approve"
-        update.message.reply_to_message = original_message
-        update.message.reply_text = AsyncMock()
-
-        context = MagicMock(spec=ContextTypes.DEFAULT_TYPE)
-
-        await handle_admin_approve(update, context)
-
-        update.message.reply_text.assert_called_once()
-
-    async def test_approve_request_not_found(self, mock_admin_user, mock_chat):
-        """Test approval when request is not found."""
-        original_message = MagicMock(spec=Message)
-        original_message.text = "Request #999: Test User (Client ID: 123) - 'test'"
-
-        update = MagicMock(spec=Update)
-        update.message = MagicMock(spec=Message)
-        update.message.from_user = mock_admin_user
-        update.message.chat = mock_chat
-        update.message.text = "Approve"
-        update.message.reply_to_message = original_message
-        update.message.reply_text = AsyncMock()
-
-        context = MagicMock(spec=ContextTypes.DEFAULT_TYPE)
-
-        with patch("src.services.SessionLocal") as mock_session:
-            with patch("src.bot.handlers.AdminService") as mock_admin_service:
-                db_instance = MagicMock()
-                mock_session.return_value = db_instance
-
-                admin_service_inst = AsyncMock()
-                mock_admin_service.return_value = admin_service_inst
-                # Request not found
-                admin_service_inst.approve_request.return_value = None
-
-                await handle_admin_approve(update, context)
-
-                update.message.reply_text.assert_called_once()
-
-    async def test_approve_database_error(self, mock_admin_user, mock_chat):
-        """Test approval when database error occurs."""
-        original_message = MagicMock(spec=Message)
-        original_message.text = "Request #123: Test User (Client ID: 456) - 'test'"
-
-        update = MagicMock(spec=Update)
-        update.message = MagicMock(spec=Message)
-        update.message.from_user = mock_admin_user
-        update.message.chat = mock_chat
-        update.message.text = "Approve"
-        update.message.reply_to_message = original_message
-        update.message.reply_text = AsyncMock()
-
-        context = MagicMock(spec=ContextTypes.DEFAULT_TYPE)
-
-        with patch("src.services.SessionLocal") as mock_session:
-            with patch("src.bot.handlers.AdminService") as mock_admin_service:
-                db_instance = MagicMock()
-                mock_session.return_value = db_instance
-
-                admin_service_inst = AsyncMock()
-                mock_admin_service.return_value = admin_service_inst
-                admin_service_inst.approve_request.side_effect = Exception("Database error")
-
-                await handle_admin_approve(update, context)
-
                 update.message.reply_text.assert_called_once()
 
 
@@ -389,7 +255,7 @@ class TestAdminCallbackErrorCases:
         context = MagicMock(spec=ContextTypes.DEFAULT_TYPE)
 
         with patch("src.services.SessionLocal") as mock_session:
-            with patch("src.bot.handlers.AdminService") as mock_admin_service:
+            with patch("src.bot.handlers.admin_requests.AdminService") as mock_admin_service:
                 db_instance = MagicMock()
                 mock_session.return_value = db_instance
 
@@ -430,6 +296,53 @@ class TestAdminCallbackErrorCases:
 
 class TestAdminResponseErrorCases:
     """Test error cases for universal admin response handler."""
+
+    @pytest.fixture(autouse=True)
+    def cleanup_db(self):
+        """Clean up and setup database before and after each test."""
+        db = SessionLocal()
+        try:
+            db.execute(delete(User))
+            db.commit()
+        except Exception:
+            db.rollback()
+        finally:
+            db.close()
+
+        # Setup: Create admin user for tests
+        db = SessionLocal()
+        try:
+            admin1 = User(
+                telegram_id=999999,
+                name="Test Admin",
+                is_active=True,
+                is_administrator=True,
+            )
+            admin2 = User(
+                telegram_id=999888777,
+                name="Test Admin 2",
+                is_active=True,
+                is_administrator=True,
+            )
+            db.add(admin1)
+            db.add(admin2)
+            db.commit()
+        except Exception:
+            db.rollback()
+        finally:
+            db.close()
+
+        yield
+
+        # Cleanup after test
+        db = SessionLocal()
+        try:
+            db.execute(delete(User))
+            db.commit()
+        except Exception:
+            db.rollback()
+        finally:
+            db.close()
 
     async def test_admin_response_without_message(self):
         """Test response when update.message is None."""
@@ -492,8 +405,8 @@ class TestAdminResponseErrorCases:
         context.application = AsyncMock()
 
         with patch("src.services.SessionLocal") as mock_session:
-            with patch("src.bot.handlers.AdminService") as mock_admin_service:
-                with patch("src.bot.handlers.NotificationService"):
+            with patch("src.bot.handlers.admin_requests.AdminService") as mock_admin_service:
+                with patch("src.bot.handlers.common.NotificationService"):
                     db_instance = MagicMock()
                     mock_session.return_value = db_instance
 
@@ -525,13 +438,13 @@ class TestAdminResponseErrorCases:
         context = MagicMock(spec=ContextTypes.DEFAULT_TYPE)
 
         with patch("src.services.SessionLocal") as mock_session:
-            with patch("src.bot.handlers.AdminService") as mock_admin_service:
+            with patch("src.bot.handlers.admin_requests.AdminService") as mock_admin_service:
                 db_instance = MagicMock()
                 mock_session.return_value = db_instance
 
                 admin_service_inst = AsyncMock()
                 mock_admin_service.return_value = admin_service_inst
-                admin_service_inst.approve_request.side_effect = Exception("Database error")
+                admin_service_inst.approve_request.side_effect = Exception("DB Error")
 
                 await handle_admin_response(update, context)
 

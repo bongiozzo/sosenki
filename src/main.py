@@ -81,7 +81,7 @@ async def run_webhook_mode(host: str = "0.0.0.0", port: int = 8000):
     bot_app = await create_bot_app()
 
     # Setup webhook route with the bot app
-    await setup_webhook_route(app, bot_app)
+    await setup_webhook_route(bot_app)
 
     # Add custom startup handler to initialize bot after Uvicorn binds port
     async def init_bot_on_startup():

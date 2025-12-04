@@ -251,9 +251,10 @@ async def authorize_account_access(
 
     Verifies:
     1. Account exists
-    2. User is admin, OR
+    2. User is admin or staff, OR
     3. Account belongs to user (OWNER/STAFF), OR
-    4. Account is ORGANIZATION and user is OWNER
+    4. Account is ORGANIZATION and user is OWNER, OR
+    5. User represents the account owner (authenticated_user.representative_id == account.user_id)
 
     Args:
         session: Database session
@@ -293,6 +294,11 @@ async def authorize_account_access(
         account.account_type in (AccountType.ORGANIZATION, AccountType.STAFF)
         and authenticated_user.is_owner
     ):
+        return account
+
+    # Authorization: Representative can access the account of the user they represent
+    # If authenticated_user.representative_id == account.user_id, then authenticated user represents the account owner
+    if account.user_id and authenticated_user.representative_id == account.user_id:
         return account
 
     # Authorization failed

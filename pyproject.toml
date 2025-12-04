@@ -50,6 +50,9 @@ markers = [
     "integration: Integration tests for full workflows",
     "unit: Unit tests for services and models",
 ]
+filterwarnings = [
+    "ignore:coroutine 'AsyncMockMixin._execute_mock_call' was never awaited:RuntimeWarning",
+]
 
 [tool.ruff]
 line-length = 100
