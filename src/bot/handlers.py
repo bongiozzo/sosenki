@@ -29,7 +29,7 @@ async def handle_start_command(update: Update, context: ContextTypes.DEFAULT_TYP
             logger.warning("Received /start without message")
             return
 
-        await update.message.reply_text(t("bot.welcome"))
+        await update.message.reply_text(t("labels.welcome"))
         logger.info("Sent welcome message to user %s", update.message.from_user.id)
 
     except Exception as e:
@@ -67,7 +67,7 @@ async def handle_request_command(  # noqa: C901
             from src.bot.config import bot_config
 
             await update.message.reply_text(
-                t("bot.group_chat_error", bot_name=bot_config.telegram_bot_name)
+                t("requests.group_chat_error", bot_name=bot_config.telegram_bot_name)
             )
             return
 

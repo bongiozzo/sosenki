@@ -65,7 +65,12 @@ class ElectricityService:
             raise ValueError("Losses cannot be negative")
 
         consumption = electricity_end - electricity_start
-        total = consumption * electricity_multiplier * electricity_rate * (Decimal(1) + electricity_losses)
+        total = (
+            consumption
+            * electricity_multiplier
+            * electricity_rate
+            * (Decimal(1) + electricity_losses)
+        )
 
         return total.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
@@ -103,13 +108,15 @@ class ElectricityService:
             Dict mapping user_id → total_share_weight for all property owners
         """
         # Query all active properties and group by owner
-        stmt = select(
-            Property.owner_id,
-            func.sum(Property.share_weight).label("total_weight"),
-        ).where(
-            Property.is_active == True  # noqa: E712
-        ).group_by(
-            Property.owner_id
+        stmt = (
+            select(
+                Property.owner_id,
+                func.sum(Property.share_weight).label("total_weight"),
+            )
+            .where(
+                Property.is_active == True  # noqa: E712
+            )
+            .group_by(Property.owner_id)
         )
 
         results = self.db.execute(stmt).all()

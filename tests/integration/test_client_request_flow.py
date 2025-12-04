@@ -156,9 +156,7 @@ class TestAccessRequestFlow:
         db = SessionLocal()
         try:
             stored_requests = (
-                db.query(AccessRequest)
-                .filter(AccessRequest.user_telegram_id == client_id)
-                .all()
+                db.query(AccessRequest).filter(AccessRequest.user_telegram_id == client_id).all()
             )
 
             assert len(stored_requests) == 1, "Request should be stored in database"

@@ -1,16 +1,16 @@
 """Simple localization module for SOSenki.
 
-Loads Russian translations from ru.json once at import time.
-Provides a single t(key, **kwargs) function for translation lookup.
+Loads Russian translations from translations.json once at import time.
+Provides a single t(key, **kwargs) function for translation lookup with semantic categories.
 
 Usage:
     from src.services.localizer import t
 
     # Simple lookup
-    message = t("bot.welcome")
+    message = t("labels.welcome")
 
     # With placeholder substitution
-    message = t("bot.group_chat_error", bot_name="SOSenkiBot")
+    message = t("errors.group_chat_error", bot_name="SOSenkiBot")
 """
 
 import json
@@ -35,17 +35,17 @@ def t(key: str, **kwargs: Any) -> str:
     """Get translation for a key with optional placeholder substitution.
 
     Args:
-        key: Dot-notation key (e.g., "bot.welcome", "mini_app.loading")
+        key: Dot-notation key (e.g., "labels.welcome", "errors.group_chat_error")
         **kwargs: Placeholder values for string formatting
 
     Returns:
         Translated string with placeholders replaced, or the key itself if not found.
 
     Examples:
-        >>> t("bot.welcome")
+        >>> t("labels.welcome")
         "Добро пожаловать в SOSenki! 🏠"
 
-        >>> t("bot.group_chat_error", bot_name="SOSenkiBot")
+        >>> t("errors.group_chat_error", bot_name="SOSenkiBot")
         "❌ Запросы можно отправлять только в личные сообщения..."
     """
     parts = key.split(".")

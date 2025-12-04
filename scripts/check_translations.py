@@ -3,14 +3,16 @@
 Translation completeness validation script for SOSenki.
 
 Validates that translations.json contains all required translation keys used in:
-1. Bot handlers - t("bot.key") pattern in Python files
-2. Mini App - t("key") pattern in JavaScript files
+1. Bot handlers - t("category.key") pattern in Python files
+2. Mini App - t("category.key") pattern in JavaScript files
+3. HTML - data-i18n="category.key" attributes
 
 Single source of truth: src/static/mini_app/translations.json
+Flat namespace: buttons, labels, status, errors, requests, admin, electricity, ui
 
 Provides warnings for:
-- Missing keys in ru.json
-- Unused keys in ru.json (defined but not used in code)
+- Missing keys in translations.json
+- Unused keys in translations.json (defined but not used in code)
 
 Usage:
     uv run python scripts/check_translations.py
@@ -33,45 +35,20 @@ def load_translations(file_path: Path) -> dict:
         sys.exit(1)
 
 
-def extract_bot_keys_from_python(code: str) -> set:
-    """Extract translation keys from Python code using t("bot.key") pattern."""
-    # Pattern: t("bot.key_name" with optional format args
-    # Handles both single-line t("bot.key") and multi-line t(\n  "bot.key",\n  ...
-    pattern = r't\(\s*["\']bot\.([a-z_]+)["\']'
+def extract_keys_from_code(code: str) -> set:
+    """Extract translation keys from Python/JavaScript code using t("category.key") pattern."""
+    # Pattern: t("category.key_name" or t('category.key_name' with optional format args
+    pattern = r't\(\s*["\']([a-z_]+\.[a-z_]+)["\']'
     matches = re.findall(pattern, code)
-    return {f"bot.{key}" for key in matches}
+    return set(matches)
 
 
-def extract_mini_app_keys_from_js(code: str) -> set:
-    """Extract translation keys from JavaScript code using t('key') pattern."""
-    # Pattern: t("key_name" or t('key_name' with optional params
-    # Must match valid translation keys (lowercase letters and underscores only)
-    # Exclude HTML element names by requiring underscore in most keys
-    pattern = r"t\(['\"]([a-z][a-z_]*[a-z])['\"]"
-    matches = re.findall(pattern, code)
-    # Filter out HTML element names that might be caught
-    html_elements = {
-        "a",
-        "div",
-        "label",
-        "option",
-        "select",
-        "span",
-        "p",
-        "h1",
-        "h2",
-        "pre",
-        "button",
-    }
-    return {f"mini_app.{key}" for key in matches if key not in html_elements}
-
-
-def extract_mini_app_keys_from_html(code: str) -> set:
+def extract_keys_from_html(code: str) -> set:
     """Extract translation keys from HTML using data-i18n attributes."""
-    # Pattern: data-i18n="key_name" or data-i18n-html="key_name"
-    pattern = r'data-i18n(?:-html)?=["\']([a-z_]+)["\']'
+    # Pattern: data-i18n="category.key_name" or data-i18n-html="category.key_name"
+    pattern = r'data-i18n(?:-html)?=["\']([a-z_]+\.[a-z_]+)["\']'
     matches = re.findall(pattern, code)
-    return {f"mini_app.{key}" for key in matches}
+    return set(matches)
 
 
 def flatten_keys(translations: dict, prefix: str = "") -> set:
@@ -93,13 +70,13 @@ def check_translations():  # noqa: C901
     # Single source of truth
     ru_json_path = project_root / "src" / "static" / "mini_app" / "translations.json"
 
-    # Python files that use t() for bot translations
+    # Python files that use t("category.key")
     python_files = [
         project_root / "src" / "bot" / "handlers.py",
         project_root / "src" / "services" / "notification_service.py",
     ]
 
-    # JavaScript files that use t() for mini_app translations
+    # JavaScript files that use t("category.key")
     js_files = [
         project_root / "src" / "static" / "mini_app" / "app.js",
     ]
@@ -116,37 +93,42 @@ def check_translations():  # noqa: C901
     print("\n🔍 Translation Validation Report\n")
     print("=" * 60)
     print(f"📍 Single source of truth: {ru_json_path.relative_to(project_root)}")
+    print(
+        "📚 Semantic categories: buttons, labels, status, errors, requests, admin, electricity, ui"
+    )
     print("=" * 60)
 
-    # Extract keys from Python files (bot namespace)
-    bot_keys = set()
+    # Extract keys from all Python files
+    python_keys = set()
     for py_file in python_files:
         if py_file.exists():
             with open(py_file, encoding="utf-8") as f:
                 code = f.read()
-                bot_keys.update(extract_bot_keys_from_python(code))
+                python_keys.update(extract_keys_from_code(code))
 
-    # Extract keys from JavaScript files (mini_app namespace)
-    mini_app_keys = set()
+    # Extract keys from JavaScript files
+    js_keys = set()
     for js_file in js_files:
         if js_file.exists():
             with open(js_file, encoding="utf-8") as f:
                 code = f.read()
-                mini_app_keys.update(extract_mini_app_keys_from_js(code))
+                js_keys.update(extract_keys_from_code(code))
 
-    # Extract keys from HTML files (mini_app namespace via data-i18n attributes)
+    # Extract keys from HTML files
+    html_keys = set()
     for html_file in html_files:
         if html_file.exists():
             with open(html_file, encoding="utf-8") as f:
                 code = f.read()
-                mini_app_keys.update(extract_mini_app_keys_from_html(code))
+                html_keys.update(extract_keys_from_html(code))
 
     # Combine all used keys
-    used_keys = bot_keys | mini_app_keys
+    used_keys = python_keys | js_keys | html_keys
 
-    print(f"\n📋 Found {len(bot_keys)} bot keys used in Python handlers")
-    print(f"📋 Found {len(mini_app_keys)} mini_app keys used in JavaScript")
-    print(f"📚 Found {len(available_keys)} total keys defined in ru.json\n")
+    print(f"\n📋 Found {len(python_keys)} keys used in Python handlers")
+    print(f"📋 Found {len(js_keys)} keys used in JavaScript")
+    print(f"📋 Found {len(html_keys)} keys used in HTML")
+    print(f"📚 Found {len(available_keys)} total keys defined in translations.json\n")
 
     # Check for missing keys
     missing_keys = used_keys - available_keys

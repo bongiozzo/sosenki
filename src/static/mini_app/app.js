@@ -35,7 +35,7 @@ async function loadTranslations() {
 /**
  * Get translation for a key with optional placeholder substitution.
  * Falls back to key if translation not found.
- * @param {string} key - Translation key (e.g., "loading", "welcome_back")
+ * @param {string} key - Translation key in format "category.key" (e.g., "ui.loading", "labels.represents")
  * @param {Object} params - Placeholder values for string formatting
  * @returns {string} Translated string
  */
@@ -45,11 +45,23 @@ function t(key, params = {}) {
         return key;
     }
     
-    // Automatically prepend mini_app. namespace for mini app translations
-    let value = __translations?.mini_app?.[key];
-    if (value === undefined) {
-        console.warn('Translation key not found: mini_app.' + key);
+    // Access flat namespace directly using full "category.key" format
+    const parts = key.split('.');
+    if (parts.length !== 2) {
+        console.warn('Invalid translation key format (should be "category.key"):', key);
         return key;
+    }
+    
+    const [category, keyName] = parts;
+    let value = __translations?.[category]?.[keyName];
+    if (value === undefined) {
+        console.warn('Translation key not found:', key);
+        return key;
+    }
+    
+    // If value is a reference key (e.g., "retry_prompt"), resolve it
+    if (typeof value === 'string' && value === 'retry_prompt') {
+        value = t('errors.retry_prompt', params);
     }
     
     // Replace placeholders like {user_name} with provided values
@@ -442,15 +454,15 @@ function renderError(message, error = null) {
  */
 function copyDebugInfo() {
     if (!window.currentDebugInfo) {
-        alert(t('no_data'));
+        alert(t('ui.no_data'));
         return;
     }
     
     navigator.clipboard.writeText(window.currentDebugInfo).then(() => {
-        alert(t('copied'));
+        alert(t('ui.copied'));
     }).catch(err => {
         console.error('Failed to copy:', err);
-        alert(t('copy_failed'));
+        alert(t('errors.copy_failed'));
     });
 }
 
@@ -563,7 +575,7 @@ function renderTransactionsList(transactions, containerId = 'transactions-list')
     container.innerHTML = '';
     
     if (!transactions || transactions.length === 0) {
-        container.innerHTML = `<div class="transaction-empty">${t('no_transactions')}</div>`;
+        container.innerHTML = `<div class="transaction-empty">${t('ui.no_transactions')}</div>`;
         return;
     }
     
@@ -696,7 +708,7 @@ function renderBills(bills, containerId = 'bills-list') {
     container.innerHTML = '';
     
     if (!bills || bills.length === 0) {
-        container.innerHTML = `<div class="bill-empty">${t('no_bills')}</div>`;
+        container.innerHTML = `<div class="bill-empty">${t('ui.no_bills')}</div>`;
         return;
     }
     
@@ -790,10 +802,10 @@ function renderBills(bills, containerId = 'bills-list') {
 function formatBillType(billType) {
     const normalized = billType.toUpperCase();
     const typeMap = {
-        'ELECTRICITY': t('bill_electricity'),
-        'SHARED_ELECTRICITY': t('bill_shared_electricity'),
-        'CONSERVATION': t('bill_conservation'),
-        'MAIN': t('bill_main')
+        'ELECTRICITY': t('ui.bill_electricity'),
+        'SHARED_ELECTRICITY': t('ui.bill_shared_electricity'),
+        'CONSERVATION': t('ui.bill_conservation'),
+        'MAIN': t('ui.bill_main')
     };
     return typeMap[normalized] || billType;
 }
@@ -831,11 +843,11 @@ function renderStakeholderLink(url, isOwner = false, isStakeholder = false) {
     if (isStakeholder) {
         // Signed owner
         statusDiv.classList.add('signed');
-        statusDiv.textContent = t('signed');
+        statusDiv.textContent = t('status.signed');
     } else {
         // Unsigned owner
         statusDiv.classList.add('not-signed');
-        statusDiv.textContent = t('not_signed');
+        statusDiv.textContent = t('status.not_signed');
     }
     
     section.appendChild(statusDiv);
@@ -847,7 +859,7 @@ function renderStakeholderLink(url, isOwner = false, isStakeholder = false) {
         link.target = '_blank';
         link.rel = 'noopener noreferrer';
         link.className = 'stakeholder-link';
-        link.textContent = t('view_stakeholder_shares');
+        link.textContent = t('ui.view_stakeholder_shares');
         section.appendChild(link);
     }
     
@@ -881,7 +893,7 @@ function renderRepresentativeInfo(representativeOf) {
     // Create one-liner: "Represents [Name]"
     const representsText = document.createElement('div');
     representsText.className = 'representative-info-text';
-    representsText.textContent = t('represents', { name: representativeOf.name });
+    representsText.textContent = t('labels.represents', { name: representativeOf.name });
     
     container.appendChild(representsText);
 }
@@ -926,7 +938,7 @@ function renderAdminUserSelector(isAdministrator, currentUserId, users = null) {
     
     // Create label
     const label = document.createElement('label');
-    label.textContent = t('view_as');
+    label.textContent = t('ui.view_as');
     label.setAttribute('for', 'admin-user-select');
     selectorDiv.appendChild(label);
     
@@ -981,17 +993,17 @@ async function handleMenuAction(action) {
             if (__appContext && __appContext.photo_gallery_url) {
                 tg.openLink(__appContext.photo_gallery_url);
             } else {
-                tg.showAlert(t('gallery_not_configured'));
+                tg.showAlert(t('errors.gallery_not_configured'));
             }
         } catch (error) {
             console.error('Error opening gallery:', error);
-            tg.showAlert(t('gallery_error'));
+            tg.showAlert(t('errors.gallery_error'));
         }
         return;
     }
     
     // Show Telegram alert for other features (placeholder)
-    tg.showAlert(t('feature_coming_soon', { action: action }));
+    tg.showAlert(t('errors.feature_coming_soon', { action: action }));
 }
 
 /**
@@ -1302,7 +1314,7 @@ function renderAccountsPage(accounts, containerId = 'accounts-list') {
     container.innerHTML = '';
     
     if (!accounts || accounts.length === 0) {
-        container.innerHTML = `<div class="account-empty">${t('no_accounts')}</div>`;
+        container.innerHTML = `<div class="account-empty">${t('ui.no_accounts')}</div>`;
         return;
     }
     
@@ -1394,7 +1406,7 @@ async function initMiniApp() {
         const initData = getInitData();
         
         if (!initData) {
-            renderError(t('auth_failed'));
+            renderError(t('errors.auth_failed'));
             return;
         }
         
@@ -1416,7 +1428,7 @@ async function initMiniApp() {
                 if (response.status === 401) {
                     renderAccessDenied();
                 } else {
-                    renderError(t('server_error'));
+                    renderError(t('errors.server_error'));
                 }
                 return;
             }
@@ -1496,7 +1508,7 @@ async function initMiniApp() {
         }
         
     } catch (error) {
-        renderError(t('network_error'));
+        renderError(t('errors.network_error'));
     }
 }
 
@@ -1578,21 +1590,21 @@ function renderProperties(properties) {
         if (!property.is_ready) {
             const readyBadge = document.createElement('span');
             readyBadge.className = 'property-badge not-ready';
-            readyBadge.textContent = t('not_ready');
+            readyBadge.textContent = t('status.not_ready');
             metaEl.appendChild(readyBadge);
         }
 
         if (property.is_for_tenant) {
             const tenantBadge = document.createElement('span');
             tenantBadge.className = 'property-badge tenant';
-            tenantBadge.textContent = t('tenant');
+            tenantBadge.textContent = t('labels.tenant');
             metaEl.appendChild(tenantBadge);
         }
 
         if (property.share_weight) {
             const weightBadge = document.createElement('span');
             weightBadge.className = 'property-badge';
-            weightBadge.textContent = `${t('weight')}: ${property.share_weight}`;
+            weightBadge.textContent = `${t('labels.weight')}: ${property.share_weight}`;
             metaEl.appendChild(weightBadge);
         }
 
@@ -1619,7 +1631,7 @@ function renderProperties(properties) {
             linkEl.href = property.photo_link;
             linkEl.target = '_blank';
             linkEl.rel = 'noopener noreferrer';
-            linkEl.textContent = t('view_photos');
+            linkEl.textContent = t('ui.view_photos');
             photoLinkEl.appendChild(linkEl);
             info.appendChild(photoLinkEl);
         }

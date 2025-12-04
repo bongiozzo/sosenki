@@ -16,6 +16,7 @@ from src.services.electricity_service import ElectricityService
 def get_unique_name(base: str) -> str:
     """Generate a unique name for test data."""
     import time
+
     return f"{base}-{int(time.time() * 1000000) % 1000000}"
 
 
@@ -166,9 +167,15 @@ class TestElectricityService:
                 status=PeriodStatus.OPEN,
             )
 
-            prop1 = Property(owner=user1, property_name="Prop1", type="house", share_weight=Decimal("1.0"))
-            prop2 = Property(owner=user1, property_name="Prop2", type="house", share_weight=Decimal("0.5"))
-            prop3 = Property(owner=user2, property_name="Prop3", type="house", share_weight=Decimal("2.0"))
+            prop1 = Property(
+                owner=user1, property_name="Prop1", type="house", share_weight=Decimal("1.0")
+            )
+            prop2 = Property(
+                owner=user1, property_name="Prop2", type="house", share_weight=Decimal("0.5")
+            )
+            prop3 = Property(
+                owner=user2, property_name="Prop3", type="house", share_weight=Decimal("2.0")
+            )
 
             db.add_all([user1, user2, period, prop1, prop2, prop3])
             db.commit()

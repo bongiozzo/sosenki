@@ -27,6 +27,7 @@ def get_or_create_service_period(
     electricity_multiplier: str | None = None,
     electricity_rate: str | None = None,
     electricity_losses: str | None = None,
+    status: str | None = None,
 ) -> ServicePeriod:
     """Get existing service period or create new one.
 
@@ -40,6 +41,7 @@ def get_or_create_service_period(
         electricity_multiplier: Consumption multiplier (optional)
         electricity_rate: Rate per kWh (optional)
         electricity_losses: Transmission losses ratio (optional)
+        status: Period status - "open" or "closed" (optional, defaults to "open")
 
     Returns:
         ServicePeriod instance
@@ -64,7 +66,9 @@ def get_or_create_service_period(
         # Parse electricity fields (convert to Decimal if provided)
         elec_start = Decimal(str(electricity_start)) if electricity_start is not None else None
         elec_end = Decimal(str(electricity_end)) if electricity_end is not None else None
-        elec_multiplier = Decimal(str(electricity_multiplier)) if electricity_multiplier is not None else None
+        elec_multiplier = (
+            Decimal(str(electricity_multiplier)) if electricity_multiplier is not None else None
+        )
         elec_rate = Decimal(str(electricity_rate)) if electricity_rate is not None else None
         elec_losses = Decimal(str(electricity_losses)) if electricity_losses is not None else None
 
@@ -81,6 +85,8 @@ def get_or_create_service_period(
                 period.electricity_rate = elec_rate
             if electricity_losses is not None:
                 period.electricity_losses = elec_losses
+            if status is not None:
+                period.status = status
             return period
 
         # Create new period
@@ -93,6 +99,7 @@ def get_or_create_service_period(
             electricity_multiplier=elec_multiplier,
             electricity_rate=elec_rate,
             electricity_losses=elec_losses,
+            status=status or "open",
         )
         session.add(period)
         session.flush()

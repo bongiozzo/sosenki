@@ -41,7 +41,7 @@ class NotificationService:
             message: Optional custom message (not used in MVP, using standard message)
         """
         # T029: Send standard confirmation message
-        await self.send_message(requester_id, t("bot.request_received"))
+        await self.send_message(requester_id, t("status.pending"))
 
     async def send_notification_to_admin(
         self,
@@ -75,7 +75,7 @@ class NotificationService:
             # T030: Send notification with [Approve] [Reject] reply keyboard
             # Include clickable link to requester's Telegram profile so admin can chat with them
             notification_text = t(
-                "bot.admin_notification_request",
+                "admin.admin_notification_request",
                 request_id=request_id,
                 requester_id=requester_id,
                 requester_username=requester_username,
@@ -93,11 +93,11 @@ class NotificationService:
             )
 
             if users_without_telegram:
-                notification_text += t("bot.admin_users_without_telegram")
+                notification_text += t("admin.admin_users_without_telegram")
                 for user in users_without_telegram:
                     notification_text += f"{user.id}. {user.name}\n"
-                notification_text += t("bot.admin_reply_with_id")
-                notification_text += t("bot.admin_or_use_buttons")
+                notification_text += t("admin.admin_reply_with_id")
+                notification_text += t("admin.admin_or_use_buttons")
 
             # Note: Reply keyboard implementation requires storing request_id
             # in the message context for admin handlers to parse.
@@ -109,10 +109,10 @@ class NotificationService:
                 [
                     [
                         InlineKeyboardButton(
-                            text=t("bot.approve"), callback_data=f"approve:{request_id}"
+                            text=t("buttons.approve"), callback_data=f"approve:{request_id}"
                         ),
                         InlineKeyboardButton(
-                            text=t("bot.reject"), callback_data=f"reject:{request_id}"
+                            text=t("buttons.reject"), callback_data=f"reject:{request_id}"
                         ),
                     ]
                 ]
@@ -132,7 +132,7 @@ class NotificationService:
         from src.bot.config import bot_config
 
         # T041: Send welcome message after approval with Mini App button (US1)
-        welcome_text = t("bot.welcome_message")
+        welcome_text = t("admin.welcome_message")
 
         # Add Mini App button if MINI_APP_URL is configured
         keyboard = None
@@ -141,7 +141,7 @@ class NotificationService:
                 [
                     [
                         InlineKeyboardButton(
-                            text=t("bot.open_app"),
+                            text=t("buttons.open_app"),
                             web_app=WebAppInfo(url=bot_config.mini_app_url),
                         )
                     ]
@@ -157,7 +157,7 @@ class NotificationService:
             requester_id: Requester's Telegram ID
         """
         # T050: Send rejection message after rejection
-        await self.send_message(requester_id, t("bot.rejection_message"))
+        await self.send_message(requester_id, t("admin.rejection_message"))
 
 
 __all__ = ["NotificationService"]

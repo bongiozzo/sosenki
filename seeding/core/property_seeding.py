@@ -14,7 +14,6 @@ from seeding.core.errors import DataValidationError
 from seeding.core.parsers import (
     parse_boolean,
     parse_russian_currency,
-    parse_russian_decimal,
     parse_russian_percentage,
 )
 from src.models.property import Property

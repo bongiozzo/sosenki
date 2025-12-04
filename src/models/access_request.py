@@ -2,7 +2,7 @@
 
 from enum import Enum as PyEnum
 
-from sqlalchemy import Enum, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import Enum, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.models import Base, BaseModel

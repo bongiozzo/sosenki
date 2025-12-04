@@ -217,6 +217,7 @@ class SeededService:
                             period_info.get("name"),  # Period name (e.g., "2024-2025")
                             period_info.get("start_date"),
                             period_info.get("end_date"),
+                            status=period_info.get("status"),
                         )
 
                         # Create transactions
@@ -396,6 +397,7 @@ class SeededService:
                         electricity_multiplier=period_info.get("electricity_multiplier"),
                         electricity_rate=period_info.get("electricity_rate"),
                         electricity_losses=period_info.get("electricity_losses"),
+                        status=period_info.get("status"),
                     )
 
                 self.logger.info(f"✓ Pre-created {service_periods_count} service periods")
@@ -524,6 +526,7 @@ class SeededService:
                                         period_info.get("name"),
                                         period_info.get("start_date"),
                                         period_info.get("end_date"),
+                                        status=period_info.get("status"),
                                     )
 
                                     # Create readings and bills
@@ -620,6 +623,7 @@ class SeededService:
                                         period_info.get("name"),
                                         period_info.get("start_date"),
                                         period_info.get("end_date"),
+                                        status=period_info.get("status"),
                                     )
 
                                     # Create shared bills with name-based split rules
@@ -713,6 +717,7 @@ class SeededService:
                                         period_info.get("name"),
                                         period_info.get("start_date"),
                                         period_info.get("end_date"),
+                                        status=period_info.get("status"),
                                     )
 
                                     # Create bills with name-based split rules

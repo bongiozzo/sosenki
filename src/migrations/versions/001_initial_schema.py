@@ -294,7 +294,7 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id"),
         sa.Index("ix_service_periods_name", "name", unique=True),
-    )    # Create budget_items table
+    )  # Create budget_items table
     op.create_table(
         "budget_items",
         sa.Column("id", sa.Integer(), nullable=False),

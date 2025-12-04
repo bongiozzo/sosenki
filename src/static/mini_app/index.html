@@ -9,7 +9,7 @@
 </head>
 <body>
     <div id="app">
-        <div class="loading" data-i18n="loading">Loading...</div>
+        <div class="loading" data-i18n="ui.loading">Loading...</div>
     </div>
     
     <!-- Welcome Screen Template (registered user) -->
@@ -24,15 +24,15 @@
                 <nav class="menu-grid">
                     <button class="menu-item" data-action="invest" id="invest-item">
                         <span class="menu-icon">📈</span>
-                        <span class="menu-label" data-i18n="invest">Invest</span>
+                        <span class="menu-label" data-i18n="ui.invest">Invest</span>
                     </button>
                     <button class="menu-item" data-action="rule">
                         <span class="menu-icon">📋</span>
-                        <span class="menu-label" data-i18n="rule">Rule</span>
+                        <span class="menu-label" data-i18n="ui.rule">Rule</span>
                     </button>
                     <button class="menu-item" data-action="enjoy">
                         <span class="menu-icon">🧘</span>
-                        <span class="menu-label" data-i18n="enjoy">Enjoy</span>
+                        <span class="menu-label" data-i18n="ui.enjoy">Enjoy</span>
                     </button>
                 </nav>
             </main>
@@ -51,15 +51,15 @@
             
             <!-- Properties Section (owners only) -->
             <section id="properties-container" class="properties-section">
-                <h2 data-i18n="properties">Properties</h2>
+                <h2 data-i18n="ui.properties">Properties</h2>
                 <div id="properties-list"></div>
             </section>
 
             <!-- Balance Section (owners only) -->
             <section id="balance-container" class="balance-section">
                 <div class="section-header">
-                    <h2 data-i18n="balance">Balance</h2>
-                    <a href="#" class="view-all-link" onclick="navigateToAccounts(event)" data-i18n="view_all">View all →</a>
+                    <h2 data-i18n="ui.balance">Balance</h2>
+                    <a href="#" class="view-all-link" onclick="navigateToAccounts(event)" data-i18n="ui.view_all">View all →</a>
                 </div>
                 <div class="balance-value">-₽0.00</div>
             </section>
@@ -67,15 +67,15 @@
             <!-- Transaction List Section -->
             <section id="transactions-section" class="transactions-section">
                 <div class="section-header">
-                    <h2 data-i18n="transactions">Transactions</h2>
-                    <a href="#" class="view-all-link" onclick="navigateToTransactions(event)" data-i18n="view_all">View all →</a>
+                    <h2 data-i18n="ui.transactions">Transactions</h2>
+                    <a href="#" class="view-all-link" onclick="navigateToTransactions(event)" data-i18n="ui.view_all">View all →</a>
                 </div>
                 <div id="transactions-list"></div>
             </section>
             
             <!-- Bills Section (all types) -->
             <section id="bills-container" class="bills-section">
-                <h2 data-i18n="bills">Bills</h2>
+                <h2 data-i18n="ui.bills">Bills</h2>
                 <div id="bills-list"></div>
             </section>
         </div>
@@ -85,7 +85,7 @@
     <template id="transactions-template">
         <div class="page-container">
             <header class="header">
-                <h1 data-i18n="transactions">Transactions</h1>
+                <h1 data-i18n="ui.transactions">Transactions</h1>
             </header>
             
             <main class="transactions-main">
@@ -100,7 +100,7 @@
     <template id="accounts-template">
         <div class="page-container">
             <header class="header">
-                <h1 data-i18n="accounts">Accounts</h1>
+                <h1 data-i18n="ui.accounts">Accounts</h1>
             </header>
             
             <main class="accounts-main">
@@ -121,13 +121,13 @@
             <main class="account-details-main">
                 <!-- Balance Section -->
                 <section id="account-balance-container" class="balance-section">
-                    <h2 data-i18n="balance">Balance</h2>
+                    <h2 data-i18n="ui.balance">Balance</h2>
                     <div class="balance-value" id="account-balance-value">₽0</div>
                 </section>
                 
                 <!-- Transactions Section -->
                 <section id="account-transactions-section" class="transactions-section">
-                    <h2 data-i18n="transactions">Transactions</h2>
+                    <h2 data-i18n="ui.transactions">Transactions</h2>
                     <div id="account-transactions-list" class="transactions-list">
                         <!-- Transactions will be rendered here -->
                     </div>
@@ -135,7 +135,7 @@
                 
                 <!-- Bills Section -->
                 <section id="account-bills-section" class="bills-section">
-                    <h2 data-i18n="bills">Bills</h2>
+                    <h2 data-i18n="ui.bills">Bills</h2>
                     <div id="account-bills-list" class="bills-list">
                         <!-- Bills will be rendered here -->
                     </div>
@@ -149,11 +149,11 @@
         <div class="access-denied-container">
             <div class="message-box">
                 <div class="icon-large">🔒</div>
-                <h2 data-i18n="access_denied_title">Access Denied</h2>
-                <p class="instruction" data-i18n-html="access_denied_instruction">
+                <h2 data-i18n="ui.access_denied_title">Access Denied</h2>
+                <p class="instruction" data-i18n-html="ui.access_denied_instruction">
                     To request access to SOSenki, send <code>/request</code> to the bot.
                 </p>
-                <button class="back-button" onclick="window.Telegram.WebApp.close()" data-i18n="close">
+                <button class="back-button" onclick="window.Telegram.WebApp.close()" data-i18n="ui.close">
                     Close
                 </button>
             </div>
@@ -165,16 +165,16 @@
         <div class="error-container">
             <div class="message-box">
                 <div class="icon-large">⚠️</div>
-                <h2 data-i18n="something_went_wrong">Something went wrong</h2>
-                <p class="error-message" id="error-message" data-i18n="try_again_later">Please try again later.</p>
+                <h2 data-i18n="errors.something_went_wrong">Something went wrong</h2>
+                <p class="error-message" id="error-message" data-i18n="errors.retry_prompt">Please try again later.</p>
                 <details style="margin-top: 16px; text-align: left; background: #f5f5f5; padding: 8px; border-radius: 4px; font-size: 12px;">
-                    <summary style="cursor: pointer; font-weight: 600;" data-i18n="debug_info">Debug Info</summary>
+                    <summary style="cursor: pointer; font-weight: 600;" data-i18n="ui.debug_info">Debug Info</summary>
                     <pre id="debug-info" style="overflow-x: auto; margin-top: 8px; white-space: pre-wrap; word-wrap: break-word; font-size: 11px;"></pre>
-                    <button class="copy-button" onclick="copyDebugInfo()" style="margin-top: 8px; padding: 6px 12px; background: #0099cc; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;" data-i18n="copy_debug_info">
+                    <button class="copy-button" onclick="copyDebugInfo()" style="margin-top: 8px; padding: 6px 12px; background: #0099cc; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;" data-i18n="ui.copy_debug_info">
                         Copy Debug Info
                     </button>
                 </details>
-                <button class="retry-button" onclick="location.reload()" data-i18n="retry">
+                <button class="retry-button" onclick="location.reload()" data-i18n="ui.retry">
                     Retry
                 </button>
             </div>
