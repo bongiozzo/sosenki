@@ -430,6 +430,31 @@ def upgrade() -> None:
         sa.Index("idx_bill_period_type", "service_period_id", "bill_type"),
     )
 
+    # Create audit_logs table (minimal audit logging for key entities)
+    op.create_table(
+        "audit_logs",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("entity_type", sa.String(length=50), nullable=False),
+        sa.Column("entity_id", sa.Integer(), nullable=False),
+        sa.Column("action", sa.String(length=50), nullable=False),
+        sa.Column("actor_id", sa.Integer(), nullable=True),
+        sa.Column("changes", sa.JSON(), nullable=True),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.current_timestamp(),
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.current_timestamp(),
+        ),
+        sa.ForeignKeyConstraint(["actor_id"], ["users.id"]),
+        sa.PrimaryKeyConstraint("id"),
+    )
+
 
 def downgrade() -> None:
     # For MVP with no backward compatibility requirement, downgrade is not implemented.

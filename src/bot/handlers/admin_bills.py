@@ -562,6 +562,7 @@ async def handle_electricity_create_bills(  # noqa: C901
                 return States.END
 
             # Update service period with electricity values and close it
+            admin_id = context.user_data.get("electricity_admin_id")
             period_service.update_electricity_data(
                 period_id=period_id,
                 electricity_start=context.user_data.get("electricity_start"),
@@ -570,12 +571,14 @@ async def handle_electricity_create_bills(  # noqa: C901
                 electricity_rate=context.user_data.get("electricity_rate"),
                 electricity_losses=context.user_data.get("electricity_losses"),
                 close_period=True,
+                actor_id=admin_id,
             )
 
             # Create bills for each owner
             bills_created = period_service.create_shared_electricity_bills(
                 period_id=period_id,
                 owner_shares=owner_shares,
+                actor_id=admin_id,
             )
 
             # Confirm success with period name (send as reply to preserve message history)

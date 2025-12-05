@@ -55,6 +55,7 @@ async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
 
 
 # Import services for convenience (must be after SessionLocal/engine definitions to avoid circular imports)
+from src.services.audit_service import AuditService  # noqa: E402
 from src.services.period_service import PeriodDefaults, ServicePeriodService  # noqa: E402
 from src.services.user_service import UserServiceSync  # noqa: E402
 
@@ -66,6 +67,7 @@ __all__ = [
     "get_async_session",
     "async_engine",
     # Services
+    "AuditService",
     "ServicePeriodService",
     "PeriodDefaults",
     "UserServiceSync",

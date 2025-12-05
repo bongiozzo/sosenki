@@ -418,7 +418,7 @@ async def test_handle_period_end_date_input_valid_creates_period(mock_update, mo
     assert result == -1
     assert mock_context.user_data["period_id"] == 1
     assert mock_context.user_data["period_name"] == "01.01.2025 - 31.01.2025"
-    mock_service.create_period.assert_called_once_with(date(2025, 1, 1), date(2025, 1, 31))
+    mock_service.create_period.assert_called_once_with(date(2025, 1, 1), date(2025, 1, 31), actor_id=123)
 
 
 @pytest.mark.asyncio

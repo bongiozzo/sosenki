@@ -278,7 +278,8 @@ async def handle_period_end_date_input(update: Update, context: ContextTypes.DEF
         db = SessionLocal()
         try:
             period_service = ServicePeriodService(db)
-            new_period = period_service.create_period(start_date, value)
+            admin_id = context.user_data.get("periods_admin_id")
+            new_period = period_service.create_period(start_date, value, actor_id=admin_id)
 
             context.user_data["period_id"] = new_period.id
             context.user_data["period_name"] = new_period.name

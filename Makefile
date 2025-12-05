@@ -1,18 +1,12 @@
 # ============================================================================
 # Roadmap (commit-based milestones)
 # ============================================================================
-# Phase 1: Production Deployment
-# DONE deploy: Add backup/restore targets for SQLite database
-# DONE deploy: Add deploy-check target (tests + env validation)
-# DONE deploy: Separate dev/prod databases with ENV variable and guards
-# TODO Добавить простейший аудит (таблица AuditLog или history‑таблицы для ключевых сущностей).
-# TODO Усилить модель ролей: либо ENUM/таблица Roles + UserRoles, либо хотя бы централизованный модуль permissions.py, чтобы проверки прав не расползались по сервисам.
-# TODO deploy: Create systemd service template (install-service)
-# TODO deploy: Create Caddy reverse proxy config (install-caddy)
-# TODO deploy: Dynamic DNS setup documentation (DuckDNS)
 # TODO Спроектировать MCP‑инструменты как строго типизированные команды с минимальной «поверхностью» (отдельные методы для read/write, явные id/диапазоны).  
 # TODO Ввести промежуточный слой «черновиков» для write‑операций: агент заполняет draft‑объекты, админ подтверждает/отклоняет из Mini App/бота.  
 # TODO С самого начала вести лог «AI‑действий»: какой prompt, какие инструменты, какие изменения в БД.
+# TODO deploy: Create systemd service template (install-service)
+# TODO deploy: Create Caddy reverse proxy config (install-caddy)
+# TODO deploy: Dynamic DNS setup documentation (DuckDNS)
 
 # TODO mcp: Create MCP router with tool schema definitions
 # TODO mcp: Implement get_user_balance query tool
@@ -179,120 +173,16 @@ coverage:
 
 # Run bot + mini app in webhook mode with ngrok tunnel
 # Automatically starts ngrok tunnel and loads environment variables (dynamic + static from .env)
+# Kills any existing process on port 8000 if address is already in use
 serve:
-	@bash scripts/setup-environment.sh && \
-	echo "Starting bot + mini app in webhook mode..." && \
-	echo "Logs: logs/server.log" && \
-	echo "Press Ctrl+C to stop" && \
-	echo "" && \
-	uv run python -m src.main --mode webhook
-
-# Clean generated artifacts
-clean:
-	@echo "Cleaning generated artifacts..."
-	rm -rf .pytest_cache __pycache__
-	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
-	find . -type f -name "*.pyc" -delete
-	rm -rf .coverage coverage.json htmlcov/
-	rm -rf logs/*.log
-	@echo "Clean complete!"
-	@if [ "$(ENV)" != "prod" ]; then \
-		echo "❌ deploy-check requires ENV=prod. Set ENV=prod in .env or run: ENV=prod make deploy-check"; exit 1; fi
-	@echo "✅ Environment: production (ENV=prod)"
-	@echo ""
-	@echo "Step 2: Validate required environment variables..."
-	@if [ -z "$(DATABASE_URL)" ]; then \
-		echo "❌ DATABASE_URL not set"; exit 1; fi
-	@if [ -z "$(TELEGRAM_BOT_TOKEN)" ]; then \
-		echo "❌ TELEGRAM_BOT_TOKEN not set"; exit 1; fi
-	@if [ -z "$(TELEGRAM_BOT_NAME)" ]; then \
-		echo "❌ TELEGRAM_BOT_NAME not set"; exit 1; fi
-	@if [ -z "$(TELEGRAM_MINI_APP_ID)" ]; then \
-		echo "❌ TELEGRAM_MINI_APP_ID not set"; exit 1; fi
-	@if [ -z "$(MINI_APP_URL)" ] && [ -z "$(shell grep -h '^MINI_APP_URL' .env 2>/dev/null)" ]; then \
-		echo "❌ MINI_APP_URL not set (required for application startup)"; exit 1; fi
-	@if [ -z "$(WEBHOOK_URL)" ] && [ -z "$(shell grep -h '^WEBHOOK_URL' .env 2>/dev/null)" ]; then \
-		echo "❌ WEBHOOK_URL not set (required for Telegram webhook)"; exit 1; fi
-	@if [ -z "$(PHOTO_GALLERY_URL)" ] && [ -z "$(shell grep -h '^PHOTO_GALLERY_URL' .env 2>/dev/null)" ]; then \
-		echo "❌ PHOTO_GALLERY_URL not set"; exit 1; fi
-	@if [ -z "$(STAKEHOLDER_SHARES_URL)" ] && [ -z "$(shell grep -h '^STAKEHOLDER_SHARES_URL' .env 2>/dev/null)" ]; then \
-		echo "❌ STAKEHOLDER_SHARES_URL not set"; exit 1; fi
-	@echo "✅ All required environment variables are set"
-	@echo ""
-	@echo "Step 3: Validate database..."
-	@if [ ! -f sosenki.db ]; then \
-		echo "❌ Database not found (sosenki.db). Run 'make restore' to restore from backup or manually copy sosenki.dev.db to sosenki.db."; exit 1; fi
-	@echo "✅ Database exists: sosenki.db"
-	@echo ""
-	@echo "Step 4: Verify Alembic migrations..."
-	@uv run alembic current > /dev/null 2>&1 || (echo "❌ Alembic migration check failed"; exit 1)
-	@echo "✅ Alembic migrations verified"
-	@echo ""
-	@echo "Step 5: Code quality checks..."
-	@echo "  - Running linter (ruff)..."
-	@uv run ruff check . > /dev/null 2>&1 || (echo "❌ Linter check failed"; exit 1)
-	@echo "  ✅ Linter passed"
-	@echo "  - Checking i18n completeness..."
-	@uv run python scripts/check_translations.py > /dev/null 2>&1 || (echo "❌ i18n check failed"; exit 1)
-	@echo "  ✅ i18n check passed"
-	@echo ""
-	@echo "Step 6: Running full test suite (unit, contract, integration)..."
-	@uv run pytest tests/ -v --tb=short > /tmp/deploy-check-tests.log 2>&1 || \
-		(echo "❌ Test suite failed. Details:"; tail -100 /tmp/deploy-check-tests.log; exit 1)
-	@echo "✅ All tests passed (463 tests)"
-	@echo ""
-	@echo "Step 7: Coverage validation (minimum 80%)..."
-	@uv run pytest tests/ --cov=src --cov-report=term-missing -q > /tmp/deploy-check-cov.log 2>&1
-	@COVERAGE=$$(tail -1 /tmp/deploy-check-cov.log | grep -o '[0-9]\+%' | tr -d '%'); \
-	if [ -z "$$COVERAGE" ]; then COVERAGE=$$(grep 'TOTAL' /tmp/deploy-check-cov.log | grep -o '[0-9]\+%' | tail -1 | tr -d '%'); fi; \
-	if [ -n "$$COVERAGE" ] && [ "$$COVERAGE" -lt 80 ]; then \
-		echo "❌ Coverage below 80% threshold ($$COVERAGE%). Details:"; cat /tmp/deploy-check-cov.log; exit 1; fi
-	@tail -5 /tmp/deploy-check-cov.log
-	@echo "✅ Coverage threshold met (≥80%)"
-	@echo ""
-	@echo "====== Pre-Deployment Validation Summary ======"
-	@echo "✅ Environment configuration: valid"
-	@echo "✅ Database: ready (sosenki.db)"
-	@echo "✅ Code quality: passed"
-	@echo "✅ Test suite: passed (463 tests)"
-	@echo "✅ Coverage: ≥80%"
-	@echo ""
-	@LATEST_BACKUP=$$(ls -t backups/*.db 2>/dev/null | head -1); \
-	if [ -n "$$LATEST_BACKUP" ]; then \
-		echo "Latest backup: $$LATEST_BACKUP"; \
-	else \
-		echo "⚠ No backups found. Create one with: make backup"; \
+	@PORT=8000; \
+	if lsof -Pi :$$PORT -sTCP:LISTEN -t >/dev/null 2>&1; then \
+		echo "⚠️  Port $$PORT is already in use. Killing existing process..."; \
+		PID=$$(lsof -t -i :$$PORT); \
+		kill -9 $$PID 2>/dev/null || true; \
+		echo "✓ Killed process PID $$PID"; \
+		sleep 1; \
 	fi
-	@echo ""
-	@echo "✅ READY FOR DEPLOYMENT"
-	@echo "Next steps:"
-	@echo "  1. make backup          (create pre-deploy backup)"
-	@echo "  2. make install-service (create systemd service)"
-	@echo "  3. make install-caddy   (configure reverse proxy)"
-	@echo ""
-
-# Dead code detection
-# Identifies unused variables, functions, and code paths using two tools:
-# - vulture: Static analysis with confidence threshold (80%)
-# - analyze_dead_code.py: Custom analysis script for project-specific patterns
-# Output helps identify refactoring opportunities and code cleanup targets
-dead-code:
-	@echo "Analyzing dead code..."
-	uv run vulture src/ --min-confidence 80
-	uv run python scripts/analyze_dead_code.py
-
-# Coverage report (src/ tests only, excluding seeding)
-coverage:
-	uv run pytest tests/ --cov=src --cov-report=term-missing --cov-report=html -q
-	@echo ""
-	@echo "✓ Coverage report complete"
-	@echo "Open htmlcov/index.html to view detailed coverage report"
-
-# Local Development with Webhook Mode
-
-# Run bot + mini app in webhook mode with ngrok tunnel
-# Automatically starts ngrok tunnel and loads environment variables (dynamic + static from .env)
-serve:
 	@bash scripts/setup-environment.sh && \
 	echo "Starting bot + mini app in webhook mode..." && \
 	echo "Logs: logs/server.log" && \
@@ -309,7 +199,7 @@ clean:
 	rm -rf .coverage coverage.json htmlcov/
 	rm -rf logs/*.log
 	@echo "Clean complete!"
-	
+
 # ============================================================================
 # Production Targets (ENV=prod, sosenki.db)
 # ============================================================================

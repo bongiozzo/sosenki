@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from src.models.account import Account
 from src.models.bill import Bill, BillType
 from src.models.service_period import ServicePeriod
+from src.services.audit_service import AuditService
 
 logger = logging.getLogger(__name__)
 
@@ -138,7 +139,7 @@ class ServicePeriodService:
             .all()
         )
 
-    def create_period(self, start_date: date, end_date: date) -> ServicePeriod:
+    def create_period(self, start_date: date, end_date: date, actor_id: int | None = None) -> ServicePeriod:
         """Create new service period with auto-generated name.
 
         Name format: "DD.MM.YYYY - DD.MM.YYYY"
@@ -147,6 +148,7 @@ class ServicePeriodService:
         Args:
             start_date: Period start date
             end_date: Period end date
+            actor_id: Admin user ID who created the period (optional)
 
         Returns:
             Created ServicePeriod object
@@ -170,6 +172,10 @@ class ServicePeriodService:
             end_date,
         )
 
+        # Audit log
+        AuditService.log(self.db, "period", new_period.id, "create", actor_id)
+        self.db.commit()
+
         return new_period
 
     def update_electricity_data(
@@ -181,6 +187,7 @@ class ServicePeriodService:
         electricity_rate: Decimal,
         electricity_losses: Decimal,
         close_period: bool = True,
+        actor_id: int | None = None,
     ) -> bool:
         """Update period with electricity readings and optionally close it.
 
@@ -192,6 +199,7 @@ class ServicePeriodService:
             electricity_rate: Rate per kWh
             electricity_losses: Transmission losses ratio
             close_period: Whether to close the period after update
+            actor_id: Admin user ID who closed the period (optional)
 
         Returns:
             True if successful, False if period not found
@@ -222,12 +230,18 @@ class ServicePeriodService:
             close_period,
         )
 
+        # Audit log for period close
+        if close_period:
+            AuditService.log(self.db, "period", period_id, "close", actor_id, {"status": "closed"})
+            self.db.commit()
+
         return True
 
     def create_shared_electricity_bills(
         self,
         period_id: int,
         owner_shares: list,
+        actor_id: int | None = None,
     ) -> int:
         """Create SHARED_ELECTRICITY bills for each owner.
 
@@ -236,6 +250,7 @@ class ServicePeriodService:
         Args:
             period_id: Service period ID
             owner_shares: List of OwnerShare namedtuples with user_id and calculated_bill_amount
+            actor_id: Admin user ID who created bills (optional)
 
         Returns:
             Count of bills created
@@ -268,6 +283,18 @@ class ServicePeriodService:
             bills_created,
             period_id,
         )
+
+        # Audit log for bills batch creation
+        if bills_created > 0:
+            AuditService.log(
+                self.db,
+                "bill",
+                period_id,
+                "create",
+                actor_id,
+                {"bill_type": "SHARED_ELECTRICITY", "count": bills_created},
+            )
+            self.db.commit()
 
         return bills_created
 
