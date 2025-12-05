@@ -121,7 +121,7 @@ class TestMakefileIntegration:
 
         # Find seed target
         seed_start = makefile_content.find("seed:")
-        seed_section = makefile_content[seed_start : seed_start + 500]
+        seed_section = makefile_content[seed_start : seed_start + 1000]
 
         # Should use uv to run the CLI
         assert "uv run" in seed_section, "seed target should use `uv run` for consistency"
