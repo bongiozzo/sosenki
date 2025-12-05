@@ -50,11 +50,12 @@ coverage.json
 htmlcov/
 .tox/
 
-# Database
+# Database files - environment-specific and test isolation
 *.db
 *.sqlite
 *.sqlite3
 seeding.json
+backups/
 
 # Alembic
 src/migrations/versions/__pycache__/
