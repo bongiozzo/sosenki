@@ -13,7 +13,7 @@
             }
     },
     "SOSenki": {
-      "url": "http://localhost:8000/mcp/mcp"
+      "url": "http://localhost:8000/mcp/"
     }
   },
   "inputs": []

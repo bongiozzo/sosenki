@@ -1,12 +1,13 @@
 # SOSenki Development Guidelines
 
-Last updated: 2025-11-24
+Last updated: 2025-12-07
 
 ## Core Stack
 
 **Backend:**
 - Python 3.11+ (mandatory minimum)
 - FastAPI (async API serving)
+- FastMCP
 - SQLAlchemy ORM + Alembic (migrations)
 - SQLite (development database)
 
@@ -19,7 +20,7 @@ Last updated: 2025-11-24
 - Vanilla JS (no frameworks - keep lightweight)
 
 **External APIs:**
-- Google Sheets API (seeding, configuration)
+- Google Sheets API (for seeding, configuration)
 - Google Auth (credentials management)
 
 **Testing & Quality:**
@@ -47,36 +48,42 @@ seeding/            # Data seeding utilities (Google Sheets integration)
 
 ## Python Execution - CRITICAL
 
-**ALWAYS use `uv run` for ANY Python command execution:**
+**For running/testing the application, ALWAYS use:**
+```bash
+make serve &
+```
+
+This single command:
+- Kills any existing process on port 8000 (prevents process chaos)
+- Starts fresh server with your latest code changes
+- Uses `uv run` internally for isolated environment
+- Starts ngrok tunnel automatically if needed
+- Runs in background (`&`) so terminal remains usable
+
+**Never manually start uvicorn, python, or other server processes** - this causes orphaned processes and port conflicts. Always use `make serve &` to ensure clean restarts.
+
+**For other Python commands, use `uv run`:**
 - ✅ `uv run pytest tests/` (running tests)
 - ✅ `uv run python scripts/script.py` (running scripts)
 - ✅ `uv run ruff check .` (linting)
-- ❌ Never try `python`, `python3`, or direct execution
-- ❌ Never manually activate venv (uv handles this)
-
-This ensures:
-1. Correct isolated environment
-2. Proper dependency management
-3. Consistent behavior across machines
-4. No version conflicts
+- ❌ Never use `python`, `python3`, or direct execution
+- ❌ Never manually activate venv
 
 ## Commands Reference
 
 ```bash
-uv run pytest tests/                          # Run all tests
-uv run pytest tests/ --cov=src                # Run with coverage
-uv run ruff check .                           # Lint check
-uv run ruff check . --fix                     # Auto-fix lint issues
-cd src && uv run alembic revision --autogenerate -m "message"  # Create migration
-cd src && uv run alembic upgrade head         # Apply migrations
-make coverage                                 # Full coverage report (uses uv run)
+make serve &  # Run server (ALWAYS use this for testing code changes)
+make test     # Run all tests (unit, contract, integration)
+make seed     # Reset database + run migrations + seed data
+make format   # Run ruff linter
+make coverage # Full coverage report
 ```
 
 ## External Library Guidelines
 
-For tasks involving external libraries (Google Sheets, Telegram API, FastAPI, SQLAlchemy):
+For tasks involving external libraries (Google Sheets, Telegram API, FastAPI, FastMCP, SQLAlchemy):
 - **Always query Context7 documentation first** for non-trivial implementations
-- Check `/google-api-python-client`, `/fastapi`, `/sqlalchemy` patterns
+- Check `/telegram-python-bot`, `/fastapi`, `/sqlalchemy` patterns
 - Validate API signatures against Context7 before coding
 - This prevents outdated code patterns and API mismatches
 
@@ -133,7 +140,7 @@ Eliminate code duplication through abstraction and reuse. When logic appears in 
 - [ ] Constitution compliance verified (YAGNI, KISS, DRY adherence)
 - [ ] Schema design follows YAGNI Rule - Database Schema (every table/column justified by spec.md)
 - [ ] No separate migration files created (`001_initial_schema.py` modified directly only)
-- [ ] Developer ran `make db-reset && make seed` and verified success
+- [ ] Developer ran `make seed` and verified success
 - [ ] No secrets or hard-coded paths in diff
 - [ ] Context7 documentation verified for all new dependencies
 

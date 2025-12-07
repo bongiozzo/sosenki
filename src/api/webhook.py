@@ -1,7 +1,6 @@
 """FastAPI webhook endpoint for Telegram updates."""
 
 import logging
-from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 
@@ -11,29 +10,17 @@ from fastapi.staticfiles import StaticFiles
 from telegram import Update
 from telegram.ext import Application
 
-from src.api.mcp_server import get_mcp_http_app
+from src.api.mcp_server import mcp_http_app
 from src.api.mini_app import router as mini_app_router
 
 logger = logging.getLogger(__name__)
 
-# Get MCP app and lifespan before creating FastAPI
-# get_mcp_http_app returns (wrapper, lifespan_context_manager)
-mcp_http_app, mcp_lifespan_cm = get_mcp_http_app()
-
-# Create lifespan context manager that combines both FastAPI startup/shutdown and MCP lifespan
-@asynccontextmanager
-async def combined_lifespan(app: FastAPI):
-    """Combined lifespan for FastAPI and MCP server."""
-    # Use MCP's Starlette app lifespan context
-    async with mcp_lifespan_cm(app):
-        yield
-
-# FastAPI instance with combined lifespan for proper MCP initialization
+# FastAPI instance using MCP's lifespan directly (handles DB lifecycle)
 app = FastAPI(
     title="SOSenki Bot",
     description="Client Request Approval Workflow - Telegram Bot",
     version="0.1.0",
-    lifespan=combined_lifespan,
+    lifespan=mcp_http_app.lifespan,
 )
 
 # Add CORS middleware for Mini App (required for iPhone/iOS requests)
@@ -55,8 +42,7 @@ if static_path.exists():
 # Include Mini App API router first (higher priority)
 app.include_router(mini_app_router)
 
-# Mount MCP Streamable HTTP app at /mcp path
-# The streamable_http_app() creates internal routes that will be at /mcp/{route}
+# Mount MCP HTTP app at /mcp path using FastMCP
 app.mount("/mcp", mcp_http_app, name="mcp")
 
 # Global bot application reference (set via setup_webhook_route or directly for testing)

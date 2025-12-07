@@ -22,7 +22,7 @@ dependencies = [
     "greenlet>=3.2.4",
     "google-auth>=2.27.0",
     "google-api-python-client>=2.187.0",
-    "mcp>=1.23.1",
+    "fastmcp>=2.0.0",
 ]
 
 [dependency-groups]

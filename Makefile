@@ -2,10 +2,7 @@
 # Roadmap (commit-based milestones)
 # ============================================================================
 #
-# --- MCP Cleanup (current) ---
-# TODO mcp: Fix /mcp/mcp endpoint path (rename to /api/mcp or similar)
 # TODO mcp: Refactor MCP server to use service layer (remove direct DB access)
-# TODO mcp: Fix graceful shutdown on Ctrl+C
 #
 # --- Agent /ask Command ---
 # Reuses existing auth pattern from src/bot/auth.py (verify_admin_authorization)

@@ -1,4 +1,4 @@
-"""MCP Server implementation using FastMCP with Streamable HTTP transport."""
+"""MCP Server implementation using FastMCP with HTTP transport for FastAPI integration."""
 
 import asyncio
 import json
@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from datetime import date
 from typing import Any
 
-from mcp.server import FastMCP
+from fastmcp import FastMCP
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
@@ -107,7 +107,7 @@ async def mcp_lifespan(_app: Any = None):
 mcp = FastMCP("SOSenki", lifespan=mcp_lifespan)
 
 
-@mcp.tool()
+@mcp.tool
 async def get_balance(user_id: int) -> str:
     """Get current account balance for a user.
 
@@ -155,7 +155,7 @@ async def get_balance(user_id: int) -> str:
         return json.dumps({"error": str(e)})
 
 
-@mcp.tool()
+@mcp.tool
 async def list_bills(user_id: int, limit: int = 10) -> str:
     """List recent bills for a user.
 
@@ -213,7 +213,7 @@ async def list_bills(user_id: int, limit: int = 10) -> str:
         return json.dumps({"error": str(e)})
 
 
-@mcp.tool()
+@mcp.tool
 async def get_period_info(period_id: int) -> str:
     """Get service period information.
 
@@ -257,7 +257,7 @@ async def get_period_info(period_id: int) -> str:
         return json.dumps({"error": str(e)})
 
 
-@mcp.tool()
+@mcp.tool
 async def create_service_period(
     name: str,
     start_date: str,
@@ -333,70 +333,13 @@ async def create_service_period(
 
 
 # ============================================================================
-# SSE App Getter
+# HTTP App for FastAPI Integration
 # ============================================================================
 
-
-class MCPStreamableHTTPAppWrapper:
-    """Wraps the MCP Streamable HTTP app to handle cancellation during shutdown gracefully."""
-
-    def __init__(self, mcp_app: Any) -> None:
-        """Initialize the wrapper.
-
-        Args:
-            mcp_app: The FastMCP app instance
-        """
-        self.mcp_app = mcp_app
-        # Use streamable_http_app() method which is the correct FastMCP API
-        self.http_app = mcp_app.streamable_http_app()
-
-    async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
-        """ASGI interface with graceful cancellation handling.
-
-        Args:
-            scope: ASGI scope
-            receive: ASGI receive callable
-            send: ASGI send callable
-        """
-        try:
-            await self.http_app(scope, receive, send)
-        except asyncio.CancelledError:
-            # Gracefully handle cancellation during shutdown
-            logger.debug("MCP HTTP connection cancelled during shutdown")
-            raise
-        except Exception as e:
-            logger.error(f"Error in MCP HTTP app: {e}", exc_info=True)
-            raise
+# FastMCP provides http_app() for mounting in FastAPI
+# path="/" ensures endpoint is at mount root, not /mcp/mcp
+# The .lifespan property handles lifecycle (invokes mcp_lifespan automatically)
+mcp_http_app = mcp.http_app(path="/")
 
 
-def get_mcp_http_app() -> tuple[Any, Any]:
-    """Get the MCP Streamable HTTP ASGI app and its lifespan for FastAPI.
-
-    Returns:
-        tuple: (ASGI app, lifespan context manager)
-        - App: The Starlette app from FastMCP 
-        - Lifespan: Context manager for FastAPI initialization
-
-    Usage:
-        mcp_http_app, mcp_lifespan = get_mcp_http_app()
-        app = FastAPI(lifespan=mcp_lifespan)
-        app.mount("/mcp", mcp_http_app)
-    """
-    # Get the Starlette app without path parameter - mounting handles the path
-    http_app = mcp.streamable_http_app()
-    
-    # Create a lifespan context that initializes the MCP session manager
-    @asynccontextmanager
-    async def mcp_lifespan(app: Any):
-        # The http_app's router has a lifespan_context that manages MCP session initialization
-        if hasattr(http_app.router, 'lifespan_context'):
-            async with http_app.router.lifespan_context(http_app):
-                yield
-        else:
-            # Fallback: just yield without special MCP initialization
-            yield
-    
-    return http_app, mcp_lifespan
-
-
-__all__ = ["mcp", "get_mcp_http_app", "mcp_lifespan"]
+__all__ = ["mcp", "mcp_http_app"]
