@@ -48,12 +48,12 @@ def _validate_environment() -> None:
     logger.info("✓ MINI_APP_URL configured: %s", mini_app_url)
 
 
-# Configure logging first (before loading env)
+# Load environment variables FIRST (so LOG_LEVEL is available)
+_load_environment()
+
+# Configure logging with LOG_LEVEL from environment
 setup_server_logging()
 logger = logging.getLogger(__name__)
-
-# Load environment variables from .env and dynamic sources
-_load_environment()
 
 # Validate required environment variables
 _validate_environment()

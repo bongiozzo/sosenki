@@ -3,6 +3,7 @@
 import logging
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 from src.services.logging import setup_server_logging
 
@@ -14,6 +15,7 @@ class TestServerLogging:
         """Save original handlers before each test."""
         self.root_logger = logging.getLogger()
         self.original_handlers = self.root_logger.handlers.copy()
+        self.original_level = self.root_logger.level
 
     def teardown_method(self):
         """Restore original handlers after each test."""
@@ -25,6 +27,8 @@ class TestServerLogging:
         # Restore originals
         for handler in self.original_handlers:
             self.root_logger.addHandler(handler)
+        # Restore original level
+        self.root_logger.setLevel(self.original_level)
 
     def test_setup_server_logging_creates_log_directory(self) -> None:
         """Verify setup_server_logging creates logs directory if missing."""
@@ -51,23 +55,27 @@ class TestServerLogging:
             assert len(self.root_logger.handlers) == 2
 
     def test_setup_server_logging_sets_info_level(self) -> None:
-        """Verify setup_server_logging sets log level to INFO."""
+        """Verify setup_server_logging sets log level to INFO by default."""
         with tempfile.TemporaryDirectory() as temp_dir:
             log_file = Path(temp_dir) / "server.log"
 
-            setup_server_logging(str(log_file))
+            # Mock LOG_LEVEL to ensure consistent test behavior
+            with patch.dict("os.environ", {"LOG_LEVEL": "INFO"}, clear=False):
+                setup_server_logging(str(log_file))
 
-            assert self.root_logger.level == logging.INFO
+                assert self.root_logger.level == logging.INFO
 
     def test_setup_server_logging_handler_levels(self) -> None:
-        """Verify both handlers are set to INFO level."""
+        """Verify both handlers are set to configured level."""
         with tempfile.TemporaryDirectory() as temp_dir:
             log_file = Path(temp_dir) / "server.log"
 
-            setup_server_logging(str(log_file))
+            # Mock LOG_LEVEL to ensure consistent test behavior
+            with patch.dict("os.environ", {"LOG_LEVEL": "INFO"}, clear=False):
+                setup_server_logging(str(log_file))
 
-            for handler in self.root_logger.handlers:
-                assert handler.level == logging.INFO
+                for handler in self.root_logger.handlers:
+                    assert handler.level == logging.INFO
 
     def test_setup_server_logging_writes_to_file(self) -> None:
         """Verify setup_server_logging writes log messages to file."""

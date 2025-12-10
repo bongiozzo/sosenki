@@ -24,8 +24,8 @@ Edit `.env` before running `make install`:
 |----------|-------------|
 | `TELEGRAM_BOT_TOKEN` | Your bot token from @BotFather |
 | `DOMAIN` | Your domain (e.g., `sosenki.sharedgoals.ru`) |
-| `PORT` | Server port (default: `8000`). For router: keep 8000, forward external 80/443 to internal 8000 |
-| `OLLAMA_MODEL` | LLM model (default: `qwen2.5:latest`) |
+| `PORT` | Server port (default: `8000` |
+| `OLLAMA_MODEL` | LLM model (default: `qwen2.5:1.5b`) |
 
 `make install` derives `WEBHOOK_URL` and `MINI_APP_URL` from `DOMAIN` automatically.
 
@@ -46,8 +46,8 @@ sudo systemctl start sosenki
 If running behind a router with static IP:
 
 1. **Port Forwarding** (in router admin panel):
-   - Forward external port `80` (HTTP) → internal server port `8000`
-   - Forward external port `443` (HTTPS) → internal server port `8000`
+   - Forward external port `80` (HTTP) → internal server port `80`
+   - Forward external port `443` (HTTPS) → internal server port `443`
    - (Caddy handles SSL termination automatically)
 
 2. **Environment Variables**:

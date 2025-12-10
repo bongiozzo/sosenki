@@ -5,6 +5,7 @@ Users can ask questions about their balance, bills, and periods in natural langu
 """
 
 import logging
+import os
 
 from telegram import Update
 from telegram.ext import ContextTypes
@@ -14,6 +15,11 @@ from src.services.llm_service import OllamaService
 from src.services.localizer import t
 
 logger = logging.getLogger(__name__)
+
+
+def is_llm_enabled() -> bool:
+    """Check if LLM feature is enabled (OLLAMA_MODEL is set)."""
+    return bool(os.getenv("OLLAMA_MODEL"))
 
 
 async def handle_ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -40,6 +46,11 @@ async def handle_ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
         telegram_id = update.message.from_user.id
         message_text = update.message.text or ""
+
+        # Check if LLM feature is enabled
+        if not is_llm_enabled():
+            await update.message.reply_text(t("errors.llm_disabled"))
+            return
 
         # Extract the question (everything after /ask)
         parts = message_text.split(maxsplit=1)

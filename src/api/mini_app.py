@@ -2,6 +2,7 @@
 
 import logging
 import os
+import time
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, Header, HTTPException
@@ -24,6 +25,32 @@ from src.services.auth_service import (
 from src.services.user_service import UserService, UserStatusService
 
 logger = logging.getLogger(__name__)
+
+
+def _log_debug(
+    endpoint: str, start_time: float, telegram_id: int, user: Any, **kwargs: Any
+) -> None:
+    """Log API request with timing and user context at DEBUG level.
+
+    Args:
+        endpoint: Endpoint name (e.g., 'init', 'bills')
+        start_time: Request start time from time.time()
+        telegram_id: Telegram user ID
+        user: Authenticated user object
+        **kwargs: Additional fields to log (account_id, count, scope, etc.)
+    """
+    duration_ms = int((time.time() - start_time) * 1000)
+    user_id = getattr(user, "id", "?")
+    extra = " ".join(f"{k}={v}" for k, v in kwargs.items())
+    logger.debug(
+        "mini_app.%s: telegram_id=%d user_id=%s %sduration_ms=%d",
+        endpoint,
+        telegram_id,
+        user_id,
+        f"{extra} " if extra else "",
+        duration_ms,
+    )
+
 
 # Create router for Mini App endpoints
 router = APIRouter(prefix="/api/mini-app", tags=["mini-app"])
@@ -221,6 +248,7 @@ async def init(
         401: Invalid Telegram signature
         500: Server error
     """
+    start_time = time.time()
     try:
         # Verify Telegram auth and extract telegram_id
         telegram_id = await verify_telegram_auth(session, authorization, body=body)
@@ -234,9 +262,19 @@ async def init(
         )
 
         # Build and return init response
-        return await _init_build_response(
+        response = await _init_build_response(
             session, auth_context.authenticated_user, auth_context.target_user
         )
+
+        _log_debug(
+            "init",
+            start_time,
+            telegram_id,
+            authenticated_user,
+            target_user_id=getattr(auth_context.target_user, "id", "?"),
+            is_admin=getattr(authenticated_user, "is_administrator", False),
+        )
+        return response
 
     except HTTPException:
         raise
@@ -270,6 +308,7 @@ async def get_user_context(
         404: Selected user not found
         500: Server error
     """
+    start_time = time.time()
     try:
         # Verify Telegram auth and extract telegram_id
         telegram_id = await verify_telegram_auth(session, authorization, body=body)
@@ -288,7 +327,16 @@ async def get_user_context(
             raise HTTPException(status_code=404, detail="Selected user not found")
 
         # Build and return user context for selected user
-        return await _build_user_context_data(session, target_user)
+        response = await _build_user_context_data(session, target_user)
+
+        _log_debug(
+            "user_context",
+            start_time,
+            telegram_id,
+            authenticated_user,
+            target_user_id=selected_user_id,
+        )
+        return response
 
     except HTTPException:
         raise
@@ -323,6 +371,7 @@ async def get_properties(
         404: Selected user not found (admin context switch)
         500: Server error
     """
+    start_time = time.time()
     try:
         # Verify Telegram auth and extract telegram_id
         telegram_id = await verify_telegram_auth(session, authorization, body=body)
@@ -367,10 +416,20 @@ async def get_properties(
                 )
             )
 
-        return PropertiesResponse(
+        response = PropertiesResponse(
             properties=property_responses,
             total_count=len(property_responses),
         )
+
+        _log_debug(
+            "properties",
+            start_time,
+            telegram_id,
+            authenticated_user,
+            target_user_id=getattr(auth_context.target_user, "id", "?"),
+            count=len(property_responses),
+        )
+        return response
 
     except HTTPException:
         raise
@@ -560,6 +619,7 @@ async def get_transactions(
         404: Account not found
         500: Server error
     """
+    start_time = time.time()
     try:
         # Verify Telegram auth and extract telegram_id
         telegram_id = await verify_telegram_auth(db, authorization, x_telegram_init_data, body)
@@ -620,7 +680,18 @@ async def get_transactions(
             for row in transactions_data
         ]
 
-        return TransactionsResponse(transactions=transactions_list_data)
+        response = TransactionsResponse(transactions=transactions_list_data)
+
+        _log_debug(
+            "transactions",
+            start_time,
+            telegram_id,
+            authenticated_user,
+            account_id=account_id,
+            scope=scope,
+            count=len(transactions_list_data),
+        )
+        return response
 
     except HTTPException:
         raise
@@ -659,6 +730,7 @@ async def get_bills(
     from src.models.property import Property
     from src.models.service_period import ServicePeriod
 
+    start_time = time.time()
     try:
         # Verify Telegram auth and extract telegram_id
         telegram_id = await verify_telegram_auth(db, authorization, x_telegram_init_data, body)
@@ -718,7 +790,17 @@ async def get_bills(
             )
             bills_response.append(ElectricityBillResponse(**bill_response))
 
-        return BillsResponse(bills=bills_response)
+        response = BillsResponse(bills=bills_response)
+
+        _log_debug(
+            "bills",
+            start_time,
+            telegram_id,
+            authenticated_user,
+            account_id=account_id,
+            count=len(bills_response),
+        )
+        return response
 
     except HTTPException:
         raise
@@ -785,6 +867,7 @@ async def get_account(
         404: Account not found
         500: Server error
     """
+    start_time = time.time()
     try:
         # Verify Telegram auth and extract telegram_id
         telegram_id = await verify_telegram_auth(session, authorization, x_telegram_init_data, body)
@@ -801,7 +884,19 @@ async def get_account(
         balance_service = BalanceCalculationService(session)
         result = await balance_service.calculate_account_balance_with_display(account_id)
 
-        return AccountResponse(balance=result.balance, invert_for_display=result.invert_for_display)
+        response = AccountResponse(
+            balance=result.balance, invert_for_display=result.invert_for_display
+        )
+
+        _log_debug(
+            "account",
+            start_time,
+            telegram_id,
+            authenticated_user,
+            account_id=account_id,
+            balance=f"{result.balance:.2f}",
+        )
+        return response
 
     except HTTPException:
         raise
@@ -829,6 +924,7 @@ async def get_accounts(
         401: Invalid Telegram signature or user lacks required role
         500: Server error
     """
+    start_time = time.time()
     try:
         # Verify Telegram auth and extract telegram_id
         telegram_id = await verify_telegram_auth(session, authorization, x_telegram_init_data, body)
@@ -878,7 +974,12 @@ async def get_accounts(
                 )
             )
 
-        return AccountsResponse(accounts=accounts_list)
+        response = AccountsResponse(accounts=accounts_list)
+
+        _log_debug(
+            "accounts", start_time, telegram_id, authenticated_user, count=len(accounts_list)
+        )
+        return response
 
     except HTTPException:
         raise

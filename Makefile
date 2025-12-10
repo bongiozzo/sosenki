@@ -10,7 +10,6 @@
 # TODO agent: Add confirmation prompts for write operations
 #
 # --- Features ---
-# TODO feat: Add Open Mini App button to bot /setmenubutton
 # TODO feat: Limit /request as the only command for new users
 # TODO feat: New Electricity Service Period 1 Sept 2025 - 1 Jan 2026
 # TODO feat: Invest tracking module
@@ -98,39 +97,41 @@ preflight:
 	fi
 	@echo "✅ Environment variables validated"
 	@echo ""
-	@echo "Step 4: Check Ollama installed..."
-	@command -v ollama >/dev/null 2>&1 || \
-		(echo "❌ Ollama not found. Install: curl -fsSL https://ollama.com/install.sh | sh"; exit 1)
-	@echo "✅ Ollama installed"
-	@echo ""
-	@echo "Step 5: Installing Python dependencies..."
+	@echo "Step 4: Installing Python dependencies..."
 	@uv sync
 	@echo "✅ Python dependencies installed"
 	@echo ""
-	@echo "Step 6: Pulling Ollama model..."
+	@echo "Step 5: Check Ollama (optional LLM support)..."
 	@MODEL=$$(grep -E '^OLLAMA_MODEL=' .env 2>/dev/null | cut -d'=' -f2 | tr -d '"' | tr -d "'"); \
-	if [ -z "$$MODEL" ]; then MODEL="qwen2.5:latest"; fi; \
-	echo "Model: $$MODEL"; \
-	ollama pull "$$MODEL"
-	@echo "✅ Ollama model ready"
+	if [ -z "$$MODEL" ]; then \
+		echo "⚠️  OLLAMA_MODEL not set - LLM features disabled"; \
+	else \
+		if command -v ollama >/dev/null 2>&1; then \
+			echo "Model: $$MODEL"; \
+			ollama pull "$$MODEL" && echo "✅ Ollama model ready"; \
+		else \
+			echo "⚠️  Ollama not installed - LLM features disabled"; \
+			echo "   Install: curl -fsSL https://ollama.com/install.sh | sh"; \
+		fi; \
+	fi
 	@if [ "$(ENV)" = "prod" ]; then \
 		echo ""; \
-		echo "Step 7: Check Caddy installed (prod only)..."; \
+		echo "Step 6: Check Caddy installed (prod only)..."; \
 		command -v caddy >/dev/null 2>&1 || \
 			(echo "❌ Caddy not found. Install: apt install caddy"; exit 1); \
 		echo "✅ Caddy installed"; \
 		echo ""; \
-		echo "Step 8: Validate database (prod only)..."; \
+		echo "Step 7: Validate database (prod only)..."; \
 		if [ ! -f sosenki.db ]; then \
 			echo "❌ Database not found (sosenki.db). Run 'make restore' to restore from backup."; exit 1; \
 		fi; \
 		echo "✅ Database exists: sosenki.db"; \
 		echo ""; \
-		echo "Step 9: Verify Alembic migrations (prod only)..."; \
+		echo "Step 8: Verify Alembic migrations (prod only)..."; \
 		uv run alembic current > /dev/null 2>&1 || (echo "❌ Alembic migration check failed"; exit 1); \
 		echo "✅ Alembic migrations verified"; \
 		echo ""; \
-		echo "Step 10: Running test suite (prod only)..."; \
+		echo "Step 9: Running test suite (prod only)..."; \
 		uv run pytest tests/ -q --tb=short > /tmp/preflight-tests.log 2>&1 || \
 			(echo "❌ Test suite failed. Details:"; tail -50 /tmp/preflight-tests.log; exit 1); \
 		echo "✅ All tests passed"; \
@@ -326,7 +327,7 @@ clean:
 
 # Database backup with timestamped filename (prod only)
 # Creates backups/sosenki-YYYYMMDD-HHMMSS.db, keeps last 30 backups
-# Called automatically before deploy
+# Only creates backup if database differs from last backup (uses diff)
 # BLOCKED in dev: dev databases don't need backups (can be reset anytime)
 backup:
 	@if [ "$(ENV)" != "prod" ]; then \
@@ -339,16 +340,22 @@ backup:
 		exit 1; \
 	fi; \
 	mkdir -p backups; \
-	BACKUP_FILE="backups/sosenki-$$(date +%Y%m%d-%H%M%S).db"; \
-	cp $$DB_FILE "$$BACKUP_FILE" && \
-	echo "✅ Backup created: $$BACKUP_FILE" && \
-	ls -lh "$$BACKUP_FILE"; \
-	echo ""; \
-	echo "Cleaning old backups (keeping last 30)..."; \
-	cd backups && ls -t *.db 2>/dev/null | tail -n +31 | xargs -r rm -v; \
+	LAST_BACKUP=$$(ls -t backups/*.db 2>/dev/null | head -1); \
+	if [ -n "$$LAST_BACKUP" ] && diff -q "$$DB_FILE" "$$LAST_BACKUP" > /dev/null 2>&1; then \
+		echo "✅ Database unchanged since last backup: $$LAST_BACKUP"; \
+		echo "   No new backup created."; \
+	else \
+		BACKUP_FILE="backups/sosenki-$$(date +%Y%m%d-%H%M%S).db"; \
+		cp $$DB_FILE "$$BACKUP_FILE" && \
+		echo "✅ Backup created: $$BACKUP_FILE" && \
+		ls -lh "$$BACKUP_FILE"; \
+		echo ""; \
+		echo "Cleaning old backups (keeping last 30)..."; \
+		cd backups && ls -t *.db 2>/dev/null | tail -n +31 | xargs -r rm -v; \
+	fi; \
 	echo ""; \
 	echo "Current backups:"; \
-	ls -lht *.db 2>/dev/null | head -5 || echo "  (none)"
+	ls -lht backups/*.db 2>/dev/null | head -5 || echo "  (none)"
 
 # Restore database from backup (prod only)
 # Usage: make restore              (restores latest)\n#        make restore BACKUP=backups/sosenki-20251205-120000.db

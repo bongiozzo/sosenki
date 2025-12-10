@@ -85,6 +85,21 @@ async def telegram_webhook(update: dict) -> dict:
     try:
         telegram_update = Update.de_json(update, _bot_app.bot)
         if telegram_update:
+            # Log incoming update with key identifiers
+            user_id = telegram_update.effective_user.id if telegram_update.effective_user else None
+            chat_id = telegram_update.effective_chat.id if telegram_update.effective_chat else None
+            update_type = (
+                telegram_update.effective_message.text[:50]
+                if telegram_update.effective_message and telegram_update.effective_message.text
+                else "callback/other"
+            )
+            logger.debug(
+                "webhook.telegram: update_id=%d user_id=%s chat_id=%s type=%s",
+                telegram_update.update_id,
+                user_id,
+                chat_id,
+                update_type,
+            )
             await _bot_app.process_update(telegram_update)
         return {"ok": True}
     except Exception as e:

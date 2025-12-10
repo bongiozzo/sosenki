@@ -348,6 +348,18 @@ async def authorize_account_access_for_roles(
     # Check role authorization (admin always allowed)
     has_role = any(getattr(authenticated_user, role_flag, False) for role_flag in allowed_roles)
 
+    # If user doesn't have role directly, check if they represent someone who does
+    if not has_role and authenticated_user.representative_id:
+        # Fetch the user being represented
+        stmt = select(User).where(User.id == authenticated_user.representative_id)
+        result = await session.execute(stmt)
+        represented_user = result.scalar_one_or_none()
+
+        if represented_user:
+            has_role = any(
+                getattr(represented_user, role_flag, False) for role_flag in allowed_roles
+            )
+
     if not has_role:
         logger.warning(f"User {authenticated_user.id} lacks required role for account access")
         raise HTTPException(status_code=401, detail="NOT_AUTHORIZED")

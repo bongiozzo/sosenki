@@ -1,12 +1,33 @@
 """Logging configuration and utilities for bot and mini app server.
 
-Provides dual output (stdout + file) at INFO level with ISO format timestamps.
+Provides dual output (stdout + file) with configurable level via LOG_LEVEL env var.
+Default: INFO. Set LOG_LEVEL=WARNING for production, DEBUG for verbose output.
 Suitable for both real-time developer feedback and audit trails.
 """
 
 import logging
+import os
 import sys
 from pathlib import Path
+
+# Map string level names to logging constants
+LOG_LEVEL_MAP = {
+    "DEBUG": logging.DEBUG,
+    "INFO": logging.INFO,
+    "WARNING": logging.WARNING,
+    "ERROR": logging.ERROR,
+    "CRITICAL": logging.CRITICAL,
+}
+
+
+def get_log_level() -> int:
+    """Get logging level from LOG_LEVEL environment variable.
+
+    Returns:
+        Logging level constant (default: INFO)
+    """
+    level_str = os.getenv("LOG_LEVEL", "INFO").upper()
+    return LOG_LEVEL_MAP.get(level_str, logging.INFO)
 
 
 def setup_server_logging(log_file: str = "logs/server.log") -> None:
@@ -31,21 +52,24 @@ def setup_server_logging(log_file: str = "logs/server.log") -> None:
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
+    # Get configured log level from environment
+    log_level = get_log_level()
+
     # Get root logger
     root_logger = logging.getLogger()
-    root_logger.setLevel(logging.INFO)
+    root_logger.setLevel(log_level)
 
     # Remove any existing handlers to avoid duplicates
     root_logger.handlers.clear()
 
     # Handler 1: stdout (console)
     stdout_handler = logging.StreamHandler(sys.stdout)
-    stdout_handler.setLevel(logging.INFO)
+    stdout_handler.setLevel(log_level)
     stdout_handler.setFormatter(formatter)
     root_logger.addHandler(stdout_handler)
 
     # Handler 2: file (logs/server.log)
     file_handler = logging.FileHandler(log_path)
-    file_handler.setLevel(logging.INFO)
+    file_handler.setLevel(log_level)
     file_handler.setFormatter(formatter)
     root_logger.addHandler(file_handler)

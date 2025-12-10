@@ -61,9 +61,7 @@ def _get_locale() -> str:
         Locale.parse(locale_str)
         return locale_str
     except (UnknownLocaleError, ValueError) as e:
-        logger.warning(
-            f"Invalid LOCALE '{locale_str}': {e}. Falling back to '{DEFAULT_LOCALE}'"
-        )
+        logger.warning(f"Invalid LOCALE '{locale_str}': {e}. Falling back to '{DEFAULT_LOCALE}'")
         return DEFAULT_LOCALE
 
 

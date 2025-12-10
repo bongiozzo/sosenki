@@ -48,8 +48,7 @@ class TestMakefileIntegration:
         # Verify database section is present
         has_database_section = "Database:" in output or "database" in output.lower()
         assert has_database_section, (
-            "Database section not found in help. "
-            "User must see database-related targets."
+            "Database section not found in help. User must see database-related targets."
         )
 
     def test_make_seed_target_exists_and_is_callable(self):

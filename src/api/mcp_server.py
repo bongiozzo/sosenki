@@ -144,9 +144,7 @@ async def get_balance(user_id: int) -> str:
                     "balance": float(balance),
                     "currency": CURRENCY,
                     "last_updated": (
-                        format_local_datetime(account.updated_at)
-                        if account.updated_at
-                        else None
+                        format_local_datetime(account.updated_at) if account.updated_at else None
                     ),
                 }
             )

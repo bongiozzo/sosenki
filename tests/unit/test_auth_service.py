@@ -246,3 +246,49 @@ async def test_authorize_account_access_for_roles_success(async_session, owner_u
     _set_account_query_result(async_session, account)
     result = await authorize_account_access_for_roles(async_session, owner_user, 1, ["is_owner"])
     assert result == account
+
+
+@pytest.mark.asyncio
+async def test_authorize_account_access_for_roles_representative(async_session):
+    """Test that a representative can access accounts if the user they represent has the role."""
+    from unittest.mock import MagicMock
+
+    # Create representative user (no roles, but represents an owner)
+    representative = MagicMock()
+    representative.id = 17
+    representative.is_administrator = False
+    representative.is_owner = False
+    representative.is_staff = False
+    representative.representative_id = 1  # Represents user 1
+
+    # Create the owner user being represented
+    owner = MagicMock()
+    owner.id = 1
+    owner.is_owner = True
+    owner.is_administrator = False
+    owner.is_staff = False
+
+    account = _mock_account()
+
+    # Mock session to return account first, then the represented user
+    call_count = [0]
+
+    async def mock_execute(stmt):
+        call_count[0] += 1
+        if call_count[0] == 1:
+            # First call: account lookup
+            result = MagicMock()
+            result.scalar_one_or_none.return_value = account
+            return result
+        else:
+            # Second call: represented user lookup
+            result = MagicMock()
+            result.scalar_one_or_none.return_value = owner
+            return result
+
+    async_session.execute = mock_execute
+
+    result = await authorize_account_access_for_roles(
+        async_session, representative, 1, ["is_owner"]
+    )
+    assert result == account
