@@ -2,7 +2,7 @@
 # Roadmap (commit-based milestones)
 # ============================================================================
 #
-
+# TODO feat: Limit /request as the only command for new users
 # TODO agent: Add role-based tool filtering
 #            - User tools: get_balance, list_bills, get_period_info (read-only)
 #            - Admin tools: + create_service_period (write)
@@ -10,14 +10,10 @@
 # TODO agent: Add confirmation prompts for write operations
 #
 # --- Features ---
-# TODO feat: Limit /request as the only command for new users
-# TODO feat: New Electricity Service Period 1 Sept 2025 - 1 Jan 2026
 # TODO feat: Invest tracking module
 # TODO feat: Rules/Job descriptions module
+# TODO feat: New Electricity Service Period 1 Sept 2025 - 1 Jan 2026
 #
-# --- Maintenance ---
-# TODO refactor: Make git-filter-repo to clean history
-
 # ============================================================================
 # Configuration
 # ============================================================================
