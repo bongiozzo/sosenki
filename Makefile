@@ -5,6 +5,8 @@
 #            - User tools: get_balance, list_bills, get_period_info (read-only)
 #            - Admin tools: + create_service_period (write)
 #            - Check user.is_administrator for admin tools
+# TODO feat: Create electricity reading handler 
+# TODO feat: Update /payout to send notification to Telegram user
 # TODO feat: Adopt dev workflow for SSH-Remote VSCode
 # TODO refactor: Adopt https://github.com/exo-explore/exo/blob/main/.cursorrules
 # TODO refactor: Remove transaction's period FK
@@ -323,7 +325,13 @@ serve: stop
 	else \
 		echo "✅ Ollama is running"; \
 	fi
-	@bash scripts/setup-environment.sh && \
+	@echo "🔧 Setting up environment..."
+	@if [ -n "$(DOMAIN)" ] && [ "$(ENV)" = "dev" ]; then \
+		echo "   LAN development mode (DOMAIN=$(DOMAIN):$(PORT))"; \
+	else \
+		echo "   Local development mode (ngrok tunnel)"; \
+	fi
+	@source scripts/setup-environment.sh && \
 	echo "Starting bot + mini app in webhook mode..." && \
 	echo "Logs: logs/server.log" && \
 	echo "Press Ctrl+C to stop" && \

@@ -41,9 +41,12 @@ src/
   services/         # Business logic layer
     auth_service.py       # Telegram auth + user context resolution
     balance_service.py    # Balance calculation logic
+    bills_service.py      # Bill management and processing
+    transaction_service.py # Transaction CRUD operations
     period_service.py     # ServicePeriod CRUD operations
     llm_service.py        # Ollama integration + tool execution
     localizer.py          # i18n with flat key convention (see i18n section)
+    locale_service.py     # Currency/datetime formatting for Russian locale
   static/mini_app/  # Frontend (HTML/CSS/JS + translations.json)
   prompts/          # LLM system prompts (.prompt.md files)
 alembic/versions/   # Database migrations (Alembic)
@@ -201,7 +204,7 @@ amount_display = format_currency(transaction.amount)  # "85 000 ₽"
 user_input = parse_russian_decimal("85 000,50")       # Decimal('85000.50')
 ```
 
-**Before implementing custom parsing/formatting:**
+**Critical:** Before implementing custom parsing/formatting:
 1. Check if helper already exists in `locale_service.py` or `parsers.py`
 2. Use existing helpers for consistency across the application
 3. Only create new helpers if functionality doesn't exist

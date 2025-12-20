@@ -1,20 +1,20 @@
 {
   "servers": {
-    "sosenki-sheet": {
-      "type": "stdio",
-      "command": "uvx",
-      "args": [
-        "mcp-google-sheets@latest"
-      ],
-      "env": {
-                "SERVICE_ACCOUNT_PATH": ".env_google_credentials.json",
-                "DRIVE_FOLDER_ID": "",
-                "GOOGLE_SHEET_ID": ""
-            }
-    },
-    "SOSenki": {
-      "url": "http://localhost:9000/mcp/"
-    }
+    // "sosenki-sheet": {
+    //   "type": "stdio",
+    //   "command": "uvx",
+    //   "args": [
+    //     "mcp-google-sheets@latest"
+    //   ],
+    //   "env": {
+    //             "SERVICE_ACCOUNT_PATH": ".env_google_credentials.json",
+    //             "DRIVE_FOLDER_ID": "",
+    //             "GOOGLE_SHEET_ID": ""
+    //         }
+    // },
+    // "SOSenki": {
+    //   "url": "http://localhost:9000/mcp/"
+    // }
   },
   "inputs": []
 }
