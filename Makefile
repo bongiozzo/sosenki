@@ -2,7 +2,6 @@
 # Roadmap (commit-based milestones)
 # ============================================================================
 # TODO feat: Create notifications users from Telegram
-# TODO refactor: Remove transaction's period FK
 # TODO feat: Close Electricity Service Period 1 Sept 2025 - 1 Jan 2026
 # TODO agent: Add role-based tool filtering
 #            - User tools: get_balance, list_bills, get_period_info (read-only)
@@ -49,6 +48,7 @@ help:
 	@echo ""
 	@echo "Production Deployment (Linux server):"
 	@echo "  make install           Full production setup (run with sudo)"
+	@echo "  make upgrade           Apply schema migrations with auto-backup (prod only)"
 	@echo ""
 	@echo "Development:"
 	@echo "  make sync              Install Python dependencies via uv"
@@ -350,6 +350,41 @@ clean:
 # ============================================================================
 # Production Targets (ENV=prod, sosenki.db)
 # ============================================================================
+
+# Apply schema migrations (prod only)
+# Automatically creates backup before applying migrations
+# Safe workflow: backup → migrate → prompt to restart service
+upgrade: backup
+	@if [ "$(ENV)" != "prod" ]; then \
+		echo "⚠️  upgrade is for production only. In dev, migrations auto-apply with 'make serve'."; \
+		exit 1; \
+	fi
+	@echo ""
+	@echo "====== Applying Schema Migrations ======"
+	@echo ""
+	@echo "Current migration state:"
+	@uv run alembic current
+	@echo ""
+	@echo "Applying pending migrations..."
+	@uv run alembic upgrade head
+	@echo ""
+	@echo "✅ Migrations applied successfully!"
+	@echo ""
+	@echo "New migration state:"
+	@uv run alembic current
+	@echo ""
+	@echo "⚠️  Service restart required:"
+	@echo "  sudo systemctl restart sosenki"
+	@echo ""
+	@read -p "Restart service now? [y/N] " restart; \
+	if [ "$$restart" = "y" ] || [ "$$restart" = "Y" ]; then \
+		sudo systemctl restart sosenki && \
+		echo "✅ Service restarted" && \
+		echo "" && \
+		echo "Monitor logs: sudo journalctl -u sosenki -f"; \
+	else \
+		echo "⚠️  Remember to restart: sudo systemctl restart sosenki"; \
+	fi
 
 # Database backup with timestamped filename (prod only)
 # Creates backups/sosenki-YYYYMMDD-HHMMSS.db, keeps last 30 backups
