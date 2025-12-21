@@ -28,6 +28,22 @@ from src.bot.handlers.admin_bills import (
     handle_electricity_rate,
     handle_period_selection,
 )
+from src.bot.handlers.admin_meter import (
+    States as MeterStates,
+)
+from src.bot.handlers.admin_meter import (
+    handle_action_selection as handle_meter_action_selection,
+)
+from src.bot.handlers.admin_meter import (
+    handle_date_input,
+    handle_delete_confirmation,
+    handle_final_confirmation,
+    handle_meter_cancel,
+    handle_meter_command,
+    handle_property_selection,
+    handle_show_empty_properties,
+    handle_value_input,
+)
 from src.bot.handlers.admin_payout import (
     States as PayoutStates,
 )
@@ -183,6 +199,55 @@ async def create_bot_app() -> Application:
         per_message=False,
     )
     app.add_handler(periods_conv)
+
+    # Register meter readings management command with ConversationHandler
+    meter_conv = ConversationHandler(
+        entry_points=[CommandHandler("meter", handle_meter_command)],
+        states={
+            MeterStates.SELECT_PROPERTY: [
+                CallbackQueryHandler(
+                    handle_property_selection,
+                    pattern="^meter_property_",
+                ),
+                CallbackQueryHandler(
+                    handle_show_empty_properties,
+                    pattern="^meter_show_empty$",
+                ),
+                CallbackQueryHandler(handle_meter_cancel, pattern="^meter_cancel$"),
+            ],
+            MeterStates.SELECT_ACTION: [
+                CallbackQueryHandler(
+                    handle_meter_action_selection,
+                    pattern="^meter_action_",
+                ),
+                CallbackQueryHandler(handle_meter_cancel, pattern="^meter_cancel$"),
+            ],
+            MeterStates.CONFIRM_DELETE: [
+                CallbackQueryHandler(
+                    handle_delete_confirmation,
+                    pattern="^meter_confirm_delete",
+                ),
+                CallbackQueryHandler(handle_meter_cancel, pattern="^meter_cancel$"),
+            ],
+            MeterStates.ENTER_DATE: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, handle_date_input)
+            ],
+            MeterStates.ENTER_VALUE: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, handle_value_input)
+            ],
+            MeterStates.CONFIRM: [
+                CallbackQueryHandler(
+                    handle_final_confirmation,
+                    pattern="^meter_confirm_save$",
+                ),
+                CallbackQueryHandler(handle_meter_cancel, pattern="^meter_cancel$"),
+            ],
+        },
+        fallbacks=[CommandHandler("meter", handle_meter_cancel)],
+        allow_reentry=True,
+        per_message=False,
+    )
+    app.add_handler(meter_conv)
 
     # Register payout (transaction) management command with ConversationHandler
     payout_conv = ConversationHandler(

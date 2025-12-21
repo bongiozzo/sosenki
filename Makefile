@@ -1,22 +1,23 @@
 # ============================================================================
 # Roadmap (commit-based milestones)
 # ============================================================================
+# TODO feat: Create notifications users from Telegram
+# TODO feat: Audit logging for modification operations
+# TODO refactor: Remove transaction's period FK
 # TODO agent: Add role-based tool filtering
 #            - User tools: get_balance, list_bills, get_period_info (read-only)
 #            - Admin tools: + create_service_period (write)
 #            - Check user.is_administrator for admin tools
-# TODO feat: Create electricity reading handler 
-# TODO feat: Update /payout to send notification to Telegram user
-# TODO feat: Adopt dev workflow for SSH-Remote VSCode
-# TODO refactor: Adopt https://github.com/exo-explore/exo/blob/main/.cursorrules
-# TODO refactor: Remove transaction's period FK
 # TODO agent: Add confirmation prompts for write operations
+# TODO feat: Adopt dev environment in the LAN with prod - edit caddy template for dev host and 8443 port
+# TODO refactor: Adopt https://github.com/exo-explore/exo/blob/main/.cursorrules
 #
 # TODO security: Add auth_date expiration check (±5min) in user_service.py - replay attack risk
 # TODO security: Use hmac.compare_digest() in user_service.py - timing attack risk
 # TODO security: Add rate limiting (slowapi) to API endpoints - DoS/brute force risk
 # TODO security: Set allow_credentials=False in CORS config (webhook.py) - credential leak risk
 #
+# TODO refactor: Remove complex implementations C901
 # --- Features ---
 # TODO feat: Invest tracking module
 # TODO feat: Rules/Job descriptions module

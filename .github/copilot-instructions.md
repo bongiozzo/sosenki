@@ -1,6 +1,6 @@
 # SOSenki Development Guidelines
 
-Last updated: 2025-12-19
+Last updated: 2025-12-20
 
 ## Architecture Overview
 
@@ -14,17 +14,18 @@ Last updated: 2025-12-19
 - FastAPI (async API serving)
 - FastMCP (LLM tool server - provides `get_balance`, `list_bills`, `create_service_period`)
 - SQLAlchemy ORM + Alembic (migrations in `alembic/versions/`)
-- SQLite (development: `sosenki.dev.db`, production: `sosenki.db`)
+- SQLite (development: `sosenki.dev.db`, production: `sosenki.db`, test: `test_sosenki.db`)
 - `python-telegram-bot` (async webhooks, bot commands)
 - Ollama (local LLM for `/ask` command tool-calling)
 - Google Sheets API (for seeding/configuration)
 - Vanilla JS (Mini App frontend — no frameworks, keep lightweight)
+- `uv` (Python package manager — replaces pip/venv)
 
 **Testing:**
 - pytest (unit, contract, integration tests)
 - pytest-asyncio (async test support)
 - pytest-cov (coverage analysis)
-- ruff (linting)
+- ruff (linting & formatting)
 
 ## Project Structure
 
@@ -101,16 +102,45 @@ scripts/            # Maintenance scripts (check_translations.py, analyze_dead_c
 - ✅ `uv run python scripts/script.py` for standalone scripts
 - ✅ `uv run ruff check .` for linting
 
+**CRITICAL: Environment-specific database targets:**
+- `make seed` and `make db-reset` are **BLOCKED** in `ENV=prod` (safety mechanism)
+- Production uses `make backup` and `make restore` for data management
+- Dev mode: application **must be offline** during `seed` or `db-reset`
+- Verify environment with `grep '^ENV=' .env` before running database commands
+
 ## Commands Reference
 
 ```bash
 make serve &  # Start server (MANDATORY for testing code changes)
 make test     # Run all tests (MANDATORY before committing)
-make seed     # Reset database + run migrations + seed data
+make seed     # Reset database + run migrations + seed data (dev only, app offline)
 make format   # Run ruff linter with auto-fix
 make coverage # Full coverage report
 make check-i18n # Validate translation completeness (Python/JS/HTML vs translations.json)
+make backup   # Create timestamped backup (prod only, creates backups/sosenki-YYYYMMDD-HHMMSS.db)
+make restore  # Restore from latest backup (prod only, use BACKUP=path to specify)
 ```
+
+## Environment Configuration
+
+**Two modes controlled by `.env`:**
+- `ENV=dev` — Local development (uses `sosenki.dev.db`, allows `seed`/`db-reset`)
+- `ENV=prod` — Production (uses `sosenki.db`, requires `backup`/`restore` for data management)
+
+**Development modes for `ENV=dev`:**
+1. **Local (ngrok)** — Default, auto-starts ngrok tunnel for external Telegram webhooks
+   - No DOMAIN needed, `make serve` manages tunnel automatically
+   - Creates `/tmp/.sosenki-env` with dynamic `WEBHOOK_URL` and `MINI_APP_URL`
+
+2. **LAN** — Set `DOMAIN=192.168.x.x` for testing on local network
+   - Uses `http://$DOMAIN:$PORT` (no ngrok), useful for device testing
+   - `scripts/setup-environment.sh` detects DOMAIN presence and skips ngrok
+
+**Production setup:**
+- Set `DOMAIN=yourdomain.com` in `.env`
+- `make install` derives `WEBHOOK_URL` and `MINI_APP_URL` automatically
+- Configures Caddy (reverse proxy with auto-SSL) + systemd service
+- Requires port forwarding: external 80/443 → internal 80/443
 
 ## Key Patterns & Integration Points
 
@@ -211,11 +241,12 @@ user_input = parse_russian_decimal("85 000,50")       # Decimal('85000.50')
 
 ### 5. Database Schema & Migrations
 
-**Production migration workflow (since commit 9c1b57a):**
+**Production migration workflow:**
 - Alembic migrations in `alembic/versions/` using standard workflow
 - Generate: `uv run alembic revision --autogenerate -m "description"`
 - Apply: `uv run alembic upgrade head`
 - Check status: `uv run alembic current`
+- After schema changes: verify with `uv run alembic upgrade head && make seed` (dev only)
 
 **Role-based access (src/models/user.py):**
 - `is_active` — Primary gate for Mini App access
@@ -232,12 +263,15 @@ Users can have multiple roles simultaneously via independent boolean flags.
 **Test database isolation:**
 - Tests use `test_sosenki.db` (configured in `tests/conftest.py`)
 - Fresh schema applied via Alembic migrations before each test run
+- `tests/conftest.py` runs `alembic upgrade head` automatically on import
 - Dev database: `sosenki.dev.db`, Production: `sosenki.db`
+- **Seeding tests** (`seeding/tests/`) use production database (`sosenki.db`) for data integrity validation
 
 **Contract tests (`tests/contract/`):**
 - API endpoint schemas (Pydantic model validation)
 - MCP tool registration + parameter schemas
 - Response structure validation
+- Bot handler registration (verify handlers are properly attached)
 
 **Integration tests (`tests/integration/`):**
 - End-to-end workflows (request approval, period creation)
@@ -248,6 +282,11 @@ Users can have multiple roles simultaneously via independent boolean flags.
 - Service layer logic (balance calculation, period validation)
 - Utility functions (localizer, parsers)
 - MCP tool coverage (error handling, date validation)
+
+**Test markers (use with `-m`):**
+- `@pytest.mark.contract` — API/schema tests
+- `@pytest.mark.integration` — Full workflow tests
+- `@pytest.mark.unit` — Isolated logic tests
 
 ## External Library Guidelines
 
@@ -310,8 +349,28 @@ Eliminate code duplication through abstraction and reuse. When logic appears in 
 - [ ] Schema design follows YAGNI Rule - Database Schema (every table/column justified by spec.md)
 - [ ] Migration generated via `alembic revision --autogenerate` if schema changed
 - [ ] Developer ran `uv run alembic upgrade head && make seed` and verified success
+- [ ] Tests pass: `make test` shows all green
 - [ ] No secrets or hard-coded paths in diff
 - [ ] Context7 documentation verified for all new dependencies
+- [ ] i18n keys added to `translations.json` if user-facing text changed
+
+## Known Patterns & TODOs
+
+**Security improvements needed (from Makefile):**
+- auth_date expiration check (±5min) — replay attack mitigation
+- Use `hmac.compare_digest()` — timing attack prevention
+- Rate limiting (slowapi) — DoS/brute force protection
+- CORS `allow_credentials=False` — credential leak prevention
+
+**Planned features (from Makefile):**
+- Electricity reading handler
+- Notification system from Telegram
+- Invest tracking module
+- Rules/Job descriptions module
+
+**MCP server optimization:**
+- Tool confirmation prompts for write operations
+- Enhanced error messages with recovery suggestions
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->

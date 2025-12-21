@@ -824,7 +824,7 @@ function renderBills(bills, containerId = 'bills-list') {
                 if (bill.start_reading !== null) {
                     readingsText.textContent = `${formatCurrency(bill.start_reading, { includeSymbol: false })} → ${formatCurrency(bill.end_reading, { includeSymbol: false })}`;
                 } else {
-                    readingsText.textContent = `${formatCurrency(bill.end_reading, { includeSymbol: false })} kWh`;
+                    readingsText.textContent = `${formatCurrency(bill.end_reading, { includeSymbol: false })} ${t('label_unit_kwh')}`;
                 }
                 
                 readingsDiv.appendChild(readingsText);
@@ -833,7 +833,7 @@ function renderBills(bills, containerId = 'bills-list') {
                 if (bill.consumption !== null) {
                     const consumptionBadge = document.createElement('span');
                     consumptionBadge.className = 'consumption-badge';
-                    consumptionBadge.textContent = `${formatCurrency(bill.consumption, { includeSymbol: false })} kWh`;
+                    consumptionBadge.textContent = `${formatCurrency(bill.consumption, { includeSymbol: false })} ${t('label_unit_kwh')}`;
                     readingsDiv.appendChild(consumptionBadge);
                 }
                 

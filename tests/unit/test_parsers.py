@@ -48,9 +48,9 @@ class TestParseDate:
             parse_date("2025-06-23")  # Wrong format (YYYY-MM-DD instead of DD.MM.YYYY)
 
     def test_parse_invalid_date(self):
-        """Test parsing invalid date raises ValueError."""
+        """Test parsing invalid date (non-existent date) raises ValueError."""
         with pytest.raises(ValueError, match="Cannot parse date"):
-            parse_date("32.13.2025")  # Invalid day and month
+            parse_date("32.01.2024")  # 32nd day doesn't exist
 
 
 class TestParseRussianDecimal:
