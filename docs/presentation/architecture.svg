@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="460" viewBox="0 0 1200 460">
+  <style>
+    .bg { fill: #ffffff; }
+    .box { fill: #ffffff; stroke: #111827; stroke-width: 2; rx: 14; }
+    .title { font: 700 22px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; fill: #111827; }
+    .text { font: 16px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; fill: #111827; }
+    .muted { font: 12px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; fill: #374151; }
+    /* White halo so arrows never visually cross label text (important when scaled in slides). */
+    .label { paint-order: stroke; stroke: #ffffff; stroke-width: 6px; stroke-linejoin: round; }
+    .arrow { stroke: #111827; stroke-width: 2.5; fill: none; marker-end: url(#arrowhead); }
+  </style>
+
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#111827" />
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1200" height="460" class="bg" />
+
+  <text x="40" y="50" class="title">SOSenki — high-level architecture</text>
+
+  <!-- Telegram -->
+  <rect x="40" y="110" width="300" height="120" class="box" />
+  <text x="70" y="155" class="text">Telegram</text>
+  <text x="70" y="180" class="muted">Users • Bot updates • Mini App</text>
+
+  <!-- FastAPI -->
+  <rect x="450" y="90" width="320" height="160" class="box" />
+  <text x="480" y="135" class="text">FastAPI backend</text>
+  <text x="480" y="160" class="muted">/webhook/telegram</text>
+  <text x="480" y="182" class="muted">/api/mini-app/*</text>
+  <text x="480" y="204" class="muted">/mini-app/* (static)</text>
+
+  <!-- Bot -->
+  <rect x="840" y="70" width="320" height="110" class="box" />
+  <text x="870" y="115" class="text">Telegram bot</text>
+  <text x="870" y="140" class="muted">python-telegram-bot handlers</text>
+
+  <!-- Services -->
+  <rect x="840" y="210" width="320" height="110" class="box" />
+  <text x="870" y="255" class="text">Service layer</text>
+  <text x="870" y="280" class="muted">src/services/*_service.py</text>
+
+  <!-- DB -->
+  <rect x="450" y="300" width="320" height="120" class="box" />
+  <text x="480" y="345" class="text">SQLite + SQLAlchemy</text>
+  <text x="480" y="370" class="muted">Alembic migrations</text>
+
+  <!-- MCP -->
+  <rect x="40" y="280" width="300" height="140" class="box" />
+  <text x="70" y="325" class="text">MCP (/mcp)</text>
+  <text x="70" y="350" class="muted">FastMCP HTTP app</text>
+  <text x="70" y="372" class="muted">Tools for LLM / automation</text>
+
+  <!-- Arrows -->
+  <path d="M 340 170 L 450 170" class="arrow" />
+  <text x="350" y="132" class="muted label">webhook / Mini App</text>
+
+  <path d="M 770 140 L 840 125" class="arrow" />
+  <text x="792" y="100" class="muted label">dispatch</text>
+
+  <path d="M 770 190 L 840 240" class="arrow" />
+  <text x="790" y="198" class="muted label">calls</text>
+
+  <path d="M 610 250 L 610 300" class="arrow" />
+  <text x="632" y="268" class="muted label">CRUD + calc</text>
+
+  <path d="M 340 350 L 450 350" class="arrow" />
+  <text x="352" y="322" class="muted label">mounted in FastAPI</text>
+
+  <path d="M 340 390 L 450 390" class="arrow" />
+  <text x="352" y="432" class="muted label">DB session (lifespan)</text>
+</svg>

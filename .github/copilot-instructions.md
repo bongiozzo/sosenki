@@ -1,25 +1,56 @@
-# follow **every** rule exactly; report any violation instead of silently fixing it.
-# SOSenki AI Playbook (concise)
+# SOSenki Copilot Instructions
 
-- Stack: Telegram bot + FastAPI backend + Mini App. Key dirs: src/api (FastAPI + webhook + MCP), src/bot (handlers + config), src/services (auth/balance/bills/period/transaction/llm/localizer/locale/audit), src/static/mini_app (vanilla JS + translations.json), alembic/versions (migrations), tests/{unit,contract,integration}.
-- Runtime commands (non-negotiable): make serve & (start, auto-stop prior, spawns ngrok), make stop, make test (all suites), uv run pytest tests/path -v (targeted only), make format, make coverage, make check-i18n, make seed (dev only, app offline), make backup/restore (prod). Never run python/uvicorn/pytest directly; never kill ports manually.
-- Environments: .env sets ENV=dev|prod; dev DB sosenki.dev.db, prod sosenki.db, tests test_sosenki.db. make serve writes /tmp/.sosenki-env with WEBHOOK_URL/MINI_APP_URL; DOMAIN presence skips ngrok for LAN. make install derives URLs + configures Caddy/systemd (prod).
-- Auth pattern (src/services/auth_service.py): validate Telegram init_data (Authorization: tma <data> or x-telegram-init-data) via HMAC-SHA256 with bot token; produce AuthorizedUser (user, target, admin flags). Admins may switch target via target_telegram_id; use authorize_account_access for permission checks.
-- LLM/MCP (src/api/mcp_server.py, src/services/llm_service.py): tools get_balance, list_bills, get_period_info, create_service_period (admin). get_user_tools vs get_admin_tools gated by ctx.is_admin; execute_tool routes into services; Ollama model default qwen2.5:1.5b.
-- i18n: single source src/static/mini_app/translations.json with flat prefixes btn_/empty_/err_/hint_/label_/msg_/prompt_/status_/title_. Use t(key, **kwargs) in Python (src/services/localizer.py); JS uses t() after translations load; HTML via data-i18n attr. Run make check-i18n after user-facing changes.
-- Locale helpers: src/services/locale_service.py (format_currency, format_local_datetime, get_currency_symbol); parsing in src/utils/parsers.py (parse_russian_decimal, parse_russian_currency). Reuse instead of custom formatting/parsing.
-- Audit logging: src/services/audit_service.py; call after session.flush in service layer (not handlers) with entity_type (snake_case), action (create/update/delete/close/approve/reject), actor_id, optional changes. Coverage: transactions, bills, service_periods, electricity_readings, access_requests; user lifecycle deferred.
-- Notifications: reuse src/services/notification_service.py.
-- Data model roles (src/models/user.py): flags is_active, is_administrator, is_owner, is_stakeholder (requires owner), is_investor (needs active), is_tenant. Combine as needed.
-- Migrations: uv run alembic revision --autogenerate -m "msg"; apply with uv run alembic upgrade head; check with uv run alembic current. After schema change in dev: uv run alembic upgrade head && make seed. No speculative fields (YAGNI).
-- Testing: tests/conftest.py sets up test_sosenki.db via alembic upgrade head. Contract tests validate API schemas/MCP tools/handler registration; integration covers bot+API flows; unit for services/utilities. Markers @pytest.mark.{contract,integration,unit}. Use make test before merge.
-- Style: Python 3.11+, type hints mandatory, async for I/O, Pydantic models, SQLAlchemy ORM patterns, docstrings for public APIs, ruff enforced (make format). Vanilla JS in Mini App (no frameworks).
-- Security: no secrets or absolute paths in code; use env vars. Pending hardening (from Makefile): auth_date expiration check, hmac.compare_digest, rate limiting (slowapi), CORS allow_credentials=False.
+DRY/KISS/YAGNI are main principles! Follow repo conventions exactly; if something conflicts or is unclear, stop and ask (don’t guess).
 
-# When in doubt
-- Prefer simplest implementation (KISS) and avoid speculative work (YAGNI); deduplicate (DRY).
-- If adding user-facing strings or data formatting, route through localizer/locale helpers and update translations.json.
-- Ask for confirmation before risky ops; if instructions conflict, stop and ask.
+## Big Picture
+- Stack: Telegram bot (python-telegram-bot) + FastAPI backend + Telegram Mini App (vanilla JS).
+- Key dirs: `src/api/` (FastAPI + webhook + Mini App API + MCP), `src/bot/` (handlers/config), `src/services/` (business logic), `src/static/mini_app/` (Mini App assets + `translations.json`), `alembic/versions/` (migrations), `tests/{unit,contract,integration}`.
+
+## Runtime & Dev Workflows (use these)
+- Use: `make sync`, `make serve`, `make stop`, `make test`, `make format`, `make coverage`, `make check-i18n`.
+- Targeted tests are OK: `uv run pytest tests/path::test_name -v`.
+- Don’t run `uvicorn`/`python`/`pytest` directly for app lifecycle; don’t kill ports manually.
+
+## HTTP/App Layout
+- FastAPI app is in `src/api/webhook.py` and uses `mcp_http_app.lifespan` for DB lifecycle.
+- Routes/mounts:
+	- `POST /webhook/telegram` → converts JSON to `telegram.Update` and calls `_bot_app.process_update()`.
+	- `GET /health`.
+	- `GET /mini-app/*` → serves static Mini App from `src/static/mini_app/`.
+	- `POST /api/mini-app/*` → Mini App API (auth + context + data).
+	- `/mcp` → FastMCP HTTP app (see `src/api/mcp_server.py`).
+- “Tools” exist in two places: MCP tools are defined in `src/api/mcp_server.py`; LLM tool selection/gating lives in `src/services/llm_service.py` (`get_user_tools()`/`get_admin_tools()` + `execute_tool()` with `ctx.is_admin`).
+
+## Env + Local Dev
+- `.env` controls `ENV=dev|prod` and `DATABASE_URL` (dev DB `sosenki.dev.db`, prod `sosenki.db`, tests `test_sosenki.db`).
+- `make serve` writes `/tmp/.sosenki-env` with `WEBHOOK_URL`/`MINI_APP_URL` (ngrok in dev). `src/bot/config.py` lazily loads config; instantiate config only after env is loaded.
+
+## Auth & Authorization (Mini App)
+- Telegram init data transport order (see `src/services/auth_service.py`):
+	- `Authorization: tma <raw>`
+	- `X-Telegram-Init-Data`
+	- request body fields `initDataRaw|initData|init_data_raw|init_data`
+- Signature verification is centralized; endpoints should call `verify_telegram_auth()` → `get_authenticated_user()`.
+- Target-user resolution rules: admin context switch (`selected_user_id`) > representation (`representative_id`) > self.
+- For account-scoped endpoints, enforce `authorize_account_access*()` instead of hand-rolled checks.
+
+## Service-Layer Conventions
+- Keep business logic in `src/services/*_service.py`; handlers/endpoints should be thin.
+- Audit logging lives in the service layer: call `AuditService` after `session.flush()` (not in bot handlers/routes).
+- Formatting/parsing: use `src/services/locale_service.py` and `src/utils/parsers.py` (no custom currency/decimal parsing).
+
+## i18n (Mini App + API)
+- Single source of truth: `src/static/mini_app/translations.json` (flat keys with prefixes like `btn_`, `err_`, `msg_`, etc.).
+- Python uses `src/services/localizer.py` `t(key, **kwargs)`; Mini App JS uses `t()` + `data-i18n` in HTML.
+- After changing user-facing strings, run `make check-i18n`.
+
+## Migrations & Seeding
+- Migrations: `uv run alembic revision --autogenerate -m "msg"` then `uv run alembic upgrade head`.
+- After a dev schema change: `uv run alembic upgrade head && make seed`.
+- Seeding is separate (`seeding/`) and must run with the app offline: `make seed` (dev only). Uses Google Sheets via `SEEDING_CONFIG_PATH` + `GOOGLE_CREDENTIALS_PATH`.
+
+## Notes / Known TODOs
+- Security hardening TODOs are tracked in the Makefile (auth_date expiration, `hmac.compare_digest`, rate limiting, CORS `allow_credentials`). Don’t “fix” them unless requested.
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->

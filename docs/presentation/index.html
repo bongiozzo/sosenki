@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SOSenki — Slides</title>
+
+    <link rel="stylesheet" href="https://unpkg.com/reveal.js@5/dist/reveal.css" />
+    <link rel="stylesheet" href="https://unpkg.com/reveal.js@5/dist/theme/white.css" />
+
+    <style>
+      /* Keep it minimal; rely on reveal's theme. */
+      .reveal img { max-height: 55vh; }
+
+      /* Make Markdown tables usable for image rows (no borders, centered). */
+      .reveal table { border-collapse: collapse; margin: 0 auto; }
+      .reveal table td, .reveal table th { border: 0; }
+      .reveal table img { max-height: 45vh; }
+
+      :root {
+        --sosenki-slide-bg: url("https://lightroom.adobe.com/v2c/spaces/233a5a3a80d94431a8110adbcaa78633/assets/8c300a1185a943b3a2708224e3b25ae0/revisions/6bacda618ce3488d86881790d64c5175/renditions/9c8659c947d7192274e85e249e66e09d");
+        /* --sosenki-slide-bg-opacity: 0.15; */
+      }
+
+      /* Default background for all slides (per-slide backgrounds, if any, override via inline styles). */
+      .reveal .backgrounds .slide-background.present {
+        opacity: var(--sosenki-slide-bg-opacity);
+      }
+
+      .reveal .backgrounds .slide-background.present .slide-background-content {
+        background-image: var(--sosenki-slide-bg);
+        background-position: center;
+        background-repeat: no-repeat;
+        background-size: cover;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="reveal">
+      <div class="slides">
+        <!-- Slides source-of-truth: slides.md -->
+        <section
+          data-markdown="slides.md"
+          data-separator="^---$"
+          data-separator-vertical="^--$"
+          data-charset="utf-8"
+        ></section>
+      </div>
+    </div>
+
+    <script src="https://unpkg.com/reveal.js@5/dist/reveal.js"></script>
+    <script src="https://unpkg.com/reveal.js@5/plugin/markdown/markdown.js"></script>
+
+    <script>
+      Reveal.initialize({
+        hash: true,
+        plugins: [RevealMarkdown],
+      });
+    </script>
+  </body>
+</html>

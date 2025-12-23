@@ -1,0 +1,5 @@
+title: SOSenki
+markdown: kramdown
+
+# Keep presentation assets as static files.
+# Files without front matter (like docs/presentation/slides.md and index.html) will be copied through.

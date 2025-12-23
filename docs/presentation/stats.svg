@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620">
+  <style>
+    .bg { fill: #ffffff; }
+    .card { fill: #ffffff; stroke: #111827; stroke-width: 2; rx: 14; }
+    .h { font: 700 20px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; fill: #111827; }
+    .big { font: 800 40px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; fill: #111827; }
+    .big-date { font: 800 34px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; fill: #111827; }
+    .sub { font: 14px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; fill: #374151; }
+    .tiny { font: 12px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; fill: #6b7280; }
+  </style>
+
+  <rect x="0" y="0" width="1200" height="620" class="bg" />
+
+  <text x="40" y="48" class="h">SOSenki — quick repo stats (presentation-grade)</text>
+
+  <!-- Layout: 3 columns × 3 rows -->
+  <!-- Card geometry: x=40,420,800  w=340  gap=40 | y=80,260,440  h=150 -->
+
+  <!-- Row 1 -->
+  <rect x="40" y="80" width="340" height="150" class="card" />
+  <text x="65" y="132" class="big">~37.5k</text>
+  <text x="65" y="160" class="sub">lines of code</text>
+  <text x="65" y="184" class="tiny">approx • Python-heavy</text>
+  <text x="65" y="204" class="tiny">test coverage: 68%</text>
+
+  <rect x="420" y="80" width="340" height="150" class="card" />
+  <text x="445" y="132" class="big">9</text>
+  <text x="445" y="160" class="sub">FastAPI endpoints</text>
+  <text x="445" y="184" class="tiny">webhook + Mini App API</text>
+
+  <rect x="800" y="80" width="340" height="150" class="card" />
+  <text x="825" y="132" class="big">5</text>
+  <text x="825" y="160" class="sub">MCP tools</text>
+  <text x="825" y="184" class="tiny">mounted at /mcp</text>
+
+  <!-- Row 2 -->
+  <rect x="40" y="260" width="340" height="150" class="card" />
+  <text x="65" y="312" class="big">137</text>
+  <text x="65" y="340" class="sub">commits</text>
+  <text x="65" y="364" class="tiny">as of repo state</text>
+
+  <rect x="420" y="260" width="340" height="150" class="card" />
+  <text x="445" y="312" class="big-date">04.11.2025</text>
+  <text x="445" y="340" class="sub">first commit</text>
+
+  <rect x="800" y="260" width="340" height="150" class="card" />
+  <text x="825" y="312" class="big">36</text>
+  <text x="825" y="340" class="sub">days with commits</text>
+
+  <!-- Row 3 -->
+  <rect x="40" y="440" width="340" height="150" class="card" />
+  <text x="65" y="492" class="big">7</text>
+  <text x="65" y="520" class="sub">bot handler modules</text>
+  <text x="65" y="544" class="tiny">src/bot/handlers/*.py</text>
+
+  <rect x="420" y="440" width="340" height="150" class="card" />
+  <text x="445" y="492" class="big">4</text>
+  <text x="445" y="520" class="sub">Mini App views</text>
+  <text x="445" y="544" class="tiny">welcome • accounts • transactions</text>
+  <text x="445" y="562" class="tiny">account-details</text>
+
+  <rect x="800" y="440" width="340" height="150" class="card" />
+  <text x="825" y="492" class="big-date">Stack</text>
+  <text x="825" y="520" class="sub">FastAPI • PTB • SQLAlchemy</text>
+  <text x="825" y="544" class="sub">Alembic • FastMCP • Ollama*</text>
+  <text x="825" y="562" class="tiny">*optional local LLM</text>
+
+  <text x="40" y="608" class="tiny">Generated: 23.12.2025 • Numbers are for slides; exact counts may shift with commits.</text>
+</svg>
