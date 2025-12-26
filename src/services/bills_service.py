@@ -1,6 +1,7 @@
 """Unified service for all bill calculations and database operations."""
 
 import logging
+from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 from typing import NamedTuple
 
@@ -9,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models.account import Account
 from src.models.bill import Bill, BillType
+from src.models.electricity_reading import ElectricityReading
 from src.models.property import Property
 from src.models.service_period import ServicePeriod
 from src.models.user import User
@@ -27,6 +29,21 @@ class OwnerShare(NamedTuple):
     user_name: str
     total_share_weight: Decimal
     calculated_bill_amount: Decimal
+
+
+class PersonalElectricityBill(NamedTuple):
+    """Personal electricity bill preview for a single property."""
+
+    owner_id: int
+    owner_name: str
+    property_id: int
+    property_name: str
+    start_reading_date: date
+    start_reading_value: Decimal
+    end_reading_date: date
+    end_reading_value: Decimal
+    consumption_kwh: Decimal
+    bill_amount: Decimal
 
 
 class BillsService:
@@ -58,44 +75,11 @@ class BillsService:
         Returns:
             Count of bills created
         """
-        bills_created = 0
-
-        for share in owner_shares:
-            # Find account for this user
-            stmt = select(Account).filter(
-                Account.user_id == share.user_id,
-                Account.account_type == "owner",
-            )
-            result = await self.session.execute(stmt)
-            account = result.scalar_one_or_none()
-
-            if account:
-                bill = Bill(
-                    service_period_id=period_id,
-                    account_id=account.id,
-                    property_id=None,
-                    bill_type=BillType.SHARED_ELECTRICITY,
-                    bill_amount=share.calculated_bill_amount,
-                )
-                self.session.add(bill)
-                await self.session.flush()  # Get bill ID
-
-                # Audit log
-                await AuditService.log(
-                    session=self.session,
-                    entity_type="bill",
-                    entity_id=bill.id,
-                    action="create",
-                    actor_id=actor_id,
-                    changes={
-                        "bill_type": "shared_electricity",
-                        "account_id": account.id,
-                        "account_name": account.name,
-                        "period_id": period_id,
-                        "amount": float(share.calculated_bill_amount),
-                    },
-                )
-                bills_created += 1
+        bills_created = await self._add_shared_electricity_bills(
+            period_id=period_id,
+            owner_shares=owner_shares,
+            actor_id=actor_id,
+        )
 
         await self.session.commit()
 
@@ -104,6 +88,265 @@ class BillsService:
             bills_created,
             period_id,
         )
+
+        return bills_created
+
+    async def count_electricity_bills_for_period(self, service_period_id: int) -> int:
+        """Count any electricity-related bills for the given period.
+
+        Includes both personal (ELECTRICITY) and shared (SHARED_ELECTRICITY) bills.
+        """
+        result = await self.session.execute(
+            select(func.count(Bill.id)).where(
+                (Bill.service_period_id == service_period_id)
+                & (Bill.bill_type.in_([BillType.ELECTRICITY, BillType.SHARED_ELECTRICITY]))
+            )
+        )
+        return int(result.scalar() or 0)
+
+    async def calculate_personal_electricity_bills_from_readings(
+        self,
+        *,
+        service_period: ServicePeriod,
+        electricity_rate: Decimal,
+    ) -> tuple[list[PersonalElectricityBill], Decimal]:
+        """Calculate personal electricity bills per property based on readings.
+
+        For each active property:
+        - start reading: latest reading with date <= service_period.start_date
+        - end reading: latest reading with date <= service_period.end_date
+        - amount = (end - start) * electricity_rate
+
+        Skips properties with missing start/end readings.
+
+        Raises ValueError if any readings are inconsistent (end < start).
+        """
+        if electricity_rate <= 0:
+            raise ValueError("Electricity rate must be positive")
+
+        stmt = (
+            select(
+                Property.id,
+                Property.property_name,
+                Property.owner_id,
+                User.name,
+            )
+            .join(User, User.id == Property.owner_id)
+            .where(Property.is_active == True)  # noqa: E712
+            .order_by(User.name.asc(), Property.property_name.asc())
+        )
+        result = await self.session.execute(stmt)
+        properties = result.all()
+
+        property_ids = [row[0] for row in properties]
+
+        from src.services.electricity_reading_service import ElectricityReadingService
+
+        reading_service = ElectricityReadingService(self.session)
+        start_by_property = await reading_service.get_latest_readings_for_properties_at_or_before(
+            property_ids,
+            service_period.start_date,
+        )
+        end_by_property = await reading_service.get_latest_readings_for_properties_at_or_before(
+            property_ids,
+            service_period.end_date,
+        )
+
+        inconsistent: list[str] = []
+        bills: list[PersonalElectricityBill] = []
+        total = Decimal("0")
+
+        for property_id, property_name, owner_id, owner_name in properties:
+            start_reading = start_by_property.get(property_id)
+            end_reading = end_by_property.get(property_id)
+
+            if not start_reading or not end_reading:
+                continue
+
+            # Type narrowing
+            assert isinstance(start_reading, ElectricityReading)
+            assert isinstance(end_reading, ElectricityReading)
+
+            consumption = end_reading.reading_value - start_reading.reading_value
+            if consumption < 0:
+                inconsistent.append(
+                    f"{property_name} ({start_reading.reading_value} → {end_reading.reading_value})"
+                )
+                continue
+
+            if consumption == 0:
+                continue
+
+            amount = (consumption * electricity_rate).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            )
+
+            bills.append(
+                PersonalElectricityBill(
+                    owner_id=owner_id,
+                    owner_name=owner_name or f"User {owner_id}",
+                    property_id=property_id,
+                    property_name=property_name,
+                    start_reading_date=start_reading.reading_date,
+                    start_reading_value=start_reading.reading_value,
+                    end_reading_date=end_reading.reading_date,
+                    end_reading_value=end_reading.reading_value,
+                    consumption_kwh=consumption,
+                    bill_amount=amount,
+                )
+            )
+            total += amount
+
+        if inconsistent:
+            raise ValueError("INCONSISTENT_READINGS:" + "; ".join(inconsistent))
+
+        return bills, total
+
+    async def create_personal_electricity_bills(
+        self,
+        *,
+        period_id: int,
+        personal_bills: list[PersonalElectricityBill],
+        actor_id: int | None = None,
+    ) -> int:
+        """Create personal ELECTRICITY bills for each property."""
+        bills_created = await self._add_personal_electricity_bills(
+            period_id=period_id,
+            personal_bills=personal_bills,
+            actor_id=actor_id,
+        )
+        await self.session.commit()
+        return bills_created
+
+    async def create_personal_and_shared_electricity_bills(
+        self,
+        *,
+        period_id: int,
+        personal_bills: list[PersonalElectricityBill],
+        owner_shares: list[OwnerShare],
+        actor_id: int | None = None,
+    ) -> tuple[int, int]:
+        """Create both personal and shared electricity bills in one commit.
+
+        Fails if any electricity bills already exist for the period.
+        """
+        existing_count = await self.count_electricity_bills_for_period(period_id)
+        if existing_count > 0:
+            raise ValueError(f"Electricity bills already exist for period {period_id}")
+
+        personal_count = await self._add_personal_electricity_bills(
+            period_id=period_id,
+            personal_bills=personal_bills,
+            actor_id=actor_id,
+        )
+        shared_count = await self._add_shared_electricity_bills(
+            period_id=period_id,
+            owner_shares=owner_shares,
+            actor_id=actor_id,
+        )
+
+        await self.session.commit()
+        return personal_count, shared_count
+
+    async def _add_shared_electricity_bills(
+        self,
+        *,
+        period_id: int,
+        owner_shares: list[OwnerShare],
+        actor_id: int | None,
+    ) -> int:
+        bills_created = 0
+
+        for share in owner_shares:
+            stmt = select(Account).filter(
+                Account.user_id == share.user_id,
+                Account.account_type == "owner",
+            )
+            result = await self.session.execute(stmt)
+            account = result.scalar_one_or_none()
+
+            if not account:
+                continue
+
+            bill = Bill(
+                service_period_id=period_id,
+                account_id=account.id,
+                property_id=None,
+                bill_type=BillType.SHARED_ELECTRICITY,
+                bill_amount=share.calculated_bill_amount,
+            )
+            self.session.add(bill)
+            await self.session.flush()
+
+            await AuditService.log(
+                session=self.session,
+                entity_type="bill",
+                entity_id=bill.id,
+                action="create",
+                actor_id=actor_id,
+                changes={
+                    "bill_type": "shared_electricity",
+                    "account_id": account.id,
+                    "account_name": account.name,
+                    "period_id": period_id,
+                    "amount": float(share.calculated_bill_amount),
+                },
+            )
+            bills_created += 1
+
+        return bills_created
+
+    async def _add_personal_electricity_bills(
+        self,
+        *,
+        period_id: int,
+        personal_bills: list[PersonalElectricityBill],
+        actor_id: int | None,
+    ) -> int:
+        bills_created = 0
+
+        for personal in personal_bills:
+            stmt = select(Account).filter(
+                Account.user_id == personal.owner_id,
+                Account.account_type == "owner",
+            )
+            result = await self.session.execute(stmt)
+            account = result.scalar_one_or_none()
+
+            if not account:
+                continue
+
+            bill = Bill(
+                service_period_id=period_id,
+                account_id=account.id,
+                property_id=personal.property_id,
+                bill_type=BillType.ELECTRICITY,
+                bill_amount=personal.bill_amount,
+            )
+            self.session.add(bill)
+            await self.session.flush()
+
+            await AuditService.log(
+                session=self.session,
+                entity_type="bill",
+                entity_id=bill.id,
+                action="create",
+                actor_id=actor_id,
+                changes={
+                    "bill_type": "electricity",
+                    "account_id": account.id,
+                    "account_name": account.name,
+                    "property_id": personal.property_id,
+                    "property_name": personal.property_name,
+                    "period_id": period_id,
+                    "amount": float(personal.bill_amount),
+                    "start_reading_date": personal.start_reading_date.isoformat(),
+                    "start_reading_value": str(personal.start_reading_value),
+                    "end_reading_date": personal.end_reading_date.isoformat(),
+                    "end_reading_value": str(personal.end_reading_value),
+                },
+            )
+            bills_created += 1
 
         return bills_created
 
@@ -533,4 +776,4 @@ class BillsService:
         return result.scalar_one_or_none()
 
 
-__all__ = ["BillsService", "OwnerShare"]
+__all__ = ["BillsService", "OwnerShare", "PersonalElectricityBill"]

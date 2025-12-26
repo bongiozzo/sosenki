@@ -250,7 +250,10 @@ async def test_handle_electricity_losses_valid(mock_update, mock_context):
         with patch("src.bot.handlers.admin_bills.BillsService") as mock_bills_service:
             mock_bills_inst = MagicMock()
             mock_bills_service.return_value = mock_bills_inst
-            mock_bills_inst.get_electricity_bills_for_period = AsyncMock(return_value=Decimal("0"))
+            mock_bills_inst.count_electricity_bills_for_period = AsyncMock(return_value=0)
+            mock_bills_inst.calculate_personal_electricity_bills_from_readings = AsyncMock(
+                return_value=([], Decimal("0"))
+            )
             mock_bills_inst.distribute_shared_costs = AsyncMock(return_value=[])
             # Mock the static method: calculate_total_electricity
             mock_bills_service.calculate_total_electricity = MagicMock(return_value=Decimal("550"))
@@ -382,7 +385,10 @@ async def test_handle_electricity_losses_comma_decimal(mock_update, mock_context
         with patch("src.bot.handlers.admin_bills.BillsService") as mock_bills_service:
             mock_bills_inst = MagicMock()
             mock_bills_service.return_value = mock_bills_inst
-            mock_bills_inst.get_electricity_bills_for_period = AsyncMock(return_value=Decimal("0"))
+            mock_bills_inst.count_electricity_bills_for_period = AsyncMock(return_value=0)
+            mock_bills_inst.calculate_personal_electricity_bills_from_readings = AsyncMock(
+                return_value=([], Decimal("0"))
+            )
             mock_bills_inst.distribute_shared_costs = AsyncMock(return_value=[])
             # Mock the static method: calculate_total_electricity
             mock_bills_service.calculate_total_electricity = MagicMock(return_value=Decimal("550"))

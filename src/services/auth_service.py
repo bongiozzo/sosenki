@@ -8,6 +8,7 @@ Provides unified helpers for:
 
 import json
 import logging
+import os
 from dataclasses import dataclass
 from typing import Any
 
@@ -15,12 +16,29 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.bot.config import bot_config
 from src.models.account import Account, AccountType
 from src.models.user import User
 from src.services.user_service import UserService, UserStatusService
 
 logger = logging.getLogger(__name__)
+
+
+def _has_any_role(user: User, role_flags: list[str]) -> bool:
+    return any(getattr(user, role_flag, False) for role_flag in role_flags)
+
+
+async def _get_account_or_404(session: AsyncSession, account_id: int) -> Account:
+    # Validate account_id
+    if not account_id or account_id <= 0:
+        raise HTTPException(status_code=400, detail="Valid account_id required")
+
+    stmt = select(Account).where(Account.id == account_id)
+    result = await session.execute(stmt)
+    account = result.scalar_one_or_none()
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    return account
 
 
 @dataclass
@@ -110,8 +128,14 @@ async def verify_telegram_auth(
         raise HTTPException(status_code=401, detail="NOT_AUTHORIZED")
 
     # Verify Telegram signature
+    bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
+    if not bot_token:
+        logger.error("TELEGRAM_BOT_TOKEN is not set")
+        raise HTTPException(status_code=500, detail="Server error")
+
     parsed_data = UserService.verify_telegram_webapp_signature(
-        init_data=raw_init, bot_token=bot_config.telegram_bot_token
+        init_data=raw_init,
+        bot_token=bot_token,
     )
 
     if not parsed_data:
@@ -202,6 +226,7 @@ async def authorize_user_context_access(
     session: AsyncSession,
     authenticated_user: User,
     required_role: str | None = None,
+    required_roles_any: list[str] | None = None,
     selected_user_id: int | None = None,
 ) -> AuthorizedUser:
     """Authorize user context access (for /init, /user-context, /properties endpoints).
@@ -213,6 +238,8 @@ async def authorize_user_context_access(
         session: Database session
         authenticated_user: The authenticated user making the request
         required_role: Optional role flag to check (e.g., 'is_owner', 'is_administrator')
+        required_roles_any: Optional list of role flags where at least one must be True
+            (e.g., ['is_administrator', 'is_staff']).
         selected_user_id: For admins only - user ID to switch to (context switching)
 
     Returns:
@@ -231,6 +258,17 @@ async def authorize_user_context_access(
         logger.warning(f"Non-admin attempted restricted access: user_id={authenticated_user.id}")
         raise HTTPException(status_code=401, detail="NOT_AUTHORIZED")
 
+    # Check any-of roles if specified
+    if required_roles_any:
+        has_any_role = _has_any_role(authenticated_user, required_roles_any)
+        if not has_any_role:
+            logger.warning(
+                "User lacks required role: user_id=%s, required_roles_any=%s",
+                authenticated_user.id,
+                required_roles_any,
+            )
+            raise HTTPException(status_code=401, detail="NOT_AUTHORIZED")
+
     # Resolve target user (context switching or representation)
     target_user, switched = await resolve_target_user(session, authenticated_user, selected_user_id)
 
@@ -239,6 +277,63 @@ async def authorize_user_context_access(
         target_user=target_user,
         is_admin=authenticated_user.is_administrator,
         switched_context=switched,
+    )
+
+
+async def _verify_bot_user_roles(
+    telegram_id: int,
+    *,
+    required_roles_any: list[str],
+) -> User | None:
+    """Verify Telegram bot user has at least one of the required roles.
+
+    This is a bot-facing helper that manages its own DB session and converts
+    auth_service HTTPExceptions into a simple None return, matching bot handler needs.
+
+    Args:
+        telegram_id: Telegram user ID.
+        required_roles_any: List of role flags (e.g. ['is_administrator', 'is_staff']).
+
+    Returns:
+        User if authorized, else None.
+    """
+    # Deferred import to avoid import-order issues during bot startup.
+    from src.services import AsyncSessionLocal
+
+    async with AsyncSessionLocal() as async_session:
+        try:
+            user = await get_authenticated_user(async_session, telegram_id)
+
+            has_any_role = _has_any_role(user, required_roles_any)
+            if not has_any_role:
+                logger.warning(
+                    "Unauthorized bot operation: user_id=%s, telegram_id=%s, required_roles_any=%s",
+                    user.id,
+                    telegram_id,
+                    required_roles_any,
+                )
+                return None
+
+            return user
+
+        except HTTPException as e:
+            logger.warning("Bot authorization failed for telegram_id=%s: %s", telegram_id, e.detail)
+            return None
+        except Exception as e:
+            logger.error("Error verifying bot authorization: %s", e, exc_info=True)
+            return None
+
+
+async def verify_bot_admin_authorization(telegram_id: int) -> User | None:
+    """Verify bot user is an active administrator."""
+    return await _verify_bot_user_roles(telegram_id, required_roles_any=["is_administrator"])
+
+
+async def verify_bot_admin_or_staff_authorization(telegram_id: int) -> User | None:
+    """Verify bot user is an active administrator or staff."""
+    return await _verify_bot_user_roles(
+        telegram_id,
+        required_roles_any=["is_administrator", "is_staff"],
     )
 
 
@@ -269,17 +364,7 @@ async def authorize_account_access(
         HTTPException 401: User not authorized to access account
         HTTPException 404: Account not found
     """
-    # Validate account_id
-    if not account_id or account_id <= 0:
-        raise HTTPException(status_code=400, detail="Valid account_id required")
-
-    # Fetch account
-    stmt = select(Account).where(Account.id == account_id)
-    result = await session.execute(stmt)
-    account = result.scalar_one_or_none()
-
-    if not account:
-        raise HTTPException(status_code=404, detail="Account not found")
+    account = await _get_account_or_404(session, account_id)
 
     # Authorization: Admin and Staff can access any account
     if authenticated_user.is_administrator or authenticated_user.is_staff:
@@ -333,20 +418,10 @@ async def authorize_account_access_for_roles(
         HTTPException 401: User does not have required role or not authorized to access account
         HTTPException 404: Account not found
     """
-    # Validate account_id
-    if not account_id or account_id <= 0:
-        raise HTTPException(status_code=400, detail="Valid account_id required")
-
-    # Fetch account
-    stmt = select(Account).where(Account.id == account_id)
-    result = await session.execute(stmt)
-    account = result.scalar_one_or_none()
-
-    if not account:
-        raise HTTPException(status_code=404, detail="Account not found")
+    account = await _get_account_or_404(session, account_id)
 
     # Check role authorization (admin always allowed)
-    has_role = any(getattr(authenticated_user, role_flag, False) for role_flag in allowed_roles)
+    has_role = _has_any_role(authenticated_user, allowed_roles)
 
     # If user doesn't have role directly, check if they represent someone who does
     if not has_role and authenticated_user.representative_id:
@@ -356,9 +431,7 @@ async def authorize_account_access_for_roles(
         represented_user = result.scalar_one_or_none()
 
         if represented_user:
-            has_role = any(
-                getattr(represented_user, role_flag, False) for role_flag in allowed_roles
-            )
+            has_role = _has_any_role(represented_user, allowed_roles)
 
     if not has_role:
         logger.warning(f"User {authenticated_user.id} lacks required role for account access")
@@ -375,4 +448,6 @@ __all__ = [
     "authorize_user_context_access",
     "authorize_account_access",
     "authorize_account_access_for_roles",
+    "verify_bot_admin_authorization",
+    "verify_bot_admin_or_staff_authorization",
 ]

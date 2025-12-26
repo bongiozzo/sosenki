@@ -21,8 +21,6 @@ Usage:
 """
 
 import pytest
-
-pytestmark = pytest.mark.skip(reason="Disabled: Schema changed, needs data refresh")
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -37,6 +35,8 @@ from src.models import (
     Transaction,
     User,
 )
+
+pytestmark = pytest.mark.skip(reason="Disabled: Schema changed, needs data refresh")
 
 # Baseline counts from Google Sheets canonical data
 EXPECTED_DATA_COUNTS = {

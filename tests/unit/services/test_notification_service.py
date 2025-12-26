@@ -18,7 +18,9 @@ class DummyBot:
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_notify_account_owners_and_representatives_sends_to_owner_and_rep(session: AsyncSession):
+async def test_notify_account_owners_and_representatives_sends_to_owner_and_rep(
+    session: AsyncSession,
+):
     bot = DummyBot()
     app = SimpleNamespace(bot=bot)
     notifier = NotificationService(app)
@@ -47,7 +49,9 @@ async def test_notify_account_owners_and_representatives_sends_to_owner_and_rep(
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_notify_account_owners_and_representatives_skips_inactive_and_skips_admin(session: AsyncSession):
+async def test_notify_account_owners_and_representatives_skips_inactive_and_skips_admin(
+    session: AsyncSession,
+):
     bot = DummyBot()
     app = SimpleNamespace(bot=bot)
     notifier = NotificationService(app)

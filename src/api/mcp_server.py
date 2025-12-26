@@ -329,9 +329,7 @@ def _parse_tool_transaction_date(value: str | None) -> date | None:
     try:
         return date.fromisoformat(cleaned)
     except ValueError as exc:
-        raise ValueError(
-            "Invalid transaction_date format. Use DD.MM.YYYY or YYYY-MM-DD."
-        ) from exc
+        raise ValueError("Invalid transaction_date format. Use DD.MM.YYYY or YYYY-MM-DD.") from exc
 
 
 @mcp.tool
@@ -385,9 +383,7 @@ async def create_transaction(
             parsed_transaction_date = None
             if transaction_date:
                 try:
-                    parsed_transaction_date = _parse_tool_transaction_date(
-                        transaction_date
-                    )
+                    parsed_transaction_date = _parse_tool_transaction_date(transaction_date)
                 except ValueError as exc:  # pragma: no cover - validation path
                     return json.dumps({"error": str(exc)})
 

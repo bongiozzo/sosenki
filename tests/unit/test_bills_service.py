@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from src.models import Base
 from src.models.account import Account
 from src.models.bill import Bill, BillType
+from src.models.electricity_reading import ElectricityReading
 from src.models.property import Property
 from src.models.service_period import ServicePeriod
 from src.models.user import User
@@ -197,6 +198,60 @@ async def test_create_shared_electricity_bills_with_missing_account(
 
     # Should skip missing accounts
     assert bills_created == 0
+
+
+async def test_calculate_personal_electricity_bills_skips_missing_readings(
+    async_db_session,
+    owner_users,
+    service_period,
+):
+    bills_service = BillsService(async_db_session)
+
+    prop_with_readings = Property(
+        owner_id=owner_users[0].id,
+        property_name="Apt With Readings",
+        type="residential",
+        is_active=True,
+        is_conservation=False,
+        share_weight=Decimal("10"),
+    )
+    prop_without_readings = Property(
+        owner_id=owner_users[1].id,
+        property_name="Apt Without Readings",
+        type="residential",
+        is_active=True,
+        is_conservation=False,
+        share_weight=Decimal("10"),
+    )
+    async_db_session.add_all([prop_with_readings, prop_without_readings])
+    await async_db_session.commit()
+
+    async_db_session.add_all(
+        [
+            ElectricityReading(
+                property_id=prop_with_readings.id,
+                reading_date=date(2024, 12, 31),
+                reading_value=Decimal("100"),
+            ),
+            ElectricityReading(
+                property_id=prop_with_readings.id,
+                reading_date=date(2025, 1, 31),
+                reading_value=Decimal("160"),
+            ),
+        ]
+    )
+    await async_db_session.commit()
+
+    personal_bills, total = await bills_service.calculate_personal_electricity_bills_from_readings(
+        service_period=service_period,
+        electricity_rate=Decimal("2"),
+    )
+
+    assert len(personal_bills) == 1
+    assert personal_bills[0].property_id == prop_with_readings.id
+    assert personal_bills[0].consumption_kwh == Decimal("60")
+    assert personal_bills[0].bill_amount == Decimal("120.00")
+    assert total == Decimal("120.00")
 
 
 async def test_calculate_main_bills(async_db_session, properties_with_owners):

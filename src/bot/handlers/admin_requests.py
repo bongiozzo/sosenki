@@ -7,11 +7,11 @@ from typing import Literal
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from src.bot.auth import verify_admin_authorization
 from src.models.access_request import AccessRequest
 from src.models.user import User
 from src.services import AsyncSessionLocal
 from src.services.admin_service import AdminService
+from src.services.auth_service import verify_bot_admin_authorization
 from src.services.localizer import t
 from src.services.notification_service import NotificationService
 
@@ -164,7 +164,7 @@ async def handle_admin_response(  # noqa: C901
         )
 
         # Verify admin authorization
-        admin_user = await verify_admin_authorization(int(admin_id))
+        admin_user = await verify_bot_admin_authorization(int(admin_id))
         if not admin_user:
             logger.warning("Non-admin attempted action=%s on request %d", action, request_id)
             try:
@@ -256,7 +256,7 @@ async def handle_admin_callback(  # noqa: C901
         admin_name = cq.from_user.first_name or "Admin"
 
         # Verify admin authorization
-        admin_user = await verify_admin_authorization(int(admin_id))
+        admin_user = await verify_bot_admin_authorization(int(admin_id))
         if not admin_user:
             logger.warning(
                 "Non-admin attempted callback action=%s on request %d", action, request_id

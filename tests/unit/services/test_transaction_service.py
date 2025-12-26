@@ -37,9 +37,11 @@ async def test_calculate_suggested_amount_last_transaction_used(session):
     await session.flush()
 
     # Insert last transaction amount
-    from src.models.transaction import Transaction  # local import to avoid circulars in test collection
-
     from datetime import date
+
+    from src.models.transaction import (
+        Transaction,  # local import to avoid circulars in test collection
+    )
 
     tx = Transaction(
         from_account_id=a1.id,

@@ -12,14 +12,17 @@ from telegram import (
 )
 from telegram.ext import ContextTypes
 
-from src.bot.auth import verify_admin_authorization
 from src.models.service_period import ServicePeriod
 from src.models.user import User
 from src.services import AsyncSessionLocal, BillsService, ServicePeriodService
-from src.services.bills_service import OwnerShare
+from src.services.auth_service import verify_bot_admin_authorization
+from src.services.bills_service import OwnerShare, PersonalElectricityBill
 from src.services.locale_service import format_currency
 from src.services.localizer import t
 from src.utils.parsers import parse_russian_decimal
+
+# Backward-compatible alias for tests and existing patch paths
+verify_admin_authorization = verify_bot_admin_authorization
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +65,7 @@ _ELECTRICITY_KEYS = [
     "electricity_rate",
     "electricity_losses",
     "electricity_total_cost",
+    "electricity_personal_bills",
     "electricity_personal_bills_sum",
     "electricity_shared_cost",
     "electricity_owner_shares",
@@ -384,7 +388,7 @@ async def _start_electricity_workflow(
             # Ask for electricity_start
             default_start = defaults.electricity_end if defaults.electricity_end else "?"
             prompt = (
-                f"{t('prompt_meter_start')}\n\n({t('hint_previous_value', value=default_start)})"
+                f"{t('prompt_meter_start')}\n\n{t('hint_previous_value', value=default_start)}"
             )
 
             keyboard = _build_previous_value_keyboard(defaults.electricity_end)
@@ -617,22 +621,60 @@ async def handle_electricity_losses(  # noqa: C901
             # Proceed directly to distribute costs among owners (skip confirmation step)
             period_id = context.user_data.get("electricity_period_id")
 
-            # Get existing electricity bills sum
-            personal_bills_sum = await bills_service.get_electricity_bills_for_period(period_id)
-
-            # Calculate shared cost (clip to 0 if personal bills exceed total)
-            shared_cost = max(Decimal(0), total_cost - personal_bills_sum)
-
-            context.user_data["electricity_personal_bills_sum"] = personal_bills_sum
-            context.user_data["electricity_shared_cost"] = shared_cost
-
             # Fetch the service period
             period = await period_service.get_by_id(period_id)
             if not period:
                 await update.message.reply_text(t("err_processing"))
                 return States.END
 
-            # Distribute costs
+            # Guard: fail if any electricity bills already exist for this period
+            existing_count = await bills_service.count_electricity_bills_for_period(period_id)
+            if existing_count > 0:
+                await update.message.reply_text(
+                    t(
+                        "err_electricity_bills_already_created",
+                        period_name=period.name,
+                        count=existing_count,
+                    )
+                )
+                _clear_electricity_context(context)
+                return States.END
+
+            # Compute personal electricity bills from readings
+            try:
+                personal_bills, personal_bills_sum = (
+                    await bills_service.calculate_personal_electricity_bills_from_readings(
+                        service_period=period,
+                        electricity_rate=rate,
+                    )
+                )
+            except ValueError as exc:
+                message = str(exc)
+                if message.startswith("MISSING_READINGS:"):
+                    details = message.removeprefix("MISSING_READINGS:")
+                    await update.message.reply_text(
+                        t("err_missing_electricity_readings", details=details)
+                    )
+                    _clear_electricity_context(context)
+                    return States.END
+                if message.startswith("INCONSISTENT_READINGS:"):
+                    details = message.removeprefix("INCONSISTENT_READINGS:")
+                    await update.message.reply_text(
+                        t("err_inconsistent_electricity_readings", details=details)
+                    )
+                    _clear_electricity_context(context)
+                    return States.END
+                raise
+
+            context.user_data["electricity_personal_bills"] = personal_bills
+            context.user_data["electricity_personal_bills_sum"] = personal_bills_sum
+
+            # Calculate shared cost (clip to 0 if personal bills exceed total)
+            shared_cost = max(Decimal(0), total_cost - personal_bills_sum)
+
+            context.user_data["electricity_shared_cost"] = shared_cost
+
+            # Distribute shared costs
             owner_shares = await bills_service.distribute_shared_costs(shared_cost, period)
 
             context.user_data["electricity_owner_shares"] = owner_shares
@@ -653,7 +695,28 @@ async def handle_electricity_losses(  # noqa: C901
 async def _show_electricity_bills_table(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Display proposed electricity bills table with percentages and ask for confirmation."""
     try:
+        personal_bills: list[PersonalElectricityBill] = context.user_data.get(
+            "electricity_personal_bills", []
+        )
         owner_shares = context.user_data.get("electricity_owner_shares", [])
+
+        # Personal bills section
+        personal_lines: list[str] = []
+        personal_total = Decimal("0")
+        for bill in personal_bills:
+            personal_total += bill.bill_amount
+            amount_formatted = format_currency(bill.bill_amount)
+            personal_lines.append(
+                f"• {bill.owner_name} — {bill.property_name}: {amount_formatted}"
+            )
+
+        if personal_lines:
+            personal_table = (
+                f"{t('label_bill_electricity')}\n" + "\n".join(personal_lines)
+            )
+            personal_table += f"\n\n*{t('label_total')}: {format_currency(personal_total)}*"
+        else:
+            personal_table = f"{t('label_bill_electricity')}\n{t('empty_bills')}"
 
         # Build bills table with percentages and Russian thousand separator formatting
         bills_text = ""
@@ -684,7 +747,12 @@ async def _show_electricity_bills_table(update: Update, context: ContextTypes.DE
         )
         bills_text += f"\n*{total_percentage:.2f}% → {total_amount_formatted}*"
 
-        message = t("msg_confirm_electricity_bills", bills_table=bills_text)
+        shared_table = f"{t('label_bill_shared_electricity')}\n" + bills_text
+        message = t(
+            "msg_confirm_electricity_bills",
+            personal_table=personal_table,
+            shared_table=shared_table,
+        )
 
         buttons = [
             [
@@ -715,7 +783,7 @@ async def handle_electricity_create_bills(  # noqa: C901
     try:
         cq = update.callback_query
         if not cq or not cq.data:
-            return States.CONFIRM_BILLS
+            return States.CONFIRM_ELECTRICITY_BILLS
 
         await cq.answer()
 
@@ -725,7 +793,7 @@ async def handle_electricity_create_bills(  # noqa: C901
 
         if cq.data != "elec_bills:create":
             logger.warning("Unexpected callback data: %s", cq.data)
-            return States.CONFIRM_BILLS
+            return States.CONFIRM_ELECTRICITY_BILLS
 
         # Create bills
         async with AsyncSessionLocal() as session:
@@ -733,14 +801,30 @@ async def handle_electricity_create_bills(  # noqa: C901
                 period_service = ServicePeriodService(session)
                 bills_service = BillsService(session)
                 owner_shares = context.user_data.get("electricity_owner_shares", [])
+                personal_bills = context.user_data.get("electricity_personal_bills", [])
                 period_id = context.user_data.get("electricity_period_id")
 
                 if not owner_shares or not period_id:
                     await cq.edit_message_text(t("err_processing"))
                     return States.END
 
+                admin_user = context.user_data.get("authorized_admin")
+                actor_id = admin_user.id if admin_user else None
+
+                # Guard again: fail if bills already exist
+                existing_count = await bills_service.count_electricity_bills_for_period(period_id)
+                if existing_count > 0:
+                    await cq.edit_message_text(
+                        t(
+                            "err_electricity_bills_already_created",
+                            period_name=context.user_data.get("electricity_period_name", ""),
+                            count=existing_count,
+                        )
+                    )
+                    _clear_electricity_context(context)
+                    return States.END
+
                 # Update service period with electricity values
-                admin_id = context.user_data.get("electricity_admin_id")
                 await period_service.update_electricity_data(
                     period_id=period_id,
                     electricity_start=context.user_data.get("electricity_start"),
@@ -748,28 +832,36 @@ async def handle_electricity_create_bills(  # noqa: C901
                     electricity_multiplier=context.user_data.get("electricity_multiplier"),
                     electricity_rate=context.user_data.get("electricity_rate"),
                     electricity_losses=context.user_data.get("electricity_losses"),
-                    actor_id=admin_id,
+                    actor_id=actor_id,
                 )
 
-                # Create bills for each owner
-                bills_created = await bills_service.create_shared_electricity_bills(
-                    period_id=period_id,
-                    owner_shares=owner_shares,
-                    actor_id=admin_id,
+                personal_count, shared_count = (
+                    await bills_service.create_personal_and_shared_electricity_bills(
+                        period_id=period_id,
+                        personal_bills=personal_bills,
+                        owner_shares=owner_shares,
+                        actor_id=actor_id,
+                    )
                 )
 
                 # Confirm success with period name (send as reply to preserve message history)
                 period_name = context.user_data.get("electricity_period_name", t("label_period"))
                 message = t(
                     "msg_bills_created_electricity",
-                    count=bills_created,
+                    personal_count=personal_count,
+                    shared_count=shared_count,
                     period_name=period_name,
                 )
                 await cq.message.reply_text(message)
 
                 logger.info(
-                    "Created %d shared electricity bills for period %d", bills_created, period_id
+                    "Created electricity bills for period %d: personal=%d shared=%d",
+                    period_id,
+                    personal_count,
+                    shared_count,
                 )
+
+                _clear_electricity_context(context)
 
                 return States.END
 

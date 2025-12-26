@@ -13,9 +13,9 @@ from telegram import (
 )
 from telegram.ext import ContextTypes
 
-from src.bot.auth import verify_admin_authorization
 from src.models.account import AccountType
 from src.services import AsyncSessionLocal
+from src.services.auth_service import verify_bot_admin_authorization
 from src.services.locale_service import format_currency
 from src.services.localizer import t
 from src.services.notification_service import NotificationService
@@ -137,7 +137,7 @@ async def handle_payout_command(update: Update, context: ContextTypes.DEFAULT_TY
         telegram_id = update.message.from_user.id
 
         # Verify admin authorization
-        admin_user = await verify_admin_authorization(telegram_id)
+        admin_user = await verify_bot_admin_authorization(telegram_id)
         if not admin_user:
             logger.warning("Non-admin attempted payout command: telegram_id=%d", telegram_id)
             try:
@@ -606,7 +606,7 @@ async def handle_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await cq.answer()
 
         # Check confirmation response
-        action = cq.data.split(":")[1] if ":" in cq.data else ""
+        action = _parse_confirm_action(cq.data)
         if action != "yes":
             await cq.edit_message_text(
                 t("msg_operation_cancelled"), reply_markup=InlineKeyboardMarkup([])
@@ -614,89 +614,27 @@ async def handle_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             _clear_payout_context(context)
             return States.END
 
-        # Get data from context
-        if context.user_data is None:
-            logger.warning("Context user_data is None")
-            await cq.edit_message_text(t("err_processing"), reply_markup=InlineKeyboardMarkup([]))
-            return States.END
-
-        from_account = context.user_data.get("payout_from_account")
-        to_account = context.user_data.get("payout_to_account")
-        amount = context.user_data.get("payout_amount")
-        description = context.user_data.get("payout_description")
-        transaction_date = context.user_data.get("payout_date")
-        admin_user = context.user_data.get("authorized_admin")
-
-        if not all([from_account, to_account, amount, description, transaction_date, admin_user]):
+        payout_data = _get_payout_confirm_data(context)
+        if payout_data is None:
             logger.warning("Transaction data incomplete in context")
             await cq.edit_message_text(t("err_processing"), reply_markup=InlineKeyboardMarkup([]))
             return States.END
 
-        # Type narrowing: all values are guaranteed non-None after the check above
-        assert from_account is not None
-        assert to_account is not None
-        assert amount is not None
-        assert description is not None
-        assert transaction_date is not None
-        assert admin_user is not None
+        from_account, to_account, amount, description, transaction_date, admin_user = payout_data
 
-        async with AsyncSessionLocal() as session:
-            try:
-                transaction_service = TransactionService(session)
-
-                # Create transaction with audit logging
-                transaction = await transaction_service.create_transaction(
-                    from_account_id=from_account.id,
-                    to_account_id=to_account.id,
-                    amount=amount,
-                    description=description,
-                    transaction_date=transaction_date,
-                    actor_id=admin_user.id,
-                )
-
-                # Commit transaction
-                await session.commit()
-
-                logger.info(
-                    "Transaction created by admin user_id=%d: transaction_id=%d",
-                    admin_user.id,
-                    transaction.id,
-                )
-
-                # Build success text once for admin and owner notifications
-                success_text = t(
-                    "msg_transaction_created",
-                    description=description,
-                    date=transaction.transaction_date.strftime("%d.%m.%Y"),
-                )
-
-                # Notify involved owners and their representatives (active with telegram_id)
-                try:
-                    if context.application:
-                        notifier = NotificationService(context.application)
-                        await notifier.notify_account_owners_and_representatives(
-                            session=session,
-                            account_ids=[from_account.id, to_account.id],
-                            text=success_text,
-                        )
-                except Exception:
-                    logger.exception("Error notifying owners/representatives about payout")
-
-                # Show final result directly
-                await cq.edit_message_text(
-                    success_text,
-                    reply_markup=InlineKeyboardMarkup([]),
-                    parse_mode="HTML",
-                )
-
-            except Exception as e:
-                logger.error("Error creating transaction: %s", e, exc_info=True)
-                await session.rollback()
-                await cq.edit_message_text(
-                    t("err_processing"), reply_markup=InlineKeyboardMarkup([])
-                )
-            finally:
-                _clear_payout_context(context)
+        try:
+            await _create_and_notify_payout_transaction(
+                cq=cq,
+                context=context,
+                from_account=from_account,
+                to_account=to_account,
+                amount=amount,
+                description=description,
+                transaction_date=transaction_date,
+                admin_user=admin_user,
+            )
+        finally:
+            _clear_payout_context(context)
 
         return States.END
 
@@ -711,6 +649,88 @@ async def handle_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 pass
         _clear_payout_context(context)
         return States.END
+
+
+def _parse_confirm_action(callback_data: str) -> str:
+    return callback_data.split(":")[1] if ":" in callback_data else ""
+
+
+def _get_payout_confirm_data(context: ContextTypes.DEFAULT_TYPE):
+    if context.user_data is None:
+        return None
+
+    from_account = context.user_data.get("payout_from_account")
+    to_account = context.user_data.get("payout_to_account")
+    amount = context.user_data.get("payout_amount")
+    description = context.user_data.get("payout_description")
+    transaction_date = context.user_data.get("payout_date")
+    admin_user = context.user_data.get("authorized_admin")
+
+    if not all([from_account, to_account, amount, description, transaction_date, admin_user]):
+        return None
+
+    return from_account, to_account, amount, description, transaction_date, admin_user
+
+
+async def _create_and_notify_payout_transaction(
+    *,
+    cq,
+    context: ContextTypes.DEFAULT_TYPE,
+    from_account,
+    to_account,
+    amount,
+    description: str,
+    transaction_date: date,
+    admin_user,
+) -> None:
+    async with AsyncSessionLocal() as session:
+        try:
+            transaction_service = TransactionService(session)
+
+            transaction = await transaction_service.create_transaction(
+                from_account_id=from_account.id,
+                to_account_id=to_account.id,
+                amount=amount,
+                description=description,
+                transaction_date=transaction_date,
+                actor_id=admin_user.id,
+            )
+
+            await session.commit()
+
+            logger.info(
+                "Transaction created by admin user_id=%d: transaction_id=%d",
+                admin_user.id,
+                transaction.id,
+            )
+
+            success_text = t(
+                "msg_transaction_created",
+                description=description,
+                date=transaction.transaction_date.strftime("%d.%m.%Y"),
+            )
+
+            try:
+                if context.application:
+                    notifier = NotificationService(context.application)
+                    await notifier.notify_account_owners_and_representatives(
+                        session=session,
+                        account_ids=[from_account.id, to_account.id],
+                        text=success_text,
+                    )
+            except Exception:
+                logger.exception("Error notifying owners/representatives about payout")
+
+            await cq.edit_message_text(
+                success_text,
+                reply_markup=InlineKeyboardMarkup([]),
+                parse_mode="HTML",
+            )
+
+        except Exception as e:
+            logger.error("Error creating transaction: %s", e, exc_info=True)
+            await session.rollback()
+            await cq.edit_message_text(t("err_processing"), reply_markup=InlineKeyboardMarkup([]))
 
 
 __all__ = [

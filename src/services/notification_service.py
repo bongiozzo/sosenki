@@ -1,9 +1,9 @@
 """Notification service for sending Telegram messages."""
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
-from telegram.ext import Application
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+from telegram.ext import Application
 
 from src.models.account import Account, AccountType
 from src.models.user import User
@@ -181,8 +181,8 @@ class NotificationService:
 
         account_result = await session.execute(
             select(Account)
-                .options(selectinload(Account.user))
-                .where(Account.id.in_(account_ids), Account.account_type == AccountType.OWNER)
+            .options(selectinload(Account.user))
+            .where(Account.id.in_(account_ids), Account.account_type == AccountType.OWNER)
         )
         owner_users = [
             account.user

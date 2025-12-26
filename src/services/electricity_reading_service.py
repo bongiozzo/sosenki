@@ -74,6 +74,56 @@ class ElectricityReadingService:
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def get_latest_reading_for_property_at_or_before(
+        self,
+        property_id: int,
+        on_or_before: date,
+    ) -> ElectricityReading | None:
+        """Get latest electricity reading for a property at or before the given date."""
+        stmt = (
+            select(ElectricityReading)
+            .where(
+                ElectricityReading.property_id == property_id,
+                ElectricityReading.reading_date <= on_or_before,
+            )
+            .order_by(desc(ElectricityReading.reading_date))
+            .limit(1)
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def get_latest_readings_for_properties_at_or_before(
+        self,
+        property_ids: list[int],
+        on_or_before: date,
+    ) -> dict[int, ElectricityReading | None]:
+        """Get latest electricity readings for multiple properties at or before the given date.
+
+        Returns a dict mapping property_id -> latest ElectricityReading (or None).
+        """
+        if not property_ids:
+            return {}
+
+        stmt = (
+            select(ElectricityReading)
+            .where(
+                ElectricityReading.property_id.in_(property_ids),
+                ElectricityReading.reading_date <= on_or_before,
+            )
+            .order_by(ElectricityReading.property_id.asc(), desc(ElectricityReading.reading_date))
+        )
+        result = await self.session.execute(stmt)
+        rows = result.scalars().all()
+
+        latest_by_property: dict[int, ElectricityReading | None] = {pid: None for pid in property_ids}
+        for reading in rows:
+            if reading.property_id is None:
+                continue
+            if latest_by_property.get(reading.property_id) is None:
+                latest_by_property[reading.property_id] = reading
+
+        return latest_by_property
+
     async def get_latest_reading_globally(self) -> ElectricityReading | None:
         """Get latest electricity reading across all properties.
 

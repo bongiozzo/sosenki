@@ -5,10 +5,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
-from src.bot.auth import verify_admin_authorization
+from src.services.auth_service import verify_bot_admin_authorization
 
 
-class TestVerifyAdminAuthorization:
+class TestVerifyBotAdminAuthorization:
     """Tests for admin authorization verification."""
 
     @pytest.mark.asyncio
@@ -27,7 +27,7 @@ class TestVerifyAdminAuthorization:
             mock_get_user.return_value = mock_user
             mock_session_local.return_value.__aenter__.return_value = MagicMock()
 
-            result = await verify_admin_authorization(telegram_id=123)
+            result = await verify_bot_admin_authorization(telegram_id=123)
 
             assert result == mock_user
             assert result.is_administrator is True
@@ -48,7 +48,7 @@ class TestVerifyAdminAuthorization:
             mock_get_user.return_value = mock_user
             mock_session_local.return_value.__aenter__.return_value = MagicMock()
 
-            result = await verify_admin_authorization(telegram_id=456)
+            result = await verify_bot_admin_authorization(telegram_id=456)
 
             assert result is None
 
@@ -64,7 +64,7 @@ class TestVerifyAdminAuthorization:
             mock_get_user.side_effect = HTTPException(status_code=401, detail="User not found")
             mock_session_local.return_value.__aenter__.return_value = MagicMock()
 
-            result = await verify_admin_authorization(telegram_id=999)
+            result = await verify_bot_admin_authorization(telegram_id=999)
 
             assert result is None
 
@@ -80,7 +80,7 @@ class TestVerifyAdminAuthorization:
             mock_get_user.side_effect = RuntimeError("Unexpected database error")
             mock_session_local.return_value.__aenter__.return_value = MagicMock()
 
-            result = await verify_admin_authorization(telegram_id=789)
+            result = await verify_bot_admin_authorization(telegram_id=789)
 
             assert result is None
 
@@ -96,6 +96,6 @@ class TestVerifyAdminAuthorization:
             mock_get_user.side_effect = HTTPException(status_code=401, detail="User inactive")
             mock_session_local.return_value.__aenter__.return_value = MagicMock()
 
-            result = await verify_admin_authorization(telegram_id=111)
+            result = await verify_bot_admin_authorization(telegram_id=111)
 
             assert result is None

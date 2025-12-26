@@ -12,10 +12,13 @@ from telegram import (
 )
 from telegram.ext import ContextTypes
 
-from src.bot.auth import verify_admin_authorization
 from src.services import AsyncSessionLocal, ServicePeriodService
+from src.services.auth_service import verify_bot_admin_authorization
 from src.services.localizer import t
 from src.utils.parsers import parse_date
+
+# Backward-compatible alias for tests and existing patch paths
+verify_admin_authorization = verify_bot_admin_authorization
 
 logger = logging.getLogger(__name__)
 

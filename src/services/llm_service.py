@@ -187,9 +187,7 @@ def _parse_transaction_date(value: str | None) -> date | None:
     try:
         return date.fromisoformat(cleaned)
     except ValueError as exc:
-        raise ValueError(
-            "Invalid transaction_date format. Use DD.MM.YYYY or YYYY-MM-DD."
-        ) from exc
+        raise ValueError("Invalid transaction_date format. Use DD.MM.YYYY or YYYY-MM-DD.") from exc
 
 
 def get_user_tools() -> list[dict[str, Any]]:

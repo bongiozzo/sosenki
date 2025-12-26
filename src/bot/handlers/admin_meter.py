@@ -14,9 +14,9 @@ from telegram import (
 from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
-from src.bot.auth import verify_admin_authorization
 from src.models import ElectricityReading
 from src.services import AsyncSessionLocal
+from src.services.auth_service import verify_bot_admin_or_staff_authorization
 from src.services.electricity_reading_service import ElectricityReadingService
 from src.services.localizer import t
 from src.utils.parsers import parse_date, parse_russian_decimal
@@ -239,12 +239,13 @@ async def handle_meter_command(update: Update, context: ContextTypes.DEFAULT_TYP
 
     # Verify authorization
     try:
-        authorized_admin = await verify_admin_authorization(user.id)
+        authorized_admin = await verify_bot_admin_or_staff_authorization(user.id)
         if not authorized_admin:
             await update.message.reply_text(t("err_not_authorized"))
             return States.END
 
-        # Store admin context
+        # Store actor context (telegram user id)
+        # NOTE: existing services/audit logs treat actor_id as telegram_id.
         context.user_data["meter_admin_id"] = user.id
         context.user_data["authorized_admin"] = authorized_admin
 

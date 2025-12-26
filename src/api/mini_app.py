@@ -451,10 +451,8 @@ def _build_electricity_reading_subqueries() -> tuple:
 
     start_reading_alias = (
         select(ElectricityReading.reading_value)
-        .join(Account, Account.user_id == ElectricityReading.user_id)
         .where(
-            (Account.id == Bill.account_id)
-            & (ElectricityReading.property_id == Bill.property_id)
+            (ElectricityReading.property_id == Bill.property_id)
             & (ElectricityReading.reading_date <= ServicePeriod.start_date)
         )
         .order_by(ElectricityReading.reading_date.desc())
@@ -465,10 +463,8 @@ def _build_electricity_reading_subqueries() -> tuple:
 
     end_reading_alias = (
         select(ElectricityReading.reading_value)
-        .join(Account, Account.user_id == ElectricityReading.user_id)
         .where(
-            (Account.id == Bill.account_id)
-            & (ElectricityReading.property_id == Bill.property_id)
+            (ElectricityReading.property_id == Bill.property_id)
             & (ElectricityReading.reading_date <= ServicePeriod.end_date)
         )
         .order_by(ElectricityReading.reading_date.desc())
