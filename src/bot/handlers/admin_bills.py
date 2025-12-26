@@ -387,9 +387,7 @@ async def _start_electricity_workflow(
 
             # Ask for electricity_start
             default_start = defaults.electricity_end if defaults.electricity_end else "?"
-            prompt = (
-                f"{t('prompt_meter_start')}\n\n{t('hint_previous_value', value=default_start)}"
-            )
+            prompt = f"{t('prompt_meter_start')}\n\n{t('hint_previous_value', value=default_start)}"
 
             keyboard = _build_previous_value_keyboard(defaults.electricity_end)
 
@@ -642,11 +640,12 @@ async def handle_electricity_losses(  # noqa: C901
 
             # Compute personal electricity bills from readings
             try:
-                personal_bills, personal_bills_sum = (
-                    await bills_service.calculate_personal_electricity_bills_from_readings(
-                        service_period=period,
-                        electricity_rate=rate,
-                    )
+                (
+                    personal_bills,
+                    personal_bills_sum,
+                ) = await bills_service.calculate_personal_electricity_bills_from_readings(
+                    service_period=period,
+                    electricity_rate=rate,
                 )
             except ValueError as exc:
                 message = str(exc)
@@ -706,14 +705,10 @@ async def _show_electricity_bills_table(update: Update, context: ContextTypes.DE
         for bill in personal_bills:
             personal_total += bill.bill_amount
             amount_formatted = format_currency(bill.bill_amount)
-            personal_lines.append(
-                f"• {bill.owner_name} — {bill.property_name}: {amount_formatted}"
-            )
+            personal_lines.append(f"• {bill.owner_name} — {bill.property_name}: {amount_formatted}")
 
         if personal_lines:
-            personal_table = (
-                f"{t('label_bill_electricity')}\n" + "\n".join(personal_lines)
-            )
+            personal_table = f"{t('label_bill_electricity')}\n" + "\n".join(personal_lines)
             personal_table += f"\n\n*{t('label_total')}: {format_currency(personal_total)}*"
         else:
             personal_table = f"{t('label_bill_electricity')}\n{t('empty_bills')}"
@@ -835,13 +830,14 @@ async def handle_electricity_create_bills(  # noqa: C901
                     actor_id=actor_id,
                 )
 
-                personal_count, shared_count = (
-                    await bills_service.create_personal_and_shared_electricity_bills(
-                        period_id=period_id,
-                        personal_bills=personal_bills,
-                        owner_shares=owner_shares,
-                        actor_id=actor_id,
-                    )
+                (
+                    personal_count,
+                    shared_count,
+                ) = await bills_service.create_personal_and_shared_electricity_bills(
+                    period_id=period_id,
+                    personal_bills=personal_bills,
+                    owner_shares=owner_shares,
+                    actor_id=actor_id,
                 )
 
                 # Confirm success with period name (send as reply to preserve message history)

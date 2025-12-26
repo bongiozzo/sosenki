@@ -115,7 +115,7 @@ class ElectricityReadingService:
         result = await self.session.execute(stmt)
         rows = result.scalars().all()
 
-        latest_by_property: dict[int, ElectricityReading | None] = {pid: None for pid in property_ids}
+        latest_by_property: dict[int, ElectricityReading | None] = dict.fromkeys(property_ids)
         for reading in rows:
             if reading.property_id is None:
                 continue

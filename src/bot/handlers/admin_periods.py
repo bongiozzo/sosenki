@@ -225,7 +225,7 @@ async def handle_period_action_selection(  # noqa: C901
                     t("prompt_select_period_to_close"),
                     reply_markup=keyboard,
                 )
-                return States.END
+                return States.SELECT_ACTION
 
         else:
             logger.warning("Unknown period action: %s", cq.data)
